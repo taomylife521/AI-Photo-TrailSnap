@@ -1,4 +1,6 @@
-from typing import Optional, List
+from typing import Optional, List, Union
+from uuid import UUID
+
 from pydantic import BaseModel
 from app.schemas.photo import Photo
 
@@ -34,3 +36,17 @@ class LocationValue(BaseModel):
 class LocationSearchItem(BaseModel):
     label: str
     value: LocationValue
+
+class TimelineNode(BaseModel):
+    type: str = "default"
+    startDate: str
+    endDate: str
+    locationName: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    photoCount: int = 0
+    coverId: Optional[UUID] = None
+    
+class TimelineResponse(BaseModel):
+    nodes: List[TimelineNode]
+    total: int

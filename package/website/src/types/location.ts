@@ -43,3 +43,19 @@ export interface SceneCreate {
 }
 
 export interface SceneUpdate extends SceneCreate {}
+
+export interface TimelineNode {
+  type: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  locationName: string;
+  lat?: number;
+  lng?: number;
+  photoCount: number;
+  coverId?: string;
+}
+
+export interface TimelineResponse {
+  nodes: TimelineNode[];
+  total: number;
+}

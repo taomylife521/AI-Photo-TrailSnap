@@ -64,6 +64,21 @@ def get_location_statistics(db: Session = Depends(get_db), current_user: User = 
     """
     return crud.get_location_statistics(db, current_user.id)
 
+from app.schemas.metadata import PhotoDetail
+
+@router.get("/timeline", response_model=schemas.TimelineResponse, summary="获取足迹时间轴照片")
+def get_timeline_photos(
+    skip: int = 0,
+    limit: int = 100,
+    year: int = Query(None, description="年份筛选"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """
+    获取足迹时间轴节点（按天和行程聚合），按拍摄时间倒序排列。
+    """
+    return crud.get_timeline_nodes(db, current_user.id, skip, limit, year)
+
 @router.get("/markers", response_model=List[schemas.MapMarker], summary="获取地图标记点")
 def get_map_markers(
     year: int = Query(None, description="年份筛选"),
@@ -148,7 +163,7 @@ def delete_scene(
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-@router.get("/{name}/photos", response_model=List[photo_schemas.Photo], summary="获取位置照片列表")
+@router.get("/{name}/photos", response_model=List[PhotoDetail], summary="获取位置照片列表")
 def get_location_photos(
     name: str = Path(..., description="位置名称"),
     level: str = Query('city', regex='^(city|province|district|scene)$', description="分组级别：city 或 province 或 district 或 scene"),

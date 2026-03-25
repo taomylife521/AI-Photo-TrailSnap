@@ -129,7 +129,7 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
     return locations
 
 def get_location_photos(db: Session, owner_id: UUID, name: str, level: str = 'city', skip: int = 0, limit: int = 50, year: int = None):
-    query = db.query(Photo).filter(Photo.owner_id == owner_id)
+    query = db.query(Photo).options(joinedload(Photo.metadata_info)).filter(Photo.owner_id == owner_id)
     if level == 'city':
         col = PhotoMetadata.city
         query = query.join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)
@@ -174,6 +174,81 @@ def get_map_markers(db: Session, owner_id: UUID, year: int = None):
         {"id": str(r[0]), "lat": float(r[1]), "lng": float(r[2])}
         for r in results
     ]
+
+def get_timeline_nodes(db: Session, owner_id: UUID, skip: int = 0, limit: int = 100, year: int = None):
+    from datetime import datetime
+    from app.schemas.location import TimelineResponse, TimelineNode
+
+    query = db.query(Photo, PhotoMetadata, Scene.name.label("scene_name")) \
+              .join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id) \
+              .outerjoin(Scene, PhotoMetadata.scene_id == Scene.id) \
+              .filter(Photo.owner_id == owner_id) \
+              .filter(PhotoMetadata.latitude.isnot(None)) \
+              .filter(PhotoMetadata.longitude.isnot(None)) \
+              .filter(Photo.photo_time.isnot(None))
+
+    if year:
+        query = query.filter(extract('year', Photo.photo_time) == year)
+
+    query = query.order_by(desc(Photo.photo_time))
+    results = query.all()
+
+    nodes = []
+    
+    for photo_obj, meta_obj, scene_name in results:
+        date_str = photo_obj.photo_time.strftime('%Y-%m-%d')
+        
+        # 确定位置名称：优先景区，其次城市，然后区县，省份
+        loc_name = "未知位置"
+        if scene_name and scene_name.strip():
+            loc_name = scene_name.strip()
+        elif meta_obj.city and meta_obj.city.strip():
+            loc_name = meta_obj.city.strip()
+        elif meta_obj.district and meta_obj.district.strip():
+            loc_name = meta_obj.district.strip()
+        elif meta_obj.province and meta_obj.province.strip():
+            loc_name = meta_obj.province.strip()
+            
+        lat = float(meta_obj.latitude)
+        lng = float(meta_obj.longitude)
+        
+        if not nodes:
+            nodes.append(TimelineNode(
+                startDate=date_str,
+                endDate=date_str,
+                locationName=loc_name,
+                lat=lat,
+                lng=lng,
+                photoCount=1,
+                coverId=photo_obj.id
+            ))
+            continue
+            
+        last_node = nodes[-1]
+        
+        if last_node.locationName == loc_name:
+            last_node.endDate = date_str
+            # 更新平均经纬度
+            total_lat = (last_node.lat * last_node.photoCount) + lat
+            total_lng = (last_node.lng * last_node.photoCount) + lng
+            last_node.photoCount += 1
+            last_node.lat = total_lat / last_node.photoCount
+            last_node.lng = total_lng / last_node.photoCount
+        else:
+            nodes.append(TimelineNode(
+                startDate=date_str,
+                endDate=date_str,
+                locationName=loc_name,
+                lat=lat,
+                lng=lng,
+                photoCount=1,
+                coverId=photo_obj.id
+            ))
+
+    total_nodes = len(nodes)
+    paginated_nodes = nodes[skip : skip + limit]
+
+    return TimelineResponse(nodes=paginated_nodes, total=total_nodes)
 
 def get_location_distribution(db: Session, owner_id: UUID, level: str = 'city', year: int = None):
     is_scene = False

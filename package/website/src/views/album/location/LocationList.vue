@@ -1,7 +1,7 @@
 <template>
-  <div :class="['location-list flex flex-col relative py-6', (viewMode != 'grid') ? 'p-0 h-screen' : 'px-6 container mx-auto']">
+  <div :class="['location-list flex flex-col relative py-6', (viewMode === 'map' || viewMode === 'trajectory') ? 'p-0 h-screen' : 'px-6 container mx-auto']">
     <!-- Header -->
-    <div :class="['container mx-auto flex sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0 z-50 transition-all duration-300', ((viewMode === 'map') || (viewMode === 'map' && (level === 'photo-map' || level === 'scene'))) ? 'absolute top-0 left-0 right-0 p-4 pointer-events-none' : 'mb-6']">
+    <div :class="['container mx-auto flex sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0 z-50 transition-all duration-300', (viewMode === 'map' || viewMode === 'trajectory') ? 'absolute top-0 left-0 right-0 p-4 pointer-events-none' : 'mb-6']">
       <div class="flex flex-col gap-3 pointer-events-auto">
         <div class="flex items-center gap-3 w-full md:w-auto bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm border border-gray-200/50 dark:border-gray-700/50">
           <button @click="router.back()" class="p-0 md:p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors bg-white dark:bg-gray-900">
@@ -70,7 +70,7 @@
             v-for="opt in filterOptions"
             :key="opt.value"
             @click="filterStatus = opt.value as any"
-            :class="['px-3 py-1 rounded-md text-xs font-medium transition-all dark:bg-gray-700', filterStatus === opt.value ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
+            :class="['px-3 py-1 rounded-md text-xs font-medium transition-all bg-white dark:bg-gray-700 ', filterStatus === opt.value ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
           >
             {{ opt.label }}
           </button>
@@ -147,7 +147,7 @@
             <div class="h-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
             
             <button
-               v-show="viewMode !== 'grid'"
+               v-show="viewMode === 'map'"
                @click="level = 'photo-map'; showLevelMenu = false"
                :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:bg-gray-800 transition-colors flex items-center gap-2', level === 'photo-map' ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
             >
@@ -160,36 +160,36 @@
           <div class="hidden md:flex">
             <button
               @click="changeLevel('district')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'district' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'district' ? ' shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               区县
             </button>
             <button
               @click="changeLevel('city')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'city' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'city' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               城市
             </button>
             <button
               @click="changeLevel('province')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'province' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'province' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               省份
             </button>
             <button
               @click="changeLevel('scene')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'scene' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'scene' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               景区
             </button>
           </div>
 
-          <div v-show="viewMode !== 'grid'" class="hidden md:block w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1 my-auto"></div>
+          <div v-show="viewMode === 'map'" class="hidden md:block w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1 my-auto"></div>
 
           <button
-            v-show="viewMode !== 'grid'"
+            v-show="viewMode === 'map'"
             @click="level = 'photo-map'"
-            :class="['hidden md:flex px-3 py-1.5 rounded-md dark:bg-gray-700 text-sm font-medium transition-all items-center gap-1.5', level === 'photo-map' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
+            :class="['hidden md:flex px-3 py-1.5 rounded-md text-sm font-medium transition-all items-center gap-1.5', level === 'photo-map' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             title="地图照片"
           >
             <Images class="w-4 h-4" />
@@ -197,21 +197,82 @@
           </button>
         </div>
         <!-- View Toggle -->
-        <div class="bg-gray-200 dark:bg-gray-800 p-1 rounded-lg flex">
+        <div class="bg-gray-200 dark:bg-gray-800 p-0 md:p-1 rounded-lg flex relative" ref="viewMenuRef">
+          <!-- Mobile Dropdown Trigger -->
           <button
-            @click="viewMode = 'grid'"
-            :class="['p-1.5 rounded-md transition-all  bg-white dark:bg-gray-700', viewMode === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
-            title="网格视图"
+            @click="showViewMenu = !showViewMenu"
+            class="md:hidden px-3 py-1.5 rounded-md text-sm font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white flex items-center gap-1.5"
           >
-            <LayoutGrid class="w-4 h-4" />
+            <component :is="currentViewIcon" class="w-4 h-4" />
+            <ChevronDown class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-180': showViewMenu }" />
           </button>
-          <button
-            @click="viewMode = 'map'"
-            :class="['p-1.5 rounded-md transition-all  bg-white dark:bg-gray-700', viewMode === 'map' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700']"
-            title="地图视图"
+
+          <!-- Mobile Dropdown Menu -->
+          <div
+            v-show="showViewMenu"
+            class="md:hidden absolute top-full right-0 mt-2 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-[60]"
           >
-            <Map class="w-4 h-4" />
-          </button>
+            <button
+              @click="viewMode = 'grid'; showViewMenu = false"
+              :class="['w-full px-4 py-2 text-left text-sm dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2', viewMode === 'grid' ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+            >
+              <LayoutGrid class="w-4 h-4" />
+              网格视图
+            </button>
+            <button
+              @click="viewMode = 'map'; showViewMenu = false"
+              :class="['w-full px-4 py-2 text-left text-sm dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2', viewMode === 'map' ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+            >
+              <Map class="w-4 h-4" />
+              地图视图
+            </button>
+            <button
+              @click="viewMode = 'timeline'; showViewMenu = false"
+              :class="['w-full px-4 py-2 text-left text-sm dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2', viewMode === 'timeline' ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+            >
+              <Clock class="w-4 h-4" />
+              时间轴视图
+            </button>
+            <button
+              @click="viewMode = 'trajectory'; showViewMenu = false"
+              :class="['w-full px-4 py-2 text-left text-sm dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2', viewMode === 'trajectory' ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+            >
+              <Route class="w-4 h-4" />
+              轨迹视图
+            </button>
+          </div>
+
+          <!-- Desktop Buttons -->
+          <div class="hidden md:flex">
+            <button
+              @click="viewMode = 'grid'"
+              :class="['p-1.5 rounded-md transition-all bg-white dark:bg-gray-700', viewMode === 'grid' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              title="网格视图"
+            >
+              <LayoutGrid class="w-4 h-4" />
+            </button>
+            <button
+              @click="viewMode = 'map'"
+              :class="['p-1.5 rounded-md transition-all bg-white dark:bg-gray-700', viewMode === 'map' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              title="地图视图"
+            >
+              <Map class="w-4 h-4" />
+            </button>
+            <button
+              @click="viewMode = 'timeline'"
+              :class="['p-1.5 rounded-md transition-all bg-white dark:bg-gray-700', viewMode === 'timeline' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              title="时间轴视图"
+            >
+              <Clock class="w-4 h-4" />
+            </button>
+            <button
+              @click="viewMode = 'trajectory'"
+              :class="['p-1.5 rounded-md transition-all bg-white dark:bg-gray-700', viewMode === 'trajectory' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              title="轨迹视图"
+            >
+              <Route class="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -229,6 +290,14 @@
     <!-- Photo Map View -->
     <LocationMap v-if="viewMode === 'map' && (level === 'photo-map' || level === 'scene')" :filter-status="filterStatus" :year="selectedYear" class="flex-1 overflow-hidden shadow-sm" />
 
+    <!-- Timeline View -->
+    <LocationTimelineView
+      v-show="viewMode === 'timeline'"
+      :year="selectedYear"
+      @click-photo="handlePhotoClick"
+      class="flex-1"
+    />
+
     <!-- Grid View -->
     <LocationListView
       v-show="viewMode === 'grid'"
@@ -239,7 +308,13 @@
       @edit="handleEdit"
       @delete="handleDelete"
     />
-    
+    <!-- Trajectory View -->
+    <LocationTrajectoryView
+      v-show="viewMode === 'trajectory'"
+      :year="selectedYear"
+      @click-photo="handlePhotoClick"
+      class="flex-1"
+    />
     <AddSceneDialog v-model="showAddScene" :edit-data="editingScene" @success="fetchLocations" />
   </div>
 </template>
@@ -251,13 +326,17 @@ import { storeToRefs } from 'pinia'
 import { useLocationStore } from '@/stores/locationStore'
 import { locationService } from '@/api/location'
 import type { Location, LocationStatistics, Scene } from '@/types/location'
-import { ArrowLeft, LayoutGrid, Map, Images, Plus, ChevronDown, Calendar, Check } from 'lucide-vue-next'
+import type { Photo } from '@/types/album'
+import { ArrowLeft, LayoutGrid, Map, Images, Plus, ChevronDown, Calendar, Check, Clock, Route } from 'lucide-vue-next'
 import { onClickOutside } from '@vueuse/core'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import LocationMap from './LocationMap.vue'
 import AddSceneDialog from './AddSceneDialog.vue'
 import LocationListView from './LocationListView.vue'
 import LocationMapView from './LocationMapView.vue'
+import LocationTimelineView from './LocationTimelineView.vue'
+import LocationTrajectoryView from './LocationTrajectoryView.vue'
+import PhotoLightbox from '@/components/PhotoLightbox.vue'
 
 const router = useRouter()
 const locationStore = useLocationStore()
@@ -269,6 +348,8 @@ const showAddScene = ref(false)
 const editingScene = ref<Scene | null>(null)
 const showLevelMenu = ref(false)
 const levelMenuRef = ref<HTMLElement | null>(null)
+const showViewMenu = ref(false)
+const viewMenuRef = ref<HTMLElement | null>(null)
 const showYearMenu = ref(false)
 const yearMenuRef = ref<HTMLElement | null>(null)
 const selectedYear = ref<number | null>(null)
@@ -303,6 +384,10 @@ onClickOutside(levelMenuRef, () => {
   showLevelMenu.value = false
 })
 
+onClickOutside(viewMenuRef, () => {
+  showViewMenu.value = false
+})
+
 onClickOutside(yearMenuRef, () => {
   showYearMenu.value = false
 })
@@ -333,6 +418,16 @@ const unlockPercentage = computed(() => {
   if (!statistics.value) return 0
   // 34 provincial administrative divisions in China
   return Math.min(Math.round((statistics.value.province_count / 34) * 100), 100)
+})
+
+const currentViewIcon = computed(() => {
+  switch (viewMode.value) {
+    case 'grid': return LayoutGrid
+    case 'map': return Map
+    case 'timeline': return Clock
+    case 'trajectory': return Route
+    default: return LayoutGrid
+  }
 })
 
 // Fetch data for Grid View
@@ -408,6 +503,40 @@ const handleEdit = async (loc: Location) => {
     showAddScene.value = true
   } catch (e) {
     console.error(e)
+  }
+}
+
+const handlePhotoClick = (photo: Photo, contextPhotos: Photo[]) => {
+  lightboxPhotos.value = contextPhotos
+  lightboxImage.value = photo
+  document.body.style.overflow = 'hidden'
+}
+
+const lightboxImage = ref<Photo | null>(null)
+const lightboxPhotos = ref<Photo[]>([])
+
+const lightboxIndex = computed(() => {
+  if (!lightboxImage.value || !lightboxPhotos.value) return -1
+  return lightboxPhotos.value.findIndex(img => img.id === lightboxImage.value?.id)
+})
+
+const hasPrev = computed(() => lightboxIndex.value > 0)
+const hasNext = computed(() => lightboxIndex.value < lightboxPhotos.value.length - 1 && lightboxIndex.value !== -1)
+
+const closeLightbox = () => {
+  lightboxImage.value = null
+  document.body.style.overflow = ''
+}
+
+const handlePrev = () => {
+  if (hasPrev.value) {
+    lightboxImage.value = lightboxPhotos.value[lightboxIndex.value - 1]
+  }
+}
+
+const handleNext = () => {
+  if (hasNext.value) {
+    lightboxImage.value = lightboxPhotos.value[lightboxIndex.value + 1]
   }
 }
 

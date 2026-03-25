@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type { Location, Scene, SceneCreate, SceneUpdate, LocationStatistics } from '@/types/location';
+import type { Location, Scene, SceneCreate, SceneUpdate, LocationStatistics, TimelineResponse } from '@/types/location';
 import type { Photo } from '@/types/album';
 
 export const locationService = {
@@ -37,6 +37,13 @@ export const locationService = {
   async getLocationPhotos(name: string, level: 'city' | 'province' | 'district' | 'scene' = 'city', skip: number = 0, limit: number = 50, year?: number | null) {
     const data = await request.get<Photo[]>(`/api/locations/${name}/photos`, {
       params: { level, skip, limit, year: year || undefined }
+    });
+    return data.data;
+  },
+
+  async getTimelineNodes(skip: number = 0, limit: number = 100, year?: number | null) {
+    const data = await request.get<TimelineResponse>('/api/locations/timeline', {
+      params: { skip, limit, year: year || undefined }
     });
     return data.data;
   },
