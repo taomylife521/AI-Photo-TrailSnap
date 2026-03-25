@@ -19,6 +19,7 @@
             <p class="text-sm text-gray-500 mb-4 dark:text-gray-400">
                 添加外部文件夹路径，系统将扫描这些文件夹中的图片（只读模式）。
                 <br>外部文件夹中的图片不会被移动或修改，生成的缩略图将存储在主目录中。
+                <br><a href="https://trailsnap.cn/docs/guide/settings/directories.html" target="_blank" class="text-blue-500 hover:underline dark:text-blue-400">查看详细说明</a>
             </p>
             
             <div class="mb-4 flex flex-col sm:flex-row gap-2">
