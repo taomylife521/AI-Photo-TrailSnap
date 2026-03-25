@@ -9,6 +9,7 @@
 @Description : 
 """
 import shutil
+import traceback
 from datetime import datetime
 import re
 import os
@@ -85,16 +86,66 @@ def get_gps_info(exif_data: Dict[str, Any]) -> Optional[Dict[str, float]]:
 
 def get_exif_data(image: Image.Image) -> Dict[str, Any]:
     exif_data = {}
-    info = image._getexif()
+    
+    # 尝试使用新的 getexif() 和 get_ifd() API (Pillow 8.2.0+)
+    if hasattr(image, 'getexif'):
+        info = image.getexif()
+        if info:
+            # 1. 提取顶层标签 (IFD0)
+            for tag, value in info.items():
+                decoded = TAGS.get(tag, tag)
+                if decoded not in ["GPSInfo", "ExifOffset"]:
+                    if isinstance(value, (bytes, bytearray)):
+                        try:
+                            exif_data[decoded] = value.decode()
+                        except:
+                            exif_data[decoded] = str(value)
+                    else:
+                        exif_data[decoded] = value
+            
+            # 2. 提取 Exif IFD (0x8769) 包含 DateTimeOriginal 等
+            try:
+                exif_ifd = info.get_ifd(0x8769)
+                if exif_ifd:
+                    for tag, value in exif_ifd.items():
+                        decoded = TAGS.get(tag, tag)
+                        if isinstance(value, (bytes, bytearray)):
+                            try:
+                                exif_data[decoded] = value.decode()
+                            except:
+                                exif_data[decoded] = str(value)
+                        else:
+                            exif_data[decoded] = value
+            except Exception:
+                pass
+            
+            # 3. 提取 GPS IFD (0x8825)
+            try:
+                gps_ifd = info.get_ifd(0x8825)
+                if gps_ifd:
+                    gps_data = {}
+                    for t, value in gps_ifd.items():
+                        sub_decoded = GPSTAGS.get(t, t)
+                        gps_data[sub_decoded] = value
+                    exif_data["GPSInfo"] = gps_data
+            except Exception:
+                pass
+            
+            if exif_data:
+                return exif_data
+
+    # 如果没有取到，或者方法不支持，回退使用 _getexif()
+    info = getattr(image, '_getexif', lambda: None)()
     if info:
         for tag, value in info.items():
             decoded = TAGS.get(tag, tag)
             if decoded == "GPSInfo":
                 gps_data = {}
-                for t in value:
-                    sub_decoded = GPSTAGS.get(t, t)
-                    gps_data[sub_decoded] = value[t]
-                exif_data[decoded] = gps_data
+                if isinstance(value, dict):
+                    for t in value:
+                        sub_decoded = GPSTAGS.get(t, t)
+                        gps_data[sub_decoded] = value[t]
+                    exif_data[decoded] = gps_data
             else:
                 # Filter out binary data or non-serializable stuff if needed
                 if isinstance(value, (bytes, bytearray)):
@@ -135,7 +186,7 @@ def extract_metadata(file_path: str, filename: str, image_obj: Optional[Image.Im
 
     # 1. Try EXIF
     try:
-        if file_path.lower().endswith(('.jpg', '.jpeg', '.tiff', '.webp', '.png')):
+        if file_path.lower().endswith(('.jpg', '.jpeg', '.tiff', '.webp', '.png', '.heic', '.heif')):
             exif_dict = None
             img = None
             should_close = False
@@ -191,7 +242,7 @@ def extract_metadata(file_path: str, filename: str, image_obj: Optional[Image.Im
                         print(f"Reverse geocoding error: {e}")
 
     except Exception as e:
-
+        print(traceback.format_exc())
         print(f"Error extracting metadata: {e}")
 
     # 2. If photo_time is still None, try Filename
