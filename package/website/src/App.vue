@@ -1,7 +1,9 @@
 <!-- src/App.vue -->
 <template>
-  <!-- 动态渲染当前路由对应的布局 -->
-  <component :is="currentLayout" />
+  <el-config-provider :locale="zhCn">
+    <!-- 动态渲染当前路由对应的布局 -->
+    <component :is="currentLayout" />
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">
@@ -11,6 +13,7 @@ import { useRoute } from 'vue-router';
 import MainLayout from '@/layouts/MainLayout.vue';
 import BlankLayout from '@/layouts/BlankLayout.vue';
 import { provideTheme } from '@/composables/useTheme';
+import zhCn from 'element-plus/es/locale/lang/zh-cn';
 // 🚨 关键：确保调用了 provideTheme()
 const {
   isDarkMode,

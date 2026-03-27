@@ -89,7 +89,10 @@ import { ElMessage } from 'element-plus'
 declare const T: any
 
 const props = defineProps<{
-  year: number | null
+  startDate?: string
+  endDate?: string
+  level: string,
+  viewMode: string
 }>()
 
 const emit = defineEmits<{
@@ -108,6 +111,9 @@ const map = ref<any>(null)
 const currentApiKey = ref('')
 const isMobile = computed(() => window.innerWidth <= 768)
 const showMobileList = ref(true)
+
+let animationId: number | null = null
+let currentArrow: any = null
 
 const toggleMobileList = () => {
   showMobileList.value = !showMobileList.value
@@ -162,7 +168,7 @@ const fetchTimelineData = async (isLoadMore = false) => {
   }
 
   try {
-    const res = await locationService.getTimelineNodes(skip.value, limit, props.year)
+    const res = await locationService.getTimelineNodes(skip.value, limit, props.startDate, props.endDate, props.level)
     const newNodes = res.nodes
     
     if (newNodes.length < limit) {
@@ -258,7 +264,7 @@ const drawTrajectory = () => {
        lineStyle: "dashed"
      });
      map.value.addOverLay(line)
-     
+
      // Fit view to points
      map.value.setViewport(points)
   } else if (points.length === 1) {
@@ -289,17 +295,32 @@ const goToLocationDetail = (node: TimelineNode) => {
   })
 }
 
-watch(() => props.year, () => {
-  fetchTimelineData()
+watch([() => props.startDate, () => props.endDate, () => props.level], () => {
+  if (props.viewMode === 'trajectory' && props.level !== 'photo-map') {
+      fetchTimelineData()
+      nextTick(() => {
+        initMap()
+      })
+    }
 })
 
 onMounted(async () => {
   try {
     currentApiKey.value = await loadMapScript()
-    initMap()
-    await fetchTimelineData()
+    if (props.viewMode === 'trajectory' && props.level !== 'photo-map') {
+      nextTick(() => {
+        initMap()
+      })
+      await fetchTimelineData()
+    }
   } catch (e: any) {
     ElMessage.error('地图加载失败: ' + (e.message || e))
+  }
+})
+
+onUnmounted(() => {
+  if (animationId) {
+    cancelAnimationFrame(animationId)
   }
 })
 

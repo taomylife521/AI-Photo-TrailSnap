@@ -40,7 +40,8 @@ const { level } = storeToRefs(locationStore)
 
 const props = defineProps<{
   filterStatus?: 'all' | 'checked' | 'unchecked',
-  year?: number | null
+  startDate?: string,
+  endDate?: string
 }>()
 
 onMounted(async () => {
@@ -82,7 +83,7 @@ watch(() => props.filterStatus, async () => {
   }
 })
 
-watch(() => props.year, async () => {
+watch([() => props.startDate, () => props.endDate], async () => {
   await loadContent()
 })
 
@@ -182,7 +183,7 @@ const loadContent = async () => {
 const loadScenes = async () => {
   loading.value = true
   try {
-    let allScenes = await locationService.getScenesList(0, 10000, props.year)
+    let allScenes = await locationService.getScenesList(0, 10000, props.startDate, props.endDate)
     
     // Apply filter
     if (props.filterStatus === 'checked') {
@@ -430,9 +431,9 @@ const renderScenes = () => {
 
 const goToScene = (name: string) => {
   const query: any = { level: 'scene' }
-  if (props.year) {
-    query.startDate = `${props.year}-01-01`
-    query.endDate = `${props.year}-12-31`
+  if (props.startDate) {
+    query.startDate = props.startDate
+    query.endDate = props.endDate
   }
   router.push({
     name: 'LocationDetail',
@@ -444,7 +445,7 @@ const goToScene = (name: string) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const rawMarkers = await locationService.getMapMarkers(props.year)
+    const rawMarkers = await locationService.getMapMarkers(props.startDate, props.endDate)
     // Convert to GeoJSON features
     const points = rawMarkers.map(m => ({
       type: 'Feature' as const,

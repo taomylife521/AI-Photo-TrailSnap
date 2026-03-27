@@ -18,7 +18,8 @@ import { useTheme } from '@/composables/useTheme'
 const props = defineProps<{
   level: string
   viewMode: string
-  year?: number | null
+  startDate?: string
+  endDate?: string
 }>()
 
 const emit = defineEmits<{
@@ -52,7 +53,7 @@ const initMap = async (viewState?: { zoom: number, center: number[] }) => {
     echarts.registerMap('china', geoJson)
 
     // 2. Fetch Distribution Data
-    const distribution = await locationService.getDistribution(props.level as 'city' | 'province' | 'district' | 'scene' | undefined, props.year)
+    const distribution = await locationService.getDistribution(props.level as 'city' | 'province' | 'district' | 'scene' | undefined, props.startDate, props.endDate)
     
     // 3. Prepare Data
     const nameMap: Record<string, string> = {}
@@ -256,7 +257,7 @@ watch(() => props.level, (newLevel) => {
   }
 })
 
-watch(() => props.year, () => {
+watch([() => props.startDate, () => props.endDate], () => {
   if (props.viewMode === 'map' && props.level !== 'photo-map' && props.level !== 'scene') {
     nextTick(() => {
       initMap()

@@ -34,7 +34,8 @@ def get_years(db: Session = Depends(get_db), current_user: User = Depends(deps.g
 @router.get("", response_model=List[schemas.Location], summary="获取位置列表")
 def get_locations(
     level: str = Query('city', regex='^(city|province|district|scene)$', description="分组级别：city 或 province 或 district 或 scene"),
-    year: int = Query(None, description="年份筛选"),
+    start_date: str = Query(None, description="开始日期"),
+    end_date: str = Query(None, description="结束日期"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -43,19 +44,20 @@ def get_locations(
     """
     获取按城市或省份分组的位置列表，包含每个位置的封面照片和照片数量。
     """
-    return crud.get_locations(db, current_user.id, level, skip, limit, year)
+    return crud.get_locations(db, current_user.id, level, skip, limit, start_date, end_date)
 
 @router.get("/distribution", response_model=List[schemas.LocationBase], summary="获取位置分布数据")
 def get_location_distribution(
     level: str = Query('city', regex='^(city|province|district|scene)$', description="分组级别：city 或 province 或 district 或 scene"),
-    year: int = Query(None, description="年份筛选"),
+    start_date: str = Query(None, description="开始日期"),
+    end_date: str = Query(None, description="结束日期"),
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """
     获取所有位置的分布数据（仅包含名称和数量），用于地图展示。
     """
-    return crud.get_location_distribution(db, current_user.id, level, year)
+    return crud.get_location_distribution(db, current_user.id, level, start_date, end_date)
 
 @router.get("/statistics", response_model=schemas.LocationStatistics, summary="获取位置统计数据")
 def get_location_statistics(db: Session = Depends(get_db), current_user: User = Depends(deps.get_current_user)):
@@ -68,27 +70,30 @@ from app.schemas.metadata import PhotoDetail
 
 @router.get("/timeline", response_model=schemas.TimelineResponse, summary="获取足迹时间轴照片")
 def get_timeline_photos(
+    level: str = Query('city', regex='^(city|province|district|scene)$', description="分组级别：city 或 province 或 district 或 scene"),
     skip: int = 0,
     limit: int = 100,
-    year: int = Query(None, description="年份筛选"),
+    start_date: str = Query(None, description="开始日期"),
+    end_date: str = Query(None, description="结束日期"),
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """
     获取足迹时间轴节点（按天和行程聚合），按拍摄时间倒序排列。
     """
-    return crud.get_timeline_nodes(db, current_user.id, skip, limit, year)
+    return crud.get_timeline_nodes(db, current_user.id, level, skip, limit, start_date, end_date)
 
 @router.get("/markers", response_model=List[schemas.MapMarker], summary="获取地图标记点")
 def get_map_markers(
-    year: int = Query(None, description="年份筛选"),
+    start_date: str = Query(None, description="开始日期"),
+    end_date: str = Query(None, description="结束日期"),
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """
     获取所有包含GPS信息的照片标记点。
     """
-    return crud.get_map_markers(db, current_user.id, year)
+    return crud.get_map_markers(db, current_user.id, start_date, end_date)
 
 @router.post("/scenes", response_model=scene_schemas.Scene, summary="创建景区")
 def create_scene(
@@ -105,14 +110,15 @@ def create_scene(
 def get_scenes_list(
     skip: int = 0,
     limit: int = 100,
-    year: int = Query(None, description="年份筛选"),
+    start_date: str = Query(None, description="开始日期"),
+    end_date: str = Query(None, description="结束日期"),
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
 ):
     """
     获取所有景区详细信息（包含多边形坐标）。
     """
-    return scene_crud.get_scenes(db, skip, limit, year, owner_id=current_user.id)
+    return scene_crud.get_scenes(db, skip, limit, start_date, end_date, owner_id=current_user.id)
 
 @router.get("/scenes/{scene_id}", response_model=scene_schemas.Scene, summary="获取景区详情")
 def get_scene_details(

@@ -84,7 +84,7 @@ def create_scene(db: Session, scene: SceneCreate, owner_id: Optional[UUID] = Non
     
     return db_scene
 
-def get_scenes(db: Session, skip: int = 0, limit: int = 100, year: int = None, owner_id: Optional[UUID] = None):
+def get_scenes(db: Session, skip: int = 0, limit: int = 100, start_date: str = None, end_date: str = None, owner_id: Optional[UUID] = None):
     # Join Photo to filter by owner
     photo_join_cond = PhotoMetadata.photo_id == Photo.id
     if owner_id:
@@ -101,8 +101,10 @@ def get_scenes(db: Session, skip: int = 0, limit: int = 100, year: int = None, o
 
     query = query.filter((Scene.owner_id == owner_id) | (Scene.owner_id == None))
 
-    if year:
-        query = query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        query = query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        query = query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     results = query.group_by(
         Scene.id
@@ -129,8 +131,10 @@ def get_scenes(db: Session, skip: int = 0, limit: int = 100, year: int = None, o
         # Filter photos that are owned by the user or are system photos (owner_id is None)
         cover_query = cover_query.filter((Photo.owner_id == owner_id) | (Photo.owner_id == None))
 
-    if year:
-        cover_query = cover_query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        cover_query = cover_query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        cover_query = cover_query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     cover_query = cover_query.distinct(
         PhotoMetadata.scene_id

@@ -1,9 +1,9 @@
 <template>
   <div :class="['location-list flex flex-col relative py-6', (viewMode === 'map' || viewMode === 'trajectory') ? 'p-0 h-screen' : 'px-6 container mx-auto']">
     <!-- Header -->
-    <div :class="['container mx-auto flex sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0 z-50 transition-all duration-300', (viewMode === 'map' || viewMode === 'trajectory') ? 'absolute top-0 left-0 right-0 p-4 pointer-events-none' : 'mb-6']">
+    <div :class="['container mx-auto flex sm:flex-row justify-between items-start sm:items-center gap-4 flex-shrink-0 z-50 transition-all duration-300', (viewMode === 'map' || viewMode === 'trajectory') ? 'absolute top-0 left-0 right-0 p-4 pointer-events-none' : 'sticky top-0 backdrop-blur-md pb-4 pt-2 -mt-2 mb-2']">
       <div class="flex flex-col gap-3 pointer-events-auto">
-        <div class="flex items-center gap-3 w-full md:w-auto bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm border border-gray-200/50 dark:border-gray-700/50">
+        <div class="flex items-center gap-3 w-full md:w-auto dark:bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm border border-gray-200/50 dark:border-gray-700/50">
           <button @click="router.back()" class="p-0 md:p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors bg-white dark:bg-gray-900">
             <ArrowLeft class="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
@@ -11,7 +11,7 @@
         </div>
 
         <!-- Stats Block -->
-        <div v-if="viewMode === 'map' && statistics" class="self-start bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-4 py-2.5 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 transition-all">
+        <div v-if="viewMode === 'map' && statistics" class="self-start dark:bg-gray-900/80 backdrop-blur-md px-4 py-2.5 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 transition-all">
            <div class="text-sm font-bold text-gray-800 dark:text-white">
               累计点亮 <span class="text-primary-500 text-base">{{ statistics.province_count }}</span> 省 <span class="text-primary-500 text-base">{{ statistics.city_count }}</span> 市
            </div>
@@ -39,7 +39,7 @@
              @click="showYearMenu = !showYearMenu"
              class="px-3 py-1.5 rounded-md text-sm font-medium bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white flex items-center gap-1.5"
            >
-             {{ selectedYear ? selectedYear + '年' : '全部年份' }}
+             {{ selectedYear ? selectedYear + '年' : (isCustomRange ? '自定义范围' : '全部时间') }}
              <ChevronDown class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-180': showYearMenu }" />
            </button>
 
@@ -49,9 +49,15 @@
            >
              <button
                @click="selectYear(null); showYearMenu = false"
-               :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800', !selectedYear ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+               :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800', !selectedYear && !isCustomRange ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
              >
-               全部年份
+               全部时间
+             </button>
+            <button
+               @click="handleCustomRangeClick"
+               :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800 flex items-center justify-between', isCustomRange ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+             >
+               自定义范围
              </button>
              <button
                v-for="year in availableYears"
@@ -61,7 +67,23 @@
              >
                {{ year }}年
              </button>
+             <div class="h-px bg-gray-200 dark:bg-gray-700 mx-2 my-1"></div>
+
            </div>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div v-if="isCustomRange" class="hidden md:flex bg-white dark:bg-gray-800 rounded-lg relative">
+          <el-date-picker
+            v-model="dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            class="!w-[260px]"
+            @change="handleDateRangeChange"
+          />
         </div>
 
         <!-- Filter Toggle (Only for Scene Level) -->
@@ -110,13 +132,20 @@
             <div class="py-1 max-h-40 overflow-y-auto">
               <button
                 @click="selectYear(null); showLevelMenu = false"
-                :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800 flex items-center justify-between', !selectedYear ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+                :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800 flex items-center justify-between', !selectedYear && !isCustomRange ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
               >
                 <div class="flex items-center gap-2">
                   <Calendar class="w-3.5 h-3.5 opacity-70" />
-                  <span>全部年份</span>
+                  <span>全部时间</span>
                 </div>
-                <Check v-if="!selectedYear" class="w-3.5 h-3.5" />
+                <Check v-if="!selectedYear && !isCustomRange" class="w-3.5 h-3.5" />
+              </button>
+              <button
+                @click="handleCustomRangeClick"
+                :class="['w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800 flex items-center justify-between', isCustomRange ? 'text-primary-500 font-medium' : 'text-gray-700 dark:text-gray-200']"
+              >
+                <span>自定义范围</span>
+                <Check v-if="isCustomRange" class="w-3.5 h-3.5" />
               </button>
               <button
                 v-for="year in availableYears"
@@ -127,6 +156,22 @@
                 <span>{{ year }}年</span>
                 <Check v-if="selectedYear === year" class="w-3.5 h-3.5" />
               </button>
+            </div>
+
+            <div class="h-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
+            <!-- Mobile Date Range Picker -->
+            <div v-if="isCustomRange" class="p-2">
+              <el-date-picker
+                v-model="dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                value-format="YYYY-MM-DD"
+                size="small"
+                class="!w-full"
+                @change="handleDateRangeChange"
+              />
             </div>
 
             <!-- Mobile Filter Options -->
@@ -160,25 +205,25 @@
           <div class="hidden md:flex">
             <button
               @click="changeLevel('district')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'district' ? ' shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'district' ? ' shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               区县
             </button>
             <button
               @click="changeLevel('city')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'city' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'city' ? 'shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               城市
             </button>
             <button
               @click="changeLevel('province')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'province' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'province' ? 'shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               省份
             </button>
             <button
               @click="changeLevel('scene')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'scene' ? 'shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'scene' ? 'shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               景区
             </button>
@@ -282,18 +327,21 @@
       v-show="viewMode === 'map' && level !== 'photo-map' && level !== 'scene'"
       :level="level"
       :view-mode="viewMode"
-      :year="selectedYear"
+      :start-date="dateRange?.[0]"
+      :end-date="dateRange?.[1]"
       @click-location="goToLocation"
       @change-level="(level: string, viewState?: { zoom: number; center: number[] }) => changeLevel(level as any, viewState)"
     />
 
     <!-- Photo Map View -->
-    <LocationMap v-if="viewMode === 'map' && (level === 'photo-map' || level === 'scene')" :filter-status="filterStatus" :year="selectedYear" class="flex-1 overflow-hidden shadow-sm" />
+    <LocationMap v-if="viewMode === 'map' && (level === 'photo-map' || level === 'scene')" :filter-status="filterStatus" :start-date="dateRange?.[0]" :end-date="dateRange?.[1]" class="flex-1 overflow-hidden shadow-sm" />
 
     <!-- Timeline View -->
     <LocationTimelineView
-      v-show="viewMode === 'timeline'"
-      :year="selectedYear"
+      v-if="viewMode === 'timeline'"
+      :start-date="dateRange?.[0]"
+      :end-date="dateRange?.[1]"
+      :level="level"
       @click-photo="handlePhotoClick"
       class="flex-1"
     />
@@ -310,8 +358,11 @@
     />
     <!-- Trajectory View -->
     <LocationTrajectoryView
-      v-show="viewMode === 'trajectory'"
-      :year="selectedYear"
+      v-if="viewMode === 'trajectory'"
+      :start-date="dateRange?.[0]"
+      :end-date="dateRange?.[1]"
+      :level="level"
+      :view-mode="viewMode"
       @click-photo="handlePhotoClick"
       class="flex-1"
     />
@@ -354,6 +405,8 @@ const showYearMenu = ref(false)
 const yearMenuRef = ref<HTMLElement | null>(null)
 const selectedYear = ref<number | null>(null)
 const availableYears = ref<number[]>([])
+const dateRange = ref<[string, string] | null>(null)
+const isCustomRange = ref(false)
 
 const filterOptions = [
   { label: '全部', value: 'all' },
@@ -437,12 +490,15 @@ const fetchLocations = async () => {
     // Fetch stats
     statistics.value = await locationService.getStatistics()
 
+    const startDate = dateRange.value?.[0] || undefined
+    const endDate = dateRange.value?.[1] || undefined
+
     if (level.value === 'photo-map') {
-      locationsRaw.value = await locationService.getLocations('city', 0, 10000, selectedYear.value)
+      locationsRaw.value = await locationService.getLocations('city', 0, 10000, startDate, endDate)
       return
     }
     
-    if (level.value === 'scene' && !selectedYear.value) {
+    if (level.value === 'scene' && !startDate && !endDate) {
       const scenes = await locationService.getScenesList(0, 1000)
       // Map Scene to Location-like structure for the grid view
       locationsRaw.value = scenes.map(s => ({
@@ -450,15 +506,15 @@ const fetchLocations = async () => {
         count: s.photo_count || 0,
         level: 'scene' as const
       })) as any[]
-    } else if (level.value === 'scene' && selectedYear.value) {
-      const scenes = await locationService.getScenesList(0, 1000, selectedYear.value)
+    } else if (level.value === 'scene' && (startDate || endDate)) {
+      const scenes = await locationService.getScenesList(0, 1000, startDate, endDate)
       locationsRaw.value = scenes.map(s => ({
         ...s,
         count: s.photo_count || 0,
         level: 'scene' as const
       })) as any[]
     } else {
-      locationsRaw.value = await locationService.getLocations(level.value, 0, 10000, selectedYear.value)
+      locationsRaw.value = await locationService.getLocations(level.value, 0, 10000, startDate, endDate)
     }
   } catch (e) {
     console.error(e)
@@ -477,6 +533,41 @@ const fetchYears = async () => {
 
 const selectYear = (year: number | null) => {
   selectedYear.value = year
+  isCustomRange.value = false
+  if (year) {
+    dateRange.value = [`${year}-01-01`, `${year}-12-31`]
+  } else {
+    dateRange.value = null
+  }
+  fetchLocations()
+}
+
+const handleCustomRangeClick = () => {
+  isCustomRange.value = true
+  selectedYear.value = null
+  dateRange.value = null
+  showYearMenu.value = false
+  // We don't fetch locations here immediately since dateRange is empty,
+  // user needs to pick a range first. But we could fetch all.
+  fetchLocations()
+}
+
+const handleDateRangeChange = (val: [string, string] | null) => {
+  if (val) {
+    const startYear = val[0].substring(0, 4)
+    const endYear = val[1].substring(0, 4)
+    if (val[0] === `${startYear}-01-01` && val[1] === `${endYear}-12-31` && startYear === endYear) {
+      selectedYear.value = parseInt(startYear)
+      isCustomRange.value = false
+    } else {
+      selectedYear.value = null
+      isCustomRange.value = true
+    }
+  } else {
+    selectedYear.value = null
+    // keep isCustomRange state
+  }
+  showLevelMenu.value = false
   fetchLocations()
 }
 
@@ -489,9 +580,9 @@ const changeLevel = (newLevel: 'city' | 'province' | 'district' | 'scene', viewS
 
 const goToLocation = (name: string) => {
   const query: any = { level: level.value }
-  if (selectedYear.value) {
-    query.startDate = `${selectedYear.value}-01-01`
-    query.endDate = `${selectedYear.value}-12-31`
+  if (dateRange.value) {
+    query.startDate = dateRange.value[0]
+    query.endDate = dateRange.value[1]
   }
   router.push({
     name: 'LocationDetail',
@@ -520,30 +611,6 @@ const handlePhotoClick = (photo: Photo, contextPhotos: Photo[]) => {
 const lightboxImage = ref<Photo | null>(null)
 const lightboxPhotos = ref<Photo[]>([])
 
-const lightboxIndex = computed(() => {
-  if (!lightboxImage.value || !lightboxPhotos.value) return -1
-  return lightboxPhotos.value.findIndex(img => img.id === lightboxImage.value?.id)
-})
-
-const hasPrev = computed(() => lightboxIndex.value > 0)
-const hasNext = computed(() => lightboxIndex.value < lightboxPhotos.value.length - 1 && lightboxIndex.value !== -1)
-
-const closeLightbox = () => {
-  lightboxImage.value = null
-  document.body.style.overflow = ''
-}
-
-const handlePrev = () => {
-  if (hasPrev.value) {
-    lightboxImage.value = lightboxPhotos.value[lightboxIndex.value - 1]
-  }
-}
-
-const handleNext = () => {
-  if (hasNext.value) {
-    lightboxImage.value = lightboxPhotos.value[lightboxIndex.value + 1]
-  }
-}
 
 const handleDelete = async (loc: Location) => {
   if (!loc.id) return

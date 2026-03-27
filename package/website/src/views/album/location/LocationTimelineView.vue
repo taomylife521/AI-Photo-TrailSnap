@@ -1,5 +1,5 @@
 <template>
-  <div class="location-timeline h-full w-full bg-[#fcfcfc] dark:bg-gray-900 overflow-y-auto custom-scrollbar transition-colors duration-300" @scroll="handleScroll">
+  <div class="location-timeline h-full w-full dark:bg-gray-900 overflow-y-auto custom-scrollbar transition-colors duration-300" @scroll="handleScroll">
     <div class="max-w-4xl mx-auto p-4 md:p-8 pb-20 relative">
       <div v-if="loading && !loadingMore" class="flex justify-center items-center py-20">
         <div class="animate-spin rounded-full h-10 w-10 border-4 border-primary-500 border-t-transparent"></div>
@@ -17,12 +17,12 @@
         <div v-for="group in groupedNodes" :key="group.id" class="mb-16">
           <!-- Month/Year Header -->
           <div 
-            class="sticky flex items-center gap-4 mb-8 cursor-pointer group/header sticky top-0 bg-[#fcfcfc]/90 dark:bg-gray-900/90 backdrop-blur-md z-20 py-4 transition-colors duration-300"
+            class="sticky top-50 flex items-center gap-4 mb-8 cursor-pointer group/header top-0 dark:bg-gray-900/90 backdrop-blur-md z-20 py-4 transition-colors duration-300"
             @click="toggleMonth(group.id)"
           >
             <!-- Node dot for header -->
             <div class="absolute left-6 md:left-48 -translate-x-1/2 w-3 h-3 rounded-full border-[1.5px] border-gray-400 bg-[#fcfcfc] dark:bg-[#1a1a1a] z-20"></div>
-            
+
             <div class="ml-12 md:ml-0 md:pl-56 flex items-center gap-3">
               <h2 class="text-xl font-medium text-gray-600 dark:text-gray-400 tracking-wide">{{ group.label }}</h2>
               <span class="text-xs text-gray-400 dark:text-gray-500 bg-gray-200/50 dark:bg-gray-800/50 px-2 py-0.5 rounded-full">{{ group.nodes.length }} 记录</span>
@@ -43,7 +43,7 @@
           >
             <div v-show="!collapsedMonths[group.id]" class="space-y-16 mt-4">
               <div v-for="(node, nodeIdx) in group.nodes" :key="nodeIdx" class="relative group timeline-item">
-                
+
                 <div class="flex flex-row relative z-10 w-full">
                   <!-- Node Dot for Item -->
                   <div class="absolute left-6 md:left-48 top-2 -translate-x-1/2 w-2 h-2 rounded-full border-[1.5px] border-gray-400 dark:border-gray-500 bg-[#fcfcfc] dark:bg-[#1a1a1a] group-hover:border-primary-400 group-hover:bg-primary-50 transition-colors duration-300 shadow-[0_0_0_4px_#fcfcfc] dark:shadow-[0_0_0_4px_#1a1a1a]"></div>
@@ -111,7 +111,9 @@ import type { TimelineNode } from '@/types/location'
 import type { Photo } from '@/types/album'
 
 const props = defineProps<{
-  year: number | null
+  startDate?: string
+  endDate?: string
+  level: string
 }>()
 
 const emit = defineEmits<{
@@ -171,7 +173,7 @@ const fetchTimelineData = async (isLoadMore = false) => {
   }
 
   try {
-    const res = await locationService.getTimelineNodes(skip.value, limit, props.year)
+    const res = await locationService.getTimelineNodes(skip.value, limit, props.startDate, props.endDate, props.level)
     const newNodes = res.nodes
     
     if (newNodes.length < limit) {
@@ -228,7 +230,7 @@ const goToLocationDetail = (node: TimelineNode) => {
   })
 }
 
-watch(() => props.year, () => {
+watch([() => props.startDate, () => props.endDate, () => props.level], () => {
   fetchTimelineData()
 })
 

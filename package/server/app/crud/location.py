@@ -13,7 +13,7 @@ def get_location_years(db: Session, owner_id: UUID):
         .all()
     return [int(y[0]) for y in years if y[0] is not None]
 
-def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 0, limit: int = 100, year: int = None):
+def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 0, limit: int = 100, start_date: str = None, end_date: str = None):
     is_scene = False
     if level == 'city':
         group_col = PhotoMetadata.city
@@ -59,8 +59,10 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
             group_col != ''
         )
 
-    if year:
-        query = query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        query = query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        query = query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     if is_scene:
         query = query.group_by(Scene.name, Scene.id, Scene.is_custom)
@@ -91,8 +93,10 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
     if is_scene:
         cover_query = cover_query.join(Scene, PhotoMetadata.scene_id == Scene.id)
 
-    if year:
-        cover_query = cover_query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        cover_query = cover_query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        cover_query = cover_query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     covers = cover_query.filter(
         group_col.in_(names)
@@ -157,7 +161,7 @@ def get_location_photos(db: Session, owner_id: UUID, name: str, level: str = 'ci
         desc(Photo.photo_time)
     ).offset(skip).limit(limit).all()
 
-def get_map_markers(db: Session, owner_id: UUID, year: int = None):
+def get_map_markers(db: Session, owner_id: UUID, start_date: str = None, end_date: str = None):
     query = db.query(
         Photo.id,
         PhotoMetadata.latitude,
@@ -167,8 +171,10 @@ def get_map_markers(db: Session, owner_id: UUID, year: int = None):
      .filter(PhotoMetadata.longitude.isnot(None))\
      .filter(Photo.owner_id == owner_id)
      
-    if year:
-        query = query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        query = query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        query = query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     results = query.all()
      
@@ -177,27 +183,51 @@ def get_map_markers(db: Session, owner_id: UUID, year: int = None):
         for r in results
     ]
 
-def get_timeline_nodes(db: Session, owner_id: UUID, skip: int = 0, limit: int = 100, year: int = None):
+def get_timeline_nodes(db: Session, owner_id: UUID, level: str = 'city', skip: int = 0, limit: int = 100, start_date: str = None, end_date: str = None):
     from app.schemas.location import TimelineResponse, TimelineNode
     from sqlalchemy import cast, String, Date
 
     date_expr = cast(Photo.photo_time, Date)
 
-    loc_name_expr = func.coalesce(
-        func.nullif(Scene.name, ''),
-        func.nullif(PhotoMetadata.city, ''),
-        func.nullif(PhotoMetadata.district, ''),
-        func.nullif(PhotoMetadata.province, ''),
-        '未知位置'
-    )
+    if level == 'province':
+        base_loc = func.nullif(PhotoMetadata.province, '')
+        base_level = 'province'
+    elif level == 'district':
+        base_loc = func.nullif(PhotoMetadata.district, '')
+        base_level = 'district'
+    elif level == 'scene':
+        base_loc = func.nullif(Scene.name, '')
+        base_level = 'scene'
+    else: # default 'city'
+        base_loc = func.nullif(PhotoMetadata.city, '')
+        base_level = 'city'
 
-    level_expr = case(
-        (func.nullif(Scene.name, '').isnot(None), 'scene'),
-        (func.nullif(PhotoMetadata.city, '').isnot(None), 'city'),
-        (func.nullif(PhotoMetadata.district, '').isnot(None), 'district'),
-        (func.nullif(PhotoMetadata.province, '').isnot(None), 'province'),
-        else_='city'
-    )
+    if level == 'scene':
+        loc_name_expr = func.coalesce(
+            func.nullif(Scene.name, ''),
+            func.nullif(PhotoMetadata.city, ''),
+            func.nullif(PhotoMetadata.district, ''),
+            func.nullif(PhotoMetadata.province, ''),
+            '未知位置'
+        )
+        level_expr = case(
+            (func.nullif(Scene.name, '').isnot(None), 'scene'),
+            (func.nullif(PhotoMetadata.city, '').isnot(None), 'city'),
+            (func.nullif(PhotoMetadata.district, '').isnot(None), 'district'),
+            (func.nullif(PhotoMetadata.province, '').isnot(None), 'province'),
+            else_='city'
+        )
+    else:
+        loc_name_expr = func.coalesce(
+            func.nullif(Scene.name, ''),
+            base_loc,
+            '未知位置'
+        )
+        level_expr = case(
+            (func.nullif(Scene.name, '').isnot(None), 'scene'),
+            (base_loc.isnot(None), base_level),
+            else_=base_level
+        )
 
     query = db.query(
         date_expr.label('date'),
@@ -214,8 +244,10 @@ def get_timeline_nodes(db: Session, owner_id: UUID, skip: int = 0, limit: int = 
      .filter(PhotoMetadata.longitude.isnot(None)) \
      .filter(Photo.photo_time.isnot(None))
 
-    if year:
-        query = query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        query = query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        query = query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     query = query.group_by(date_expr, loc_name_expr, level_expr) \
                  .order_by(desc(func.max(Photo.photo_time)))
@@ -272,7 +304,7 @@ def get_timeline_nodes(db: Session, owner_id: UUID, skip: int = 0, limit: int = 
 
     return TimelineResponse(nodes=paginated_nodes, total=total_nodes)
 
-def get_location_distribution(db: Session, owner_id: UUID, level: str = 'city', year: int = None):
+def get_location_distribution(db: Session, owner_id: UUID, level: str = 'city', start_date: str = None, end_date: str = None):
     is_scene = False
     if level == 'city':
         group_col = PhotoMetadata.city
@@ -297,8 +329,10 @@ def get_location_distribution(db: Session, owner_id: UUID, level: str = 'city', 
     if is_scene:
         query = query.join(Scene, PhotoMetadata.scene_id == Scene.id)
 
-    if year:
-        query = query.filter(extract('year', Photo.photo_time) == year)
+    if start_date:
+        query = query.filter(Photo.photo_time >= start_date)
+    if end_date:
+        query = query.filter(Photo.photo_time <= f"{end_date} 23:59:59")
 
     results = query.filter(
         group_col.is_not(None),

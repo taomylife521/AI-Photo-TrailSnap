@@ -15,9 +15,9 @@ export const locationService = {
     return data.data;
   },
 
-  async getLocations(level: 'city' | 'province' | 'district' | 'scene' = 'city', skip: number = 0, limit: number = 100, year?: number | null) {
+  async getLocations(level: 'city' | 'province' | 'district' | 'scene' = 'city', skip: number = 0, limit: number = 100, startDate?: string, endDate?: string) {
     const data = await request.get<Location[]>('/api/locations', {
-      params: { level, skip, limit, year: year || undefined }
+      params: { level, skip, limit, start_date: startDate || undefined, end_date: endDate || undefined }
     });
     return data.data;
   },
@@ -27,9 +27,9 @@ export const locationService = {
     return data.data;
   },
 
-  async getDistribution(level: 'city' | 'province' | 'district' | 'scene' = 'city', year?: number | null) {
+  async getDistribution(level: 'city' | 'province' | 'district' | 'scene' = 'city', startDate?: string, endDate?: string) {
     const data = await request.get<{name: string, count: number, level: string}[]>('/api/locations/distribution', {
-      params: { level, year: year || undefined }
+      params: { level, start_date: startDate || undefined, end_date: endDate || undefined }
     });
     return data.data;
   },
@@ -41,16 +41,16 @@ export const locationService = {
     return data.data;
   },
 
-  async getTimelineNodes(skip: number = 0, limit: number = 100, year?: number | null) {
+  async getTimelineNodes(skip: number = 0, limit: number = 100, startDate?: string, endDate?: string, level: string = 'city') {
     const data = await request.get<TimelineResponse>('/api/locations/timeline', {
-      params: { skip, limit, year: year || undefined }
+      params: { skip, limit, start_date: startDate || undefined, end_date: endDate || undefined, level }
     });
     return data.data;
   },
 
-  async getMapMarkers(year?: number | null) {
+  async getMapMarkers(startDate?: string, endDate?: string) {
     const data = await request.get<{id: string, lat: number, lng: number}[]>('/api/locations/markers', {
-      params: { year: year || undefined }
+      params: { start_date: startDate || undefined, end_date: endDate || undefined }
     });
     return data.data;
   },
@@ -70,9 +70,9 @@ export const locationService = {
     return data.data;
   },
 
-  async getScenesList(skip: number = 0, limit: number = 100, year?: number | null) {
+  async getScenesList(skip: number = 0, limit: number = 100, startDate?: string, endDate?: string) {
     const data = await request.get<Scene[]>('/api/locations/scenes/list', {
-      params: { skip, limit, year: year || undefined }
+      params: { skip, limit, start_date: startDate || undefined, end_date: endDate || undefined }
     });
     return data.data;
   },
