@@ -429,10 +429,15 @@ const renderScenes = () => {
 }
 
 const goToScene = (name: string) => {
+  const query: any = { level: 'scene' }
+  if (props.year) {
+    query.startDate = `${props.year}-01-01`
+    query.endDate = `${props.year}-12-31`
+  }
   router.push({
     name: 'LocationDetail',
     params: { name: name },
-    query: { level: 'scene', year: props.year }
+    query
   })
 }
 

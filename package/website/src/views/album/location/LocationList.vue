@@ -488,10 +488,15 @@ const changeLevel = (newLevel: 'city' | 'province' | 'district' | 'scene', viewS
 }
 
 const goToLocation = (name: string) => {
+  const query: any = { level: level.value }
+  if (selectedYear.value) {
+    query.startDate = `${selectedYear.value}-01-01`
+    query.endDate = `${selectedYear.value}-12-31`
+  }
   router.push({
     name: 'LocationDetail',
     params: { name: name },
-    query: { level: level.value, year: selectedYear.value }
+    query
   })
 }
 

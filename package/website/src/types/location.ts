@@ -49,6 +49,7 @@ export interface TimelineNode {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   locationName: string;
+  level?: string; // Added level
   lat?: number;
   lng?: number;
   photoCount: number;

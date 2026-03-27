@@ -17,7 +17,7 @@
         <div v-for="group in groupedNodes" :key="group.id" class="mb-16">
           <!-- Month/Year Header -->
           <div 
-            class="flex items-center gap-4 mb-8 cursor-pointer group/header sticky top-0 bg-[#fcfcfc]/90 dark:bg-gray-900/90 backdrop-blur-md z-20 py-4 transition-colors duration-300"
+            class="sticky flex items-center gap-4 mb-8 cursor-pointer group/header sticky top-0 bg-[#fcfcfc]/90 dark:bg-gray-900/90 backdrop-blur-md z-20 py-4 transition-colors duration-300"
             @click="toggleMonth(group.id)"
           >
             <!-- Node dot for header -->
@@ -61,12 +61,12 @@
 
                     <!-- Right Side: Photos -->
                     <div class="flex-1 ml-4 md:ml-8 mt-0">
-                      <div class="grid grid-cols-2 md:grid-cols-6 gap-3 md:gap-4 pr-4 md:pr-0">
+                      <div class="flex pr-4 md:pr-0">
                         <!-- Show cover photo -->
                         <div 
                           v-if="node.coverId"
-                          class="aspect-square rounded-lg md:rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 relative cursor-pointer group/more shadow-sm hover:shadow-md transition-all duration-500"
-                          @click="$emit('click-photo', node.coverId as any, [])"
+                          class="w-24 h-24 md:w-32 md:h-32 flex-shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 relative cursor-pointer group/more shadow-sm hover:shadow-md transition-all duration-500"
+                          @click="goToLocationDetail(node)"
                         >
                           <img 
                             :src="getThumbnailUrl(node.coverId)" 
@@ -104,6 +104,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { MapPin, Map, Plane, ChevronDown, ChevronRight } from 'lucide-vue-next'
 import { locationService } from '@/api/location'
 import type { TimelineNode } from '@/types/location'
@@ -116,6 +117,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'click-photo', photo: Photo, contextPhotos: Photo[]): void
 }>()
+
+const router = useRouter()
 
 const loading = ref(false)
 const loadingMore = ref(false)
@@ -211,6 +214,18 @@ const formatNodeDate = (dateStr: string) => {
 const getThumbnailUrl = (photoId: string) => {
   // console.log(photoId)
   return `/api/medias/${photoId}/thumbnail`
+}
+
+const goToLocationDetail = (node: TimelineNode) => {
+  router.push({
+    name: 'LocationDetail',
+    params: { name: node.locationName },
+    query: { 
+      level: node.level || 'city', 
+      startDate: node.startDate,
+      endDate: node.endDate
+    }
+  })
 }
 
 watch(() => props.year, () => {

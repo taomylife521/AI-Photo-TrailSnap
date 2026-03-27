@@ -48,7 +48,7 @@
               <div v-if="node.coverId" class="flex-shrink-0">
                 <div 
                   class="w-16 h-16 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 relative cursor-pointer group/more"
-                  @click.stop="$emit('click-photo', node.coverId)"
+                  @click="goToLocationDetail(node)"
                 >
                   <img :src="getThumbnailUrl(node.coverId)" class="w-full h-full object-cover transition-transform duration-300 group-hover/more:scale-105" loading="lazy" />
                   <div 
@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { Map, Plane } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import { locationService } from '@/api/location'
 import type { TimelineNode } from '@/types/location'
 import type { Photo } from '@/types/album'
@@ -101,6 +102,7 @@ const hasMore = ref(true)
 const skip = ref(0)
 const limit = 100
 
+const router = useRouter()
 const timelineNodes = ref<TimelineNode[]>([])
 const map = ref<any>(null)
 const currentApiKey = ref('')
@@ -174,13 +176,6 @@ const fetchTimelineData = async (isLoadMore = false) => {
     }
 
     skip.value += limit
-    
-    // Sort nodes chronologically for drawing trajectory (oldest first)
-    timelineNodes.value.sort((a, b) => {
-        const dateA = new Date(a.startDate).getTime();
-        const dateB = new Date(b.startDate).getTime();
-        return dateA - dateB;
-    });
 
     nextTick(() => {
        drawTrajectory()
@@ -280,6 +275,18 @@ const panToNode = (node: TimelineNode) => {
          showMobileList.value = false;
      }
   }
+}
+
+const goToLocationDetail = (node: TimelineNode) => {
+  router.push({
+    name: 'LocationDetail',
+    params: { name: node.locationName },
+    query: { 
+      level: node.level || 'city', 
+      startDate: node.startDate,
+      endDate: node.endDate
+    }
+  })
 }
 
 watch(() => props.year, () => {

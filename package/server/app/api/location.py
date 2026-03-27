@@ -167,7 +167,8 @@ def delete_scene(
 def get_location_photos(
     name: str = Path(..., description="位置名称"),
     level: str = Query('city', regex='^(city|province|district|scene)$', description="分组级别：city 或 province 或 district 或 scene"),
-    year: int = Query(None, description="年份筛选"),
+    start_date: str = Query(None, description="开始日期"),
+    end_date: str = Query(None, description="结束日期"),
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -176,4 +177,4 @@ def get_location_photos(
     """
     获取指定位置（城市或省份）的照片列表。
     """
-    return crud.get_location_photos(db, current_user.id, name, level, skip, limit, year)
+    return crud.get_location_photos(db, current_user.id, name, level, skip, limit, start_date, end_date)

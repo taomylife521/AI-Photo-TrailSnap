@@ -42,6 +42,7 @@ class TimelineNode(BaseModel):
     startDate: str
     endDate: str
     locationName: str
+    level: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
     photoCount: int = 0
