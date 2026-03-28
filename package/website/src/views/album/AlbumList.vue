@@ -293,28 +293,28 @@ const smartAlbums = [
     title: '最近照片',
     description: '按时间排序',
     icon: Clock,
-    route: '/photos'
+    route: '/album/photos'
   },
   {
     id: 'people',
     title: '人物相册',
     description: '智能人脸识别',
     icon: Users,
-    route: '/people'
+    route: '/album/people'
   },
   {
     id: 'location',
     title: '位置相册',
     description: '按地点分类',
     icon: MapPin,
-    route: '/location'
+    route: '/album/location'
   },
   {
     id: 'classification',
     title: '智能分类',
     description: 'AI自动分类',
     icon: Tag,
-    route: '/classification'
+    route: '/album/classification'
   }
 ]
 

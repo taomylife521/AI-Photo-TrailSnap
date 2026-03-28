@@ -205,25 +205,25 @@
           <div class="hidden md:flex">
             <button
               @click="changeLevel('district')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'district' ? ' shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm transition-all bg-white dark:bg-gray-700', level === 'district' ? ' shadow-sm text-gray-900 dark:text-white font-medium' : 'bg-white/60 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               区县
             </button>
             <button
               @click="changeLevel('city')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'city' ? 'shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm transition-all bg-white dark:bg-gray-700', level === 'city' ? 'shadow-sm text-gray-900 dark:text-white font-medium' : 'bg-white/60 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               城市
             </button>
             <button
               @click="changeLevel('province')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'province' ? 'shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm transition-all bg-white dark:bg-gray-700', level === 'province' ? 'shadow-sm text-gray-900 dark:text-white font-medium' : 'bg-white/60 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               省份
             </button>
             <button
               @click="changeLevel('scene')"
-              :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-gray-700', level === 'scene' ? 'shadow-sm text-gray-900 dark:text-white' : 'bg-white/80 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+              :class="['px-4 py-1.5 rounded-md text-sm transition-all bg-white dark:bg-gray-700', level === 'scene' ? 'shadow-sm text-gray-900 dark:text-white font-medium' : 'bg-white/60 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             >
               景区
             </button>
@@ -234,7 +234,7 @@
           <button
             v-show="viewMode === 'map'"
             @click="level = 'photo-map'"
-            :class="['hidden md:flex px-3 py-1.5 rounded-md text-sm font-medium transition-all items-center gap-1.5', level === 'photo-map' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
+            :class="['hidden md:flex px-3 py-1.5 rounded-md text-sm font-medium transition-all items-center gap-1.5 bg-white dark:bg-gray-700', level === 'photo-map' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white font-medium' : 'bg-white/60 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200']"
             title="地图照片"
           >
             <Images class="w-4 h-4" />

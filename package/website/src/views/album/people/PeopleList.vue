@@ -262,7 +262,7 @@ const handleCardClick = (person: FaceIdentity) => {
       selectedIds.value.push(person.id)
     }
   } else {
-    router.push(`/people/${person.id}`)
+    router.push(`/album/people/${person.id}`)
   }
 }
 

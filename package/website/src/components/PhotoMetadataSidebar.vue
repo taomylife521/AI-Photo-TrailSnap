@@ -115,7 +115,7 @@
             </div>
             <div v-else class="flex flex-wrap gap-2">
                 <span v-if="(!metadata.tags || metadata.tags.length === 0)" class="text-sm text-gray-400 italic">无标签</span>
-                <a  target="_blank" :href="`/classification/${encodeURIComponent(tag.tag_name)}`"  v-for="tag in metadata.tags" :key="tag.id" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2.5 py-1 rounded-full text-xs">
+                <a  target="_blank" :href="`/album/classification/${encodeURIComponent(tag.tag_name)}`"  v-for="tag in metadata.tags" :key="tag.id" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2.5 py-1 rounded-full text-xs">
                     {{ tag.tag_name }}
                 </a>
             </div>
@@ -133,7 +133,7 @@
                 <span v-if="(!metadata.faces_identities || metadata.faces_identities.length === 0)" class="text-sm text-gray-400 italic">无人脸信息</span>
                 <a 
                     target="_blank" 
-                    :href="`/people/${face.id}`" 
+                    :href="`/album/people/${face.id}`" 
                     v-for="(face, idx) in metadata.faces_identities" 
                     :key="idx" 
                     class="text-gray-600 dark:text-gray-300 rounded-full text-xs flex flex-col items-center transition-colors"
@@ -204,6 +204,7 @@
     title="EXIF 详细信息"
     width="500px"
     align-center
+    append-to-body
   >
     <div v-if="parsedExif.length > 0" class="max-h-[60vh] overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-lg">
         <table class="w-full text-sm text-left">

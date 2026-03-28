@@ -142,7 +142,7 @@ async def get_search_suggestions(
 
         # 8. Scene
         scenes = db.query(distinct(Scene.name))\
-            .filter(Scene.owner_id == user.id, Scene.name.ilike(search_term))\
+            .filter(or_(Scene.owner_id == None, Scene.owner_id == user.id), Scene.name.ilike(search_term))\
             .limit(limit).all()
         for s in scenes:
             if s[0]:

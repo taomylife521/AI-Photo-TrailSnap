@@ -282,20 +282,6 @@ const messagesContainer = ref<HTMLElement | null>(null);
 const isSelectionMode = ref(false);
 const selectedMessages = ref<number[]>([]);
 
-const selectAll = computed({
-  get: () => {
-    const selectable = messages.value.filter(m => m.id !== undefined);
-    return selectable.length > 0 && selectedMessages.value.length === selectable.length;
-  },
-  set: (val) => {
-    if (val) {
-      selectedMessages.value = messages.value.map(m => m.id).filter(id => id !== undefined) as number[];
-    } else {
-      selectedMessages.value = [];
-    }
-  }
-});
-
 const toggleSelectMessage = (id?: number) => {
   if (id === undefined) return;
   const index = selectedMessages.value.indexOf(id);
@@ -304,11 +290,6 @@ const toggleSelectMessage = (id?: number) => {
   } else {
     selectedMessages.value.push(id);
   }
-};
-
-const toggleSelectionMode = () => {
-  isSelectionMode.value = !isSelectionMode.value;
-  selectedMessages.value = [];
 };
 
 const deleteSelectedMessages = async () => {

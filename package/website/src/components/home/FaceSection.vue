@@ -17,7 +17,7 @@
         v-for="face in data.top_faces"
         :key="face.id"
         class="flex flex-col items-center cursor-pointer min-w-[60px]"
-        @click="$router.push(`/people/${face.id}`)"
+        @click="$router.push(`/album/people/${face.id}`)"
       >
         <PersonAvatar :person="face" class="" />
         <span class="text-xs text-gray-600 dark:text-gray-400 truncate w-full text-center">{{ face.identity_name }}</span>
@@ -39,7 +39,7 @@
         </div>
         <button 
           class="text-xs text-orange-500 border border-orange-500 rounded px-2 py-0.5 whitespace-nowrap ml-2"
-          @click="$router.push('/people')"
+          @click="$router.push('/album/people')"
         >
           快速标注
         </button>

@@ -445,7 +445,8 @@ const filterByCity = (city: string) => {
 // --- 事件处理 ---
 
 const openTicketModal = (ticket: TicketFrontend | null = null) => {
-  if (ticket) {
+  console.log(ticket);
+  if (ticket?.type?.toLowerCase() === 'train') {
     isModalOpen.value = true;
     isEditing.value = true;
     // 需要把 Frontend 数据转回 FormData 格式供表单使用
@@ -466,7 +467,23 @@ const openTicketModal = (ticket: TicketFrontend | null = null) => {
         distance: ticket.distance,
         comments: ticket.comments
     };
-  } else {
+  } else if (ticket?.type?.toLowerCase() === 'flight') {
+    isFlightModalOpen.value = true;
+    isEditing.value = true;
+    // 需要把 Frontend 数据转回 FormData 格式供表单使用
+    currentFlightTicket.value = {
+        id: ticket.id,
+        flight_code: ticket.trainCode,
+        departure_city: ticket.from,
+        arrival_city: ticket.to,
+        date_time: ticket.dateTime,
+        price: ticket.price,
+        name: ticket.name,
+        total_running_time: ticket.totalRunningTime,
+        total_mileage: ticket.distance,
+        comments: ticket.comments
+    };
+  }else {
     // 新增模式：显示类型选择器
     showTypeSelector.value = true;
   }

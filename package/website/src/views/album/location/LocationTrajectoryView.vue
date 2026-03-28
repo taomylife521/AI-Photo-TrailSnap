@@ -233,9 +233,7 @@ const drawTrajectory = () => {
          <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm text-xs font-bold text-gray-800 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
            ${dateLabel} · ${node.locationName}
          </div>
-         <div class="absolute -top-2 -right-2 bg-primary-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-white">
-           ${photoCount}
-         </div>
+         ${photoCount > 1 ? `<div style="position: absolute; top: -6px; right: -6px; background-color: #ef4444; color: white; font-size: 11px; font-weight: 600; padding: 0 5px; height: 18px; line-height: 16px; border-radius: 9px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 18px; text-align: center;">${photoCount}</div>` : ''}
        </div>
      `;
 
@@ -248,15 +246,13 @@ const drawTrajectory = () => {
      label.setBorderLine(0)
      
      label.addEventListener('click', () => {
-         if (node.coverId) {
-             emit('click-photo', node.coverId as any, []) // Need to handle click-photo correctly without full photo object
-         }
+         goToLocationDetail(node)
      })
      
      map.value.addOverLay(label)
   })
 
-  // Draw lines
+  // Draw lines and directional arrows
   if (points.length > 1) {
      const line = new T.Polyline(points, {
        color: "#3b82f6", // primary-500
@@ -265,7 +261,6 @@ const drawTrajectory = () => {
        lineStyle: "dashed"
      });
      map.value.addOverLay(line)
-
      // Fit view to points
      map.value.setViewport(points)
   } else if (points.length === 1) {

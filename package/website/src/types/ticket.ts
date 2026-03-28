@@ -40,7 +40,7 @@ export type UniversalTicket = TicketBackend | FlightTicketBackend;
 
 // 前端展示用的数据接口 (Camel Case)
 export interface TicketFrontend {
-  id: number | string;
+  id: string;
   type: 'train' | 'flight'; // 新增类型标识
   from: string;
   to: string;
@@ -63,7 +63,7 @@ export interface TicketFrontend {
 
 // 表单提交用的数据接口
 export interface TicketFormData {
-  id?: number | string | null;
+  id?: string | null;
   from: string;
   to: string;
   train_code: string;

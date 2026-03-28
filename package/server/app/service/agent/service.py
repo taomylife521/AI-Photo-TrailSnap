@@ -165,23 +165,23 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
     """
     与 Agent 对话，并使用 SSE 流式返回大模型的回复
     """
-    agent, system_prompt = get_agent_executor(user_id, session_id, db)
-    messages = get_session_history(db, session_id)
-    
-    if not messages or not isinstance(messages[0], SystemMessage):
-        messages.insert(0, SystemMessage(content=system_prompt))
-        
-    messages.append(HumanMessage(content=user_input))
-    
-    # Save user message to DB
-    create_message(db, AgentMessageCreate(
-        session_id=UUID(session_id),
-        role="user",
-        content=user_input,
-    ))
-    
-    full_response = ""
     try:
+        agent, system_prompt = get_agent_executor(user_id, session_id, db)
+        messages = get_session_history(db, session_id)
+
+        if not messages or not isinstance(messages[0], SystemMessage):
+            messages.insert(0, SystemMessage(content=system_prompt))
+
+        messages.append(HumanMessage(content=user_input))
+
+        # Save user message to DB
+        create_message(db, AgentMessageCreate(
+            session_id=UUID(session_id),
+            role="user",
+            content=user_input,
+        ))
+
+        full_response = ""
         import json
         
         # Check if it's the first message (1 system prompt + 1 user message = 2)
