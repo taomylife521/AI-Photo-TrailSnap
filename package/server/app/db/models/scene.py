@@ -7,7 +7,7 @@ class Scene(Base):
     __tablename__ = "scenes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False, index=True)
     description = Column(Text)
     level = Column(Integer)  # 1, 2, 3 etc.
     address = Column(Text)

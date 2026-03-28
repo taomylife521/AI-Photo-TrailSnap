@@ -12,7 +12,7 @@ class PhotoTag(Base):
     __tablename__ = "photo_tags"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tag_name = Column(String(50), nullable=False)
+    tag_name = Column(String(50), nullable=False, index=True)
     type = Column(String(50), nullable=True)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
     create_time = Column(DateTime, default=datetime.now)

@@ -1,10 +1,18 @@
 import json
 from typing import List, Optional
 from datetime import datetime
+
+import logging
 from sqlalchemy import or_, and_, cast, String
 from sqlalchemy.orm import Session, joinedload
+from datetime import datetime
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from sqlalchemy import or_, func, distinct
 from langchain_core.tools import tool, StructuredTool
 
+from app.core.config_manager import config_manager
+from app.db.models import ImageVector
 from app.db.session import SessionLocal
 from app.db.models.photo import Photo
 from app.db.models.photo_metadata import PhotoMetadata
@@ -30,11 +38,13 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
         scenes: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         persons: Optional[List[str]] = None,
+        description: Optional[str] = None,
         limit: int = 100,
         sort_by: str = "photo_time"
     ) -> str:
         """
-        搜索用户的相册照片。支持多维度筛选。
+        该接口用于搜索照片，不能用缩小搜索范围，也不能用来查看照片的详细数据。受limit限制，只能返回部分照片，在使用该接口之前，必须先根据用户的描述来初步缩小搜索范围，例如日期范围、地点、类型、标签、人物等，如果用户没有提供足够的信息，你可以要求用户进一步给出详细的描述。
+        搜索用户的相册照片。支持多维度筛选，不同筛选条件之间进行与运算，相同筛选列表之间进行或运算。
         Args:
             start_date: 开始日期 (YYYY-MM-DD)
             end_date: 结束日期 (YYYY-MM-DD)
@@ -45,11 +55,13 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
             scenes: 匹配的景区名称列表
             tags: 匹配的照片标签列表（如"风景", "猫"）
             persons: 匹配的人物/人脸名称列表
+            description: clip模型以文搜图的文本描述提示词
             limit: 返回的照片数量上限
             sort_by: 排序方式，可选 "photo_time"（按时间）, "quality_score"（按美观度）, "memory_score"（按回忆价值）
         Returns:
             包含照片ID、拍摄时间、地点和一句话描述的 JSON 字符串。
         """
+        logging.info(f"search_photos_tool: {locals()}")
         with SessionLocal() as db:
             query = db.query(Photo, PhotoMetadata, ImageDescription).outerjoin(
                 PhotoMetadata, Photo.id == PhotoMetadata.photo_id
@@ -96,11 +108,29 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
 
             if persons:
                 query = query.filter(Photo.faces.any(Face.identity.has(FaceIdentity.identity_name.in_(persons))))
+            distance = None
+            if description:
+                import requests
+                # 1. Get Text Embedding from AI Service
+                api_url = f"{config_manager.get_user_config(user_id, db).ai.ai_api_url}/classification/embed/text"
+                try:
+                    resp = requests.post(api_url, json={"text": description}, timeout=10)
+                    if resp.status_code != 200:
+                        raise HTTPException(status_code=502, detail=f"AI Service error: {resp.status_code}")
+                    embedding = resp.json()
+                except requests.RequestException as e:
+                    raise HTTPException(status_code=502, detail=f"AI Service error: {str(e)}")
+                
+                distance = ImageVector.embedding.cosine_distance(embedding)
+                query = query.join(ImageVector, Photo.id == ImageVector.photo_id)
+                query = query.filter(distance < 0.78)
 
             if sort_by == "quality_score":
                 query = query.order_by(ImageDescription.quality_score.desc().nulls_last())
             elif sort_by == "memory_score":
                 query = query.order_by(ImageDescription.memory_score.desc().nulls_last())
+            elif sort_by == "photo_time" and distance is not None:
+                query = query.order_by(distance.asc())
             else:
                 query = query.order_by(Photo.photo_time.desc().nulls_last())
 
@@ -123,70 +153,34 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
 
     @tool
     def get_photo_locations_tool(
-        photo_ids: Optional[List[str]] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        limit: int = 50
+        level: Optional[str] = None,
     ) -> str:
         """
-        获取照片包含的地点信息，包括省、市、区、所在的景区等（分类去重后的列表）。
+        获取照片足迹时间轴，用于查看某一段时间在哪些地方拍过照。当用户问去了哪些地方时可以调用此接口查询。
         Args:
-            photo_ids: 照片 ID 的字符串列表（可选）
             start_date: 开始日期 (YYYY-MM-DD)（可选）
-            end_date: 结束日期 (YYYY-MM-DD)（可选）
-            limit: 返回结果上限
+            end_date: 结束日期（YYYY-MM-DD)（可选）
+            level: 地点的层级（"provinces"、"cities"、"districts"、"scenes"，默认"city"）
         Returns:
-            包含去重后的省(provinces)、市(cities)、区(districts)、景区(scenes)的 JSON 对象。
+            足迹时间轴的 JSON 字符串列表。每项字段说明：
+            class TimelineNode(BaseModel):
+                type: str = "default"
+                startDate: str # 开始日期 (YYYY-MM-DD)
+                endDate: str # 结束日期 (YYYY-MM-DD)
+                locationName: str # 地点名称
+                level: Optional[str] = None # 地点类型（可选）
+                lat: Optional[float] = None
+                lng: Optional[float] = None
+                photoCount: int = 0 # 照片数量
+                coverId: Optional[UUID] = None
         """
+        logging.info(f"get_photo_locations_tool: {locals()}")
         with SessionLocal() as db:
-            query = db.query(Photo, PhotoMetadata, Scene).outerjoin(
-                PhotoMetadata, Photo.id == PhotoMetadata.photo_id
-            ).outerjoin(
-                Scene, PhotoMetadata.scene_id == Scene.id
-            ).filter(Photo.owner_id == user_id)
-
-            if photo_ids:
-                query = query.filter(Photo.id.in_(photo_ids))
-            if start_date:
-                try:
-                    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-                    query = query.filter(Photo.photo_time >= start_dt)
-                except ValueError:
-                    pass
-            if end_date:
-                try:
-                    end_dt = datetime.strptime(f"{end_date} 23:59:59", "%Y-%m-%d %H:%M:%S")
-                    query = query.filter(Photo.photo_time <= end_dt)
-                except ValueError:
-                    pass
-            
-            results = query.order_by(Photo.photo_time.desc().nulls_last()).all()
-
-            if not results:
-                return "没有找到照片的地址信息。"
-
-            provinces = set()
-            cities = set()
-            districts = set()
-            scenes = set()
-            
-            for photo, meta, scene in results:
-                if meta:
-                    if meta.province: provinces.add(meta.province)
-                    if meta.city: cities.add(meta.city)
-                    if meta.district: districts.add(meta.district)
-                if scene and scene.name:
-                    scenes.add(scene.name)
-            
-            response_data = {
-                "provinces": list(provinces),
-                "cities": list(cities),
-                "districts": list(districts),
-                "scenes": list(scenes)
-            }
-            print(start_date, end_date)
-            print(response_data)
-            return json.dumps(response_data, ensure_ascii=False)
+            import app.crud.location
+            response_data = app.crud.location.get_timeline_nodes(db, user_id, level, start_date=start_date, end_date=end_date)
+            return response_data.model_dump_json()
 
     @tool
     def get_photo_tags_tool(

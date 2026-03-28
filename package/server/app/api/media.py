@@ -6,6 +6,8 @@ from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, status, Form, UploadFile, File, Query
 from fastapi.responses import FileResponse, StreamingResponse, Response
+from starlette.concurrency import run_in_threadpool
+import anyio
 from sqlalchemy.orm import Session
 
 from app.crud.photo import save_and_create_photo
@@ -35,24 +37,27 @@ def _get_thumbnail_path(user_id: UUID, photo_id: UUID, db: Session, size: str = 
     return os.path.join(base, f"{compact}.jpg")
 
 @router.get('/{photo_id}/video')
-def get_live_photo_video(
+async def get_live_photo_video(
     photo_id: UUID,
     request: Request,
     range: str = Header(None),
     db: Session = Depends(get_db)
 ):
-    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+    photo = await run_in_threadpool(lambda: db.query(Photo).filter(Photo.id == photo_id).first())
     if not photo:
         raise HTTPException(status_code=404, detail="Video file not found")
 
     ext = os.path.splitext(photo.file_path)[1].lower()
     if ext in ('.jpg', 'jpeg'):
         file_path = photo.file_path[:-3] + 'mp4'
-        if not os.path.exists(file_path):
-            file_path = _get_thumbnail_path(photo.owner_id, photo_id, db, 'medium')[:-4] + '.mp4'
+        exists = await run_in_threadpool(os.path.exists, file_path)
+        if not exists:
+            thumb_path = await run_in_threadpool(_get_thumbnail_path, photo.owner_id, photo_id, db, 'medium')
+            file_path = thumb_path[:-4] + '.mp4'
     else:
         file_path = photo.file_path[:-4] + 'MOV'
-    file_size = os.path.getsize(file_path)
+        
+    file_size = await run_in_threadpool(os.path.getsize, file_path)
 
     # Determine media type (usually mp4 or mov)
     ext = os.path.splitext(file_path)[1].lower()
@@ -74,14 +79,14 @@ def get_live_photo_video(
             chunk_size = end - start + 1
             buffer_size = 1024 * 1024 # 1MB buffer
 
-            def iterfile():
-                with open(file_path, "rb") as f:
-                    f.seek(start)
+            async def iterfile():
+                async with await anyio.open_file(file_path, "rb") as f:
+                    await f.seek(start)
                     bytes_read = 0
                     while bytes_read < chunk_size:
                         # Read in larger chunks for better performance
                         read_size = min(buffer_size, chunk_size - bytes_read)
-                        chunk = f.read(read_size)
+                        chunk = await f.read(read_size)
                         if not chunk:
                             break
                         bytes_read += len(chunk)
@@ -102,32 +107,37 @@ def get_live_photo_video(
     return FileResponse(file_path, media_type=media_type, headers={"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=31536000"})
 
 @router.get('/{photo_id}/thumbnail')
-def get_thumbnail(photo_id: UUID, size: str = 'small', db: Session = Depends(get_db)):
-    photo = db.query(Photo).filter(Photo.id == photo_id).first()
+async def get_thumbnail(photo_id: UUID, size: str = 'small', db: Session = Depends(get_db)):
+    photo = await run_in_threadpool(lambda: db.query(Photo).filter(Photo.id == photo_id).first())
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
-    path = _get_thumbnail_path(photo.owner_id, photo_id, db, size)
-    if not os.path.exists(path):
+    path = await run_in_threadpool(_get_thumbnail_path, photo.owner_id, photo_id, db, size)
+    exists = await run_in_threadpool(os.path.exists, path)
+    if not exists:
         raise HTTPException(status_code=404, detail="Thumbnail not found")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000"})
 
 @router.get('/{photo_id}/file')
-def get_media_file(
+async def get_media_file(
     photo_id: UUID,
     request: Request,
     range: str = Header(None),
     db: Session = Depends(get_db)
 ):
-    photo = db.query(Photo).filter(Photo.id == photo_id).first()
-    if not photo or not os.path.exists(photo.file_path):
+    photo = await run_in_threadpool(lambda: db.query(Photo).filter(Photo.id == photo_id).first())
+    if not photo:
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    exists = await run_in_threadpool(os.path.exists, photo.file_path)
+    if not exists:
         raise HTTPException(status_code=404, detail="File not found")
         
     file_path = photo.file_path
     # Determine media type
     ext = os.path.splitext(file_path)[1].lower()
     if ext == '.heic':
-        file_path = _get_thumbnail_path(photo.owner_id, photo_id, db, 'medium')
-    file_size = os.path.getsize(file_path)
+        file_path = _get_thumbnail_path, photo.owner_id, photo_id, db, 'medium'
+    file_size = await run_in_threadpool(os.path.getsize, file_path)
 
     media_type = "application/octet-stream"
     if ext in ('.png', '.jpg', '.jpeg', '.webp', '.tiff', '.gif'):
@@ -151,16 +161,16 @@ def get_media_file(
                  return Response(status_code=416, headers=headers)
 
             chunk_size = end - start + 1
-            buffer_size = 1024 * 1024 # 1MB buffer
-
-            def iterfile():
-                with open(file_path, "rb") as f:
-                    f.seek(start)
+            buffer_size = 1 * 1024 * 1024 # 1MB buffer
+            
+            async def iterfile():
+                async with await anyio.open_file(file_path, "rb") as f:
+                    await f.seek(start)
                     bytes_read = 0
                     while bytes_read < chunk_size:
                         # Read in larger chunks for better performance
                         read_size = min(buffer_size, chunk_size - bytes_read)
-                        chunk = f.read(read_size)
+                        chunk = await f.read(read_size)
                         if not chunk:
                             break
                         bytes_read += len(chunk)
@@ -217,49 +227,52 @@ async def upload_photo_generic(
 ):
     if album_id:
         # Verify album exists
-        db_album = crud_album.get_album(db, album_id=album_id, user_id=current_user.id)
+        db_album = await run_in_threadpool(crud_album.get_album, db, album_id=album_id, user_id=current_user.id)
         if not db_album:
             raise HTTPException(status_code=404, detail="Album not found")
 
     # Generate ID
     photo_id = uuid.uuid4()
     # Save file
-    file_path = storage.save_upload_file(file, photo_id, current_user.id)
+    file_path = await run_in_threadpool(storage.save_upload_file, file, photo_id, current_user.id)
     # Create and Save
-    photo = save_and_create_photo(db, file_path, file.filename, album_id, photo_id, user_id=current_user.id)
+    photo = await run_in_threadpool(save_and_create_photo, db, file_path, file.filename, album_id, photo_id, user_id=current_user.id)
     # Add tasks
-    add_tasks(db, current_user.id, photo_id, file_path)
+    await run_in_threadpool(add_tasks, db, current_user.id, photo_id, file_path)
 
     return photo
 
 # Chunked Upload Endpoints
 
 @router.post("/upload/init")
-def init_upload():
+async def init_upload():
     upload_id = uuid.uuid4()
     upload_dir = os.path.join("uploads", "chunks", str(upload_id))
-    os.makedirs(upload_dir, exist_ok=True)
+    await run_in_threadpool(os.makedirs, upload_dir, exist_ok=True)
     return {"upload_id": upload_id}
 
 
 @router.post("/upload/chunk")
-def upload_chunk(
+async def upload_chunk(
     upload_id: UUID = Form(...),
     chunk_index: int = Form(...),
     file: UploadFile = File(...)
 ):
     chunk_dir = os.path.join("uploads", "chunks", str(upload_id))
-    if not os.path.exists(chunk_dir):
+    exists = await run_in_threadpool(os.path.exists, chunk_dir)
+    if not exists:
         raise HTTPException(status_code=404, detail="Upload session not found")
 
     chunk_path = os.path.join(chunk_dir, str(chunk_index))
-    with open(chunk_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    def save_chunk():
+        with open(chunk_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    await run_in_threadpool(save_chunk)
     return {"status": "success"}
 
 
 @router.post("/upload/finish", response_model=schemas.Photo)
-def finish_upload_generic(
+async def finish_upload_generic(
         upload_id: UUID = Form(...),
         file_name: str = Form(...),
         album_id: Optional[UUID] = Form(None),
@@ -268,55 +281,66 @@ def finish_upload_generic(
 ):
     if album_id:
         # Verify album exists
-        db_album = crud_album.get_album(db, album_id=album_id, user_id=current_user.id)
+        db_album = await run_in_threadpool(crud_album.get_album, db, album_id=album_id, user_id=current_user.id)
         if not db_album:
             raise HTTPException(status_code=404, detail="Album not found")
 
     # Merge chunks
     chunk_dir = os.path.join("uploads", "chunks", str(upload_id))
-    if not os.path.exists(chunk_dir):
+    exists = await run_in_threadpool(os.path.exists, chunk_dir)
+    if not exists:
         raise HTTPException(status_code=404, detail="Upload session not found")
 
-    chunks = sorted([int(f) for f in os.listdir(chunk_dir) if f.isdigit()])
+    def get_chunks():
+        return sorted([int(f) for f in os.listdir(chunk_dir) if f.isdigit()])
+        
+    chunks = await run_in_threadpool(get_chunks)
     if not chunks:
         raise HTTPException(status_code=400, detail="No chunks found")
 
     photo_id = uuid.uuid4()
     ext = os.path.splitext(file_name)[1]
     # Save to storage_root/year/month with conflict resolution
-    class _Tmp:
-        filename = file_name
-        file = None
+    
+    def merge_and_save():
+        class _Tmp:
+            filename = file_name
+            file = None
 
-    with open(os.path.join("uploads", "chunks", str(upload_id), "merged"), "wb") as outfile:
-        for chunk_idx in chunks:
-            chunk_path = os.path.join(chunk_dir, str(chunk_idx))
-            with open(chunk_path, "rb") as infile:
-                outfile.write(infile.read())
-    with open(os.path.join("uploads", "chunks", str(upload_id), "merged"), "rb") as merged:
-        _Tmp.file = merged
-        final_path = storage.save_upload_file(_Tmp, photo_id, current_user.id)
+        merged_path = os.path.join("uploads", "chunks", str(upload_id), "merged")
+        with open(merged_path, "wb") as outfile:
+            for chunk_idx in chunks:
+                chunk_path = os.path.join(chunk_dir, str(chunk_idx))
+                with open(chunk_path, "rb") as infile:
+                    outfile.write(infile.read())
+        with open(merged_path, "rb") as merged:
+            _Tmp.file = merged
+            final_path = storage.save_upload_file(_Tmp, photo_id, current_user.id)
 
-    # Clean up chunks
-    shutil.rmtree(chunk_dir)
+        # Clean up chunks
+        shutil.rmtree(chunk_dir)
+        return final_path
+        
+    final_path = await run_in_threadpool(merge_and_save)
 
     # Create and Save
-    photo = save_and_create_photo(db, final_path, file_name, album_id, photo_id, user_id=current_user.id)
+    photo = await run_in_threadpool(save_and_create_photo, db, final_path, file_name, album_id, photo_id, user_id=current_user.id)
 
     # Add tasks
-    add_tasks(db, current_user.id, photo_id, final_path)
+    await run_in_threadpool(add_tasks, db, current_user.id, photo_id, final_path)
 
     return photo
 
 @router.get('/geojson')
-def get_geojson(level: str = Query("city")):
+async def get_geojson(level: str = Query("city")):
     if level not in ["province", "city", "district"]:
         raise HTTPException(status_code=400, detail="Invalid level. Must be province, city, or district.")
     try:
         level_cn = {"province": "省", "city": "市", "district": "县"}[level]
         path = os.path.join("resources","geo_data", f"中国_{level_cn}.geojson")
+        exists = await run_in_threadpool(os.path.exists, path)
+        if not exists:
+            raise FileNotFoundError
         return FileResponse(path, media_type="application/geo+json", headers={"Cache-Control": "public, max-age=31536000"})
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"GeoJSON file for {level} not found.")
-
-    return geojson

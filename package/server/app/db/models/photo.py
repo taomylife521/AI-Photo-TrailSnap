@@ -23,9 +23,9 @@ class Photo(Base):
     __tablename__ = "photos"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    filename = Column(String(255))
+    filename = Column(String(255), index=True)
     photo_time = Column(DateTime, index=True)
-    file_path = Column(String(255), nullable=False)
+    file_path = Column(String(255), nullable=False, index=True)
     file_type = Column(Enum(FileType), nullable=False)
     upload_time = Column(DateTime, default=datetime.now)
     size = Column(BigInteger)

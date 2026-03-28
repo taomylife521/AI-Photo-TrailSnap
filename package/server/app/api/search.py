@@ -1,6 +1,7 @@
 import logging
 import traceback
 import os
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from pydantic import BaseModel
@@ -43,6 +44,8 @@ class TextSearchRequest(BaseModel):
     skip: int = 0
     threshold: float = 0.2
     type: Optional[str] = None # 'ocr', 'location', 'person', 'album', 'folder', 'filename', 'tag', 'scene'
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
 
 @router.get("/suggestions", response_model=List[SearchSuggestion])
 async def get_search_suggestions(
@@ -167,8 +170,14 @@ async def search_by_text(
         if request.type:
             # Metadata Search
             query = db.query(Photo).filter(Photo.owner_id == user.id)
+
+            if request.start_time:
+                query = query.filter(Photo.photo_time >= request.start_time)
+            if request.end_time:
+                query = query.filter(Photo.photo_time <= request.end_time)
+
             term = f"%{request.text}%"
-            
+
             if request.type == 'person':
                 query = query.join(Photo.faces).join(Face.identity).filter(FaceIdentity.identity_name.ilike(term))
             elif request.type == 'location':
