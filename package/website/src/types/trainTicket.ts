@@ -72,6 +72,6 @@ export interface TrainTicketQueryParams {
   name?: string; // 按乘车人姓名模糊查询
   departure_station?: string; // 按出发站模糊查询
   arrival_station?: string; // 按到达站模糊查询
-  start_datetime?: string; // 发车时间起始（格式：YYYY-MM-DD HH:MM:SS）
-  end_datetime?: string; // 发车时间结束（格式：YYYY-MM-DD HH:MM:SS）
+  start_date?: string; // 发车时间起始（格式：YYYY-MM-DD）
+  end_date?: string; // 发车时间结束（格式：YYYY-MM-DD）
 }

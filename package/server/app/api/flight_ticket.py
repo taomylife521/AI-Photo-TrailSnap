@@ -113,6 +113,8 @@ async def get_tickets(
     limit: int = Query(100, ge=1, le=1000),
     flight_code: Optional[str] = Query(None, description="按航班号筛选"),
     name: Optional[str] = Query(None, description="按乘车人筛选"),
+    start_date: Optional[str] = Query(None, description="发车时间起始（格式：YYYY-MM-DD）"),
+    end_date: Optional[str] = Query(None, description="发车时间结束（格式：YYYY-MM-DD）"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -122,6 +124,8 @@ async def get_tickets(
     }
     if flight_code: filters['flight_code'] = flight_code
     if name: filters['name'] = name
+    if start_date: filters['start_date'] = start_date
+    if end_date: filters['end_date'] = end_date
     
     total, items = get_flight_tickets(db, skip, limit, filters)
     return {"total": total, "items": items}

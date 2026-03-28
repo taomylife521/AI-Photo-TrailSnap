@@ -30,6 +30,10 @@ def get_flight_tickets(
                     query = query.filter(getattr(FlightTicket, key).ilike(f"%{value}%"))
                 elif isinstance(value, (int, Decimal, datetime, uuid.UUID)):
                     query = query.filter(getattr(FlightTicket, key) == value)
+            elif key == 'start_date' and value:
+                query = query.filter(FlightTicket.date_time >= value)
+            elif key == 'end_date' and value:
+                query = query.filter(FlightTicket.date_time <= f"{value} 23:59:59")
 
     total = query.count()
     items = query.order_by(FlightTicket.date_time.desc()).offset(skip).limit(limit).all()

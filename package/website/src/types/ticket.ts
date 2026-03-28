@@ -98,9 +98,12 @@ export interface TicketQueryParams {
   skip?: number;
   limit?: number;
   train_code?: string;
+  flight_code?: string;
   departure_station?: string;
   arrival_station?: string;
   name?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 export type SortType = 'date' | 'distance' | 'duration' | 'price';

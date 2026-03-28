@@ -405,13 +405,13 @@ def read_ticket(
 def read_tickets(
         db: Session = Depends(get_db),
         skip: int = Query(0, ge=0, description="跳过的记录数"),
-        limit: int = Query(10, ge=1, le=100, description="每页最大记录数"),
+        limit: int = Query(10, ge=1, le=10000, description="每页最大记录数"),
         train_code: Optional[str] = Query(None, description="按车次号模糊查询"),
         name: Optional[str] = Query(None, description="按乘车人姓名模糊查询"),
         departure_station: Optional[str] = Query(None, description="按出发站模糊查询"),
         arrival_station: Optional[str] = Query(None, description="按到达站模糊查询"),
-        start_datetime: Optional[datetime] = Query(None, description="发车时间起始（格式：YYYY-MM-DD HH:MM:SS）"),
-        end_datetime: Optional[datetime] = Query(None, description="发车时间结束（格式：YYYY-MM-DD HH:MM:SS）"),
+        start_date: Optional[str] = Query(None, description="发车时间起始（格式：YYYY-MM-DD）"),
+        end_date: Optional[str] = Query(None, description="发车时间结束（格式：YYYY-MM-DD）"),
         current_user: User = Depends(get_current_user)
 ):
     """
@@ -427,10 +427,10 @@ def read_tickets(
 
     # 处理时间范围过滤
     query = db.query(TrainTicket).filter(TrainTicket.owner_id == current_user.id)
-    if start_datetime:
-        query = query.filter(TrainTicket.datetime >= start_datetime)
-    if end_datetime:
-        query = query.filter(TrainTicket.datetime <= end_datetime)
+    if start_date:
+        query = query.filter(TrainTicket.date_time >= start_date)
+    if end_date:
+        query = query.filter(TrainTicket.date_time <= f"{end_date} 23:59:59")
 
     # 应用其他过滤条件
     for key, value in filters.items():

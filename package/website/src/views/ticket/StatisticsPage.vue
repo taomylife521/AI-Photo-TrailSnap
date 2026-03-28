@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300 p-4 pb-10">
     
-    <div class="max-w-[1400px] mx-auto mb-6 flex items-center justify-between">
+    <div class="max-w-[1400px] mx-auto mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
         <button 
           @click="router.back()" 
@@ -15,11 +15,58 @@
         </h1>
       </div>
       
-      <div class="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
-        <span class="px-3 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 self-center">年份</span>
-        <select v-model="selectedYear" class="px-3 py-1 text-xs bg-transparent text-slate-700 dark:text-slate-200 outline-none">
-          <option v-for="y in availableYears" :key="y" :value="y">{{ y }}</option>
-        </select>
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700 relative" ref="yearMenuRef">
+          <span class="px-3 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 self-center">时间</span>
+          
+          <button
+             @click="showYearMenu = !showYearMenu"
+             class="px-3 py-1 text-xs bg-transparent text-slate-700 dark:text-slate-200 outline-none flex items-center gap-1 min-w-[80px] justify-between"
+           >
+             {{ selectedYear ? selectedYear + '年' : (isCustomRange ? '自定义范围' : '全部时间') }}
+             <ChevronDown class="w-3 h-3 transition-transform duration-200" :class="{ 'rotate-180': showYearMenu }" />
+           </button>
+
+           <div
+             v-show="showYearMenu"
+             class="absolute top-full right-0 mt-2 w-32 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-[60] max-h-60 overflow-y-auto"
+           >
+             <button
+               @click="selectYear(null); showYearMenu = false"
+               :class="['w-full px-4 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between', !selectedYear && !isCustomRange ? 'text-primary-500 font-medium' : 'text-slate-700 dark:text-slate-200']"
+             >
+               <span>全部时间</span>
+             </button>
+             <button
+               v-for="year in availableYears"
+               :key="year"
+               @click="selectYear(year); showYearMenu = false"
+               :class="['w-full px-4 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between', selectedYear === year ? 'text-primary-500 font-medium' : 'text-slate-700 dark:text-slate-200']"
+             >
+               <span>{{ year }}年</span>
+             </button>
+             <div class="h-px bg-slate-200 dark:bg-slate-700 mx-2 my-1"></div>
+             <button
+               @click="handleCustomRangeClick"
+               :class="['w-full px-4 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between', isCustomRange ? 'text-primary-500 font-medium' : 'text-slate-700 dark:text-slate-200']"
+             >
+               <span>自定义范围</span>
+             </button>
+           </div>
+        </div>
+
+        <div v-if="isCustomRange" class="bg-white dark:bg-slate-800 rounded-lg relative">
+          <el-date-picker
+            v-model="dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            class="!w-[260px]"
+            @change="handleDateRangeChange"
+          />
+        </div>
       </div>
     </div>
 
@@ -106,7 +153,7 @@
           <div v-if="loading" class="absolute inset-0 flex items-center justify-center">
             <div class="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-primary-500 rounded-full animate-spin"></div>
           </div>
-          <div v-else-if="computeAggregates(selectedYear).monthlyCounts.reduce((a,b)=>a+b,0)===0" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
+          <div v-else-if="computeAggregates(dateRange?.[0] || null, dateRange?.[1] || null).monthlyCounts.reduce((a,b)=>a+b,0)===0" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
             暂无数据
           </div>
         </div>
@@ -122,7 +169,7 @@
           <div v-if="loading" class="absolute inset-0 flex items-center justify-center">
             <div class="w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-primary-500 rounded-full animate-spin"></div>
           </div>
-          <div v-else-if="computeAggregates(selectedYear).cityRanking.length===0" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
+          <div v-else-if="computeAggregates(dateRange?.[0] || null, dateRange?.[1] || null).cityRanking.length===0" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
             暂无数据
           </div>
         </div>
@@ -135,7 +182,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, onUnmounted, computed } from 'vue';
 import * as echarts from 'echarts';
-import { ArrowLeft, Route, MapPin, Clock } from 'lucide-vue-next';
+import { ArrowLeft, Route, MapPin, Clock, ChevronDown } from 'lucide-vue-next';
+import { onClickOutside } from '@vueuse/core';
 import { injectTheme } from '@/composables/useTheme';
 import { useTicketStore } from '@/stores/ticketStore';
 import { useStorage } from '@vueuse/core';
@@ -166,9 +214,50 @@ const ticketStore = useTicketStore();
 const loading = ref(false);
 const error = ref('');
 
-const selectedYear = useStorage<number>('stats-selected-year', new Date().getFullYear());
-const availableYears = ref<number[]>([selectedYear.value]);
+const selectedYear = useStorage<number | null>('stats-selected-year', null); // 默认改为全部时间
+const availableYears = ref<number[]>([new Date().getFullYear()]);
 const stationToCityMap = new Map<string, string>();
+const showYearMenu = ref(false);
+const yearMenuRef = ref<HTMLElement | null>(null);
+const isCustomRange = ref(false);
+const dateRange = ref<[string, string] | null>(null);
+
+onClickOutside(yearMenuRef, () => {
+  showYearMenu.value = false;
+});
+
+const selectYear = (year: number | null) => {
+  selectedYear.value = year;
+  isCustomRange.value = false;
+  if (year) {
+    dateRange.value = [`${year}-01-01`, `${year}-12-31`];
+  } else {
+    dateRange.value = null;
+  }
+};
+
+const handleCustomRangeClick = () => {
+  isCustomRange.value = true;
+  selectedYear.value = null;
+  dateRange.value = null;
+  showYearMenu.value = false;
+};
+
+const handleDateRangeChange = (val: [string, string] | null) => {
+  if (val) {
+    const startYear = val[0].substring(0, 4);
+    const endYear = val[1].substring(0, 4);
+    if (val[0] === `${startYear}-01-01` && val[1] === `${endYear}-12-31` && startYear === endYear) {
+      selectedYear.value = parseInt(startYear);
+      isCustomRange.value = false;
+    } else {
+      selectedYear.value = null;
+      isCustomRange.value = true;
+    }
+  } else {
+    selectedYear.value = null;
+  }
+};
 
 interface Aggregates {
   distance: number;
@@ -351,17 +440,9 @@ function normalizeCity(station: string): string {
   return (station || '').replace(/(东|西|南|北|虹桥|火车站)$/u, '') || station;
 }
 
-function computeAggregates(year: number): Aggregates {
-  const cached = cache.get(year);
-  // 我们想要实时性，所以如果 store 更新了，最好不要使用太久的缓存。
-  // 但为了性能，可以暂时保留缓存逻辑，或者依赖 ticketStore 的响应性。
-  // 这里的 cache 是组件内的 Map，如果 ticketStore 变了，selectedYear 变了，会重新计算。
-  // 但是 cache.get(year) 会阻止重新计算。
-  // 建议移除这个简单的 cache，或者确保 cache key 包含 ticketStore 的 version/timestamp。
-  // 简单起见，移除 cache 检查，或者清空 cache on update。
-  // if (cached) return cached;
+function computeAggregates(startDate: string | null, endDate: string | null): Aggregates {
+  const tickets = ticketStore.tickets || [];
   
-  const tickets = (ticketStore.tickets || []).filter(t => getTicketYear(t) === year);
   let distance = 0;
   for (let i = 0; i < tickets.length; i++) {
     const t = tickets[i];
@@ -373,7 +454,7 @@ function computeAggregates(year: number): Aggregates {
     }
   }
   distance = Math.round(distance);
-  const extraMissing = missingLinearDistanceCache.get(year) || 0;
+  const extraMissing = missingLinearDistanceCache.get(startDate ? (new Date(startDate).getFullYear()) : (endDate ? new Date(endDate).getFullYear() : 0)) || 0;
   distance += Math.round(extraMissing);
   const daySet = new Set();
   tickets.forEach(t => {
@@ -413,13 +494,15 @@ function computeAggregates(year: number): Aggregates {
   });
   const points = Array.from(pointSet.entries()).map(([name, value]) => ({ name, value }));
   const result: Aggregates = { distance, cities, days, monthlyCounts, cityRanking, routes, points };
-  cache.set(year, result);
+  // cache.set(cacheKey, result);
   return result;
 }
 
 // 1. 准备地图数据 (Lines 和 Points)
 const getMapData = () => {
-  const { routes, points } = computeAggregates(selectedYear.value);
+  const startDate = dateRange.value?.[0] || null;
+  const endDate = dateRange.value?.[1] || null;
+  const { routes, points } = computeAggregates(startDate, endDate);
   const linesData: { coords: [[number, number], [number, number]] }[] = [];
   routes.forEach(route => {
     const fromCoord = cityCoords[route.from] || cityCoords[normalizeCity(route.from)];
@@ -557,6 +640,10 @@ const initCharts = () => {
   const textColor = isDark ? '#cbd5e1' : '#475569';
   const mainColor = themeColor.value || '#1E88E5';
 
+  const startDate = dateRange.value?.[0] || null;
+  const endDate = dateRange.value?.[1] || null;
+  const { monthlyCounts, cityRanking } = computeAggregates(startDate, endDate);
+
   myTrend?.dispose();
   myBar?.dispose();
   myTrend = echarts.init(trendChart.value);
@@ -576,7 +663,7 @@ const initCharts = () => {
       axisLabel: { color: textColor }
     },
     series: [{
-      data: computeAggregates(selectedYear.value).monthlyCounts,
+      data: monthlyCounts,
       type: 'line',
       smooth: true,
       symbol: 'none',
@@ -592,8 +679,8 @@ const initCharts = () => {
   });
 
   myBar = echarts.init(barChart.value);
-  const ranking = computeAggregates(selectedYear.value).cityRanking;
-  const top = showAllCities ? ranking : ranking.slice(0, 5);
+  const ranking = cityRanking;
+  const top = showAllCities.value ? ranking : ranking.slice(0, 5);
   myBar.setOption({
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis' },
@@ -635,11 +722,23 @@ onMounted(async () => {
   error.value = '';
   try {
     await loadStations();
-    await ticketStore.fetchTickets();
+    const startDate = dateRange.value?.[0] || null;
+    const endDate = dateRange.value?.[1] || null;
+    await ticketStore.fetchTickets(false, startDate, endDate);
     const years = Array.from(new Set(ticketStore.tickets.map(t => getTicketYear(t)).filter(y => isFinite(y) && y > 0))).sort((a, b) => b - a);
-    availableYears.value = years.length ? years : [selectedYear.value];
-    await ensureLinearDistancesForYear(selectedYear.value);
-    const agg = computeAggregates(selectedYear.value);
+    if (years.length > 0) {
+      availableYears.value = years;
+    } else {
+      availableYears.value = [new Date().getFullYear()];
+    }
+    
+    const y = selectedYear.value;
+    if (!isCustomRange.value && y) {
+      await ensureLinearDistancesForYear(y);
+    } else if (!isCustomRange.value && !y) {
+      await ensureLinearDistancesForYear(null);
+    }
+    const agg = computeAggregates(startDate, endDate);
     totalStats.value = { distance: agg.distance, cities: agg.cities, days: agg.days };
     initMap();
     initCharts();
@@ -673,23 +772,32 @@ watch(() => [isDarkMode.value, currentTheme.value], () => {
   initCharts(); // Charts simple rebuild
 });
 
+watch(() => [dateRange.value, selectedYear.value, isCustomRange.value], async () => {
+  const startDate = dateRange.value?.[0] || undefined;
+  const endDate = dateRange.value?.[1] || undefined;
+  
+  await ticketStore.fetchTickets(true, startDate, endDate);
+});
+
 watch(() => [ticketStore.tickets, ticketStore.statsMap], async () => {
   cache.clear();
   missingLinearDistanceCache.clear();
-  await ensureLinearDistancesForYear(selectedYear.value);
-  const agg = computeAggregates(selectedYear.value);
+  
+  const y = selectedYear.value;
+  if (!isCustomRange.value && y) {
+    await ensureLinearDistancesForYear(y);
+  } else if (!isCustomRange.value && !y) {
+    await ensureLinearDistancesForYear(null);
+  }
+  
+  const startDate = dateRange.value?.[0] || null;
+  const endDate = dateRange.value?.[1] || null;
+  const agg = computeAggregates(startDate, endDate);
   totalStats.value = { distance: agg.distance, cities: agg.cities, days: agg.days };
+  
   renderMap();
   initCharts();
 }, { deep: true });
-
-watch(selectedYear, async () => {
-  await ensureLinearDistancesForYear(selectedYear.value);
-  const agg = computeAggregates(selectedYear.value);
-  totalStats.value = { distance: agg.distance, cities: agg.cities, days: agg.days };
-  renderMap();
-  initCharts();
-});
 
 function toggleShowAllCities() {
   showAllCities.value = !showAllCities.value;
@@ -697,7 +805,7 @@ function toggleShowAllCities() {
 }
 
 const northCities = computed<{ name: string; lon: number; lat: number }[]>(() => {
-  const pts = computeAggregates(selectedYear.value).points || [];
+  const pts = computeAggregates(dateRange.value?.[0] || null, dateRange.value?.[1] || null).points || [];
   const valid = pts
     .map(p => {
       const v = Array.isArray(p.value) ? p.value : [NaN, NaN];
@@ -715,8 +823,8 @@ const northCities = computed<{ name: string; lon: number; lat: number }[]>(() =>
   return valid.filter(p => Math.abs(p.lat - maxLat) <= eps);
 });
 
-async function ensureLinearDistancesForYear(year: number) {
-  if (missingLinearDistanceCache.has(year)) return;
+async function ensureLinearDistancesForYear(year: number | null) {
+  if (missingLinearDistanceCache.has(year || 0)) return;
   const tickets = (ticketStore.tickets || []).filter(t => {
     const y = getTicketYear(t);
     // 如果 statsMap 中有数据，则不需要降级计算直线距离
@@ -724,14 +832,14 @@ async function ensureLinearDistancesForYear(year: number) {
       return false;
     }
     const d = Number(t.total_mileage || 0);
-    return y === year && (!isFinite(d) || d <= 0);
+    return (year === null || y === year) && (!isFinite(d) || d <= 0);
   });
   const pairs = tickets.map(t => ({
     from: 'departure_station' in t ? t.departure_station : t.departure_city,
     to: 'arrival_station' in t ? t.arrival_station : t.arrival_city
   }));
   if (!pairs.length) {
-    missingLinearDistanceCache.set(year, 0);
+    missingLinearDistanceCache.set(year || 0, 0);
     return;
   }
 }

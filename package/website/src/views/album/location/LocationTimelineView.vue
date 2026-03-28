@@ -12,18 +12,18 @@
       
       <div v-else class="relative">
         <!-- Vertical Line for all devices (left side) -->
-        <div class="absolute left-6 md:left-48 top-4 bottom-0 border-l border-dashed border-gray-300 dark:border-gray-700 w-0 z-0"></div>
+        <div class="absolute left-6 md:left-64 top-4 bottom-0 border-l border-dashed border-gray-300 dark:border-gray-700 w-0 z-0"></div>
 
         <div v-for="group in groupedNodes" :key="group.id" class="mb-16">
           <!-- Month/Year Header -->
           <div 
-            class="sticky top-50 flex items-center gap-4 mb-8 cursor-pointer group/header top-0 dark:bg-gray-900/90 backdrop-blur-md z-20 py-4 transition-colors duration-300"
+            class="flex items-center gap-4 mb-8 cursor-pointer group/header dark:bg-gray-900/90 backdrop-blur-md z-20 py-4 transition-colors duration-300"
             @click="toggleMonth(group.id)"
           >
             <!-- Node dot for header -->
-            <div class="absolute left-6 md:left-48 -translate-x-1/2 w-3 h-3 rounded-full border-[1.5px] border-gray-400 bg-[#fcfcfc] dark:bg-[#1a1a1a] z-20"></div>
+            <div class="absolute left-6 md:left-64 -translate-x-1/2 w-3 h-3 rounded-full border-[1.5px] border-gray-400 bg-[#fcfcfc] dark:bg-[#1a1a1a] z-20"></div>
 
-            <div class="ml-12 md:ml-0 md:pl-56 flex items-center gap-3">
+            <div class="ml-12 md:ml-0 md:pl-80 flex items-center gap-3">
               <h2 class="text-xl font-medium text-gray-600 dark:text-gray-400 tracking-wide">{{ group.label }}</h2>
               <span class="text-xs text-gray-400 dark:text-gray-500 bg-gray-200/50 dark:bg-gray-800/50 px-2 py-0.5 rounded-full">{{ group.nodes.length }} 记录</span>
               <ChevronDown 
@@ -46,13 +46,13 @@
 
                 <div class="flex flex-row relative z-10 w-full">
                   <!-- Node Dot for Item -->
-                  <div class="absolute left-6 md:left-48 top-2 -translate-x-1/2 w-2 h-2 rounded-full border-[1.5px] border-gray-400 dark:border-gray-500 bg-[#fcfcfc] dark:bg-[#1a1a1a] group-hover:border-primary-400 group-hover:bg-primary-50 transition-colors duration-300 shadow-[0_0_0_4px_#fcfcfc] dark:shadow-[0_0_0_4px_#1a1a1a]"></div>
+                  <div class="absolute left-6 md:left-64 top-2 -translate-x-1/2 w-2 h-2 rounded-full border-[1.5px] border-gray-400 dark:border-gray-500 bg-[#fcfcfc] dark:bg-[#1a1a1a] group-hover:border-primary-400 group-hover:bg-primary-50 transition-colors duration-300 shadow-[0_0_0_4px_#fcfcfc] dark:shadow-[0_0_0_4px_#1a1a1a]"></div>
 
                   <div class="flex w-full ml-12 md:ml-0 flex-row">
                     
                     <!-- Left Side: Date & Location -->
-                    <div class="w-24 md:w-48 flex-shrink-0 flex flex-col md:pr-8 items-start md:items-end pt-0.5">
-                      <span class="text-sm md:text-base font-medium text-sky-600 dark:text-sky-400 tracking-wide">{{ formatNodeDate(node.startDate) }}</span>
+                    <div class="w-24 md:w-64 flex-shrink-0 flex flex-col md:pr-8 items-start md:items-end pt-0.5">
+                      <span class="text-sm md:text-base font-medium text-primary-600 dark:text-primary-400 tracking-wide">{{ formatNodeDate(node.startDate) }}</span>
                       <div class="mt-1 md:mt-1.5 group/location inline-flex items-start md:items-center justify-start md:justify-end gap-1 cursor-default hover:-translate-y-0.5 transition-transform duration-300 w-full">
                         <MapPin class="w-3 h-3 md:w-3.5 md:h-3.5 text-gray-400 group-hover/location:text-primary-500 transition-colors flex-shrink-0 mt-0.5 md:mt-0" />
                         <span class="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 group-hover/location:text-primary-600 dark:group-hover/location:text-primary-400 transition-colors text-left md:text-right break-words">{{ node.locationName }}</span>
@@ -65,7 +65,7 @@
                         <!-- Show cover photo -->
                         <div 
                           v-if="node.coverId"
-                          class="w-24 h-24 md:w-32 md:h-32 flex-shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 relative cursor-pointer group/more shadow-sm hover:shadow-md transition-all duration-500"
+                          class="w-24 h-24 flex-shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 relative cursor-pointer group/more shadow-sm hover:shadow-md transition-all duration-500"
                           @click="goToLocationDetail(node)"
                         >
                           <img 

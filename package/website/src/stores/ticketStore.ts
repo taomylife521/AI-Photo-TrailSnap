@@ -75,12 +75,12 @@ export const useTicketStore = defineStore('ticket', () => {
    * 获取车票数据
    * @param force 是否强制刷新
    */
-  async function fetchTickets(force = false) {
-    // 检查缓存是否有效
+  async function fetchTickets(force = false, startDate?: string | null, endDate?: string | null) {
+    // 检查缓存是否有效 (如果带了时间筛选条件，强制刷新)
     const now = Date.now();
     const isCacheValid = now - lastFetchTime.value < CACHE_DURATION;
 
-    if (!force && isCacheValid && tickets.value.length > 0) {
+    if (!force && !startDate && !endDate && isCacheValid && tickets.value.length > 0) {
       return;
     }
 
@@ -90,10 +90,15 @@ export const useTicketStore = defineStore('ticket', () => {
     try {
       const params: TicketQueryParams = {
         skip: 0,
-        limit: 100,
-        // 获取所有数据，在前端进行筛选
-        // name: selectedPassenger.value || undefined,
+        limit: 1000
       };
+
+      if (startDate !== null) {
+        params.start_date = startDate;
+      }
+      if (endDate !== null) {
+        params.end_date = endDate;
+      }
 
       // 并行请求火车票和飞机票
       const [trainRes, flightRes] = await Promise.allSettled([
@@ -143,8 +148,8 @@ export const useTicketStore = defineStore('ticket', () => {
   /**
    * 手动刷新数据
    */
-  async function refreshData() {
-    await fetchTickets(true);
+  async function refreshData(startDate?: string, endDate?: string) {
+    await fetchTickets(true, startDate, endDate);
   }
 
   /**

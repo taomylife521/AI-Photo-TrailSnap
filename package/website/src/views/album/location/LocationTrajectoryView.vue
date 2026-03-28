@@ -131,6 +131,7 @@ const formatDate = (dateStr: string) => {
 }
 
 const getThumbnailUrl = (photoId: string) => {
+  // return `https://picsum.photos/seed/${photoId}/400/600`
   return `/api/medias/${photoId}/thumbnail`
 }
 
