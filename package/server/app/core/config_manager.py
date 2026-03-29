@@ -149,7 +149,7 @@ class SecuritySettings(BaseModel):
     access_token_expire_minutes: int = Field(default=60*24*3, description="Access token expiration in minutes")
 
 class AppSettings(BaseModel):
-    version: str = "0.3.1"
+    version: str = "0.3.2"
     ai: AISettings = Field(default_factory=AISettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     image: ImageSettings = Field(default_factory=ImageSettings)
@@ -276,4 +276,4 @@ os.makedirs('./data', exist_ok=True)
 os.makedirs('./data/uploads', exist_ok=True)
 # Global instance
 config_manager = ConfigManager()
-VERSION = "0.3.1"
+VERSION = "0.3.2"

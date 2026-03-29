@@ -477,7 +477,7 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
 
   const fullSrc = src.replace('/thumbnail', '/file');
 
-  return `<agent-image data-src="${src}" data-full-src="${fullSrc}" data-alt="${alt}"></agent-image>`;
+  return `<agent-image data-src="${src}?size=medium" data-full-src="${fullSrc}" data-alt="${alt}"></agent-image>`;
 };
 
 const defaultRender = md.renderer.rules.paragraph_open || function(tokens, idx, options, env, self) {
@@ -522,7 +522,7 @@ const renderMarkdown = (content: string) => {
   });
 
   rawHtml = rawHtml.replace(/<agent-image data-src="([^"]+)" data-full-src="([^"]+)" data-alt="([^"]*)"><\/agent-image>/g, 
-      '<img src="$1" alt="$3" class="agent-gallery-image inline-image" data-full-src="$2" />'
+      '<img src="$1" alt="$3" class="agent-gallery-image inline-image max-h-[200px]" data-full-src="$2" />'
   );
 
   rawHtml = rawHtml.replace(/<p>\s*<\/p>/g, '');
