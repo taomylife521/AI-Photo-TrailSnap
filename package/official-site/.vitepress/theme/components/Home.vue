@@ -53,63 +53,110 @@
       <div class="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-blue-50 dark:from-blue-900/20 to-transparent opacity-50"></div>
 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div class="flex flex-col lg:flex-row items-center">
+        <div class="flex flex-col lg:flex-row items-center justify-between gap-12">
           <!-- Text Content -->
-          <div class="lg:w-[55%] text-center lg:text-left mb-12 lg:mb-0">
+          <div class="w-full lg:w-[45%] text-center lg:text-left mb-8 lg:mb-0">
             <h1 class="text-3xl md:text-4xl lg:text-[42px] font-bold text-neutral-dark dark:text-white leading-tight mb-6">
               {{ t.hero.title1 }}<br>
               <span class="block mt-2">{{ t.hero.title2 }}</span>
             </h1>
             <p class="text-base md:text-lg text-neutral-gray dark:text-gray-400 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0" v-html="t.hero.desc">
             </p>
-            
+
             <!-- Tags -->
             <div class="flex flex-wrap justify-center lg:justify-start gap-3 mb-10">
-              <span v-for="tag in t.hero.tags" :key="tag" class="px-4 py-2 bg-secondary dark:bg-secondary/20 rounded-full text-sm text-neutral-dark dark:text-gray-200 hover:-translate-y-1 transition-transform cursor-default">{{ tag }}</span>
+              <span v-for="(tag, index) in t.hero.tags" :key="tag" 
+                    class="px-4 py-1.5 rounded-full text-sm font-medium hover:-translate-y-1 transition-transform cursor-default"
+                    :class="[
+                      index === 0 ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+                      index === 1 ? 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' :
+                      'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                    ]">{{ tag }}</span>
             </div>
 
             <!-- Actions -->
-            <div class="flex justify-center lg:justify-start gap-5">
+            <div class="flex flex-col sm:flex-row justify-center lg:justify-start gap-4">
               <button class="px-8 py-3 rounded-lg bg-primary text-white font-bold hover:bg-primary-dark hover:scale-105 transition-all shadow-lg hover:shadow-xl" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.hero.download }}</button>
-              <button class="px-8 py-3 rounded-lg border border-gray-300 dark:border-gray-600 text-neutral-dark dark:text-gray-200 hover:bg-white dark:hover:bg-slate-700 hover:border-gray-400 transition-all" @click="goLink(lang === 'zh-CN' ? '/docs/guide/overview' : '/en/docs/guide/overview')">{{ t.hero.details }}</button>
+              <button class="px-8 py-3 text-neutral-dark dark:text-gray-200 hover:text-primary dark:hover:text-primary transition-colors font-medium flex items-center justify-center gap-1" @click="goLink(lang === 'zh-CN' ? '/docs/guide/overview' : '/en/docs/guide/overview')">{{ t.hero.details }} <span class="text-xl">→</span></button>
             </div>
           </div>
 
-          <!-- Visual Content -->
-          <div class="w-[60%] lg:w-[30%] relative flex justify-center">
-            <div class="relative w-full max-w-md animate-float">
-              <!-- Main Visual Placeholder (Phone App Interface) -->
-              <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-float overflow-hidden border-8 border-white dark:border-slate-700 transform rotate-3 relative z-10 aspect-[9/16] flex items-center justify-center bg-gray-100 dark:bg-slate-900">
-                <div class="text-center p-4">
-                  <img src="https://blog.siyuan.ink/static/img/2c9efdea026ebeed2b2c872c396f83c0.demo.webp" alt="App 瀑布流界面演示" class="w-full h-full object-cover" loading="lazy">
+          <!-- Visual Content (Chat Demo) -->
+          <div class="w-full lg:w-[65%] relative flex justify-center">
+            <div class="relative w-full max-w-[1280px] animate-float-slow">
+              <!-- Mock Chat Window -->
+              <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-slate-700 backdrop-blur-sm">
+                <!-- Chat Header -->
+                <div class="bg-white/80 dark:bg-slate-800/80 border-b border-gray-100 dark:border-slate-700 px-4 py-3 flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-lg">🤖</div>
+                  <div>
+                    <div class="text-sm font-bold text-neutral-dark dark:text-white">TrailSnap AI</div>
+                    <div class="text-xs text-green-500 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 block"></span>{{ t.hero.chat.online }}</div>
+                  </div>
+                </div>
+                
+                <!-- Chat Body -->
+                <div class="p-4 md:p-6 space-y-6 max-h-[680px] overflow-y-auto font-sans text-sm md:text-base custom-scrollbar">
+                  <!-- User Message -->
+                  <div class="flex justify-end animate-fade-in-up">
+                    <div class="bg-[#8b5cf6] text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm leading-relaxed">
+                      {{ t.hero.chat.userMsg }}
+                    </div>
+                  </div>
+                  
+                  <!-- AI Message -->
+                  <div class="flex justify-start animate-fade-in-up" style="animation-delay: 0.5s; animation-fill-mode: both;">
+                    <div class="bg-white dark:bg-slate-700 text-neutral-dark dark:text-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%] shadow-sm border border-gray-100 dark:border-slate-600 leading-relaxed">
+                      <div class="typing-container">
+                        <p class="mb-3">{{ t.hero.chat.aiMsg1 }}</p>
+                        
+                        <div class="mb-3">
+                          <p class="font-bold text-neutral-dark dark:text-white mb-1.5 flex items-center gap-1.5"><span class="text-lg">📍</span> {{ t.hero.chat.itineraryTitle }}</p>
+                          <ul class="space-y-1.5 text-[13px] md:text-sm text-neutral-gray dark:text-gray-300 ml-1">
+                            <li v-for="(item, i) in t.hero.chat.itinerary" :key="i" class="flex gap-2">
+                              <span class="min-w-[50px] md:min-w-[65px] font-medium text-[#8b5cf6] dark:text-[#a78bfa]">{{ item.date }}</span>
+                              <span class="font-medium text-neutral-dark dark:text-gray-200">{{ item.desc }}</span>
+                            </li>
+                          </ul>
+                        </div>
+                        
+                        <div class="mb-3">
+                          <p class="font-bold text-neutral-dark dark:text-white mb-2 flex items-center gap-1.5"><span class="text-lg">📸</span> {{ t.hero.chat.photoTitle }}</p>
+                          <div class="grid grid-cols-3 gap-2 thumbnails-container">
+                            <img src="https://blog.siyuan.ink/static/img/83c62b2e4e7a6a24228dae753af1d815.thumbnail.webp" class="rounded-lg w-full h-20 md:h-24 object-cover hover:scale-105 transition-transform cursor-pointer shadow-sm" alt="photo1">
+                            <img src="https://blog.siyuan.ink/static/img/cd23aeae6b77647a468a3cb027e5e417.thumbnail1.webp" class="rounded-lg w-full h-20 md:h-24 object-cover hover:scale-105 transition-transform cursor-pointer shadow-sm" alt="photo2">
+                            <img src="https://blog.siyuan.ink/static/img/749352a60df84a4a4e218865d577b518.clipboard-2026-03-29.webp" class="rounded-lg w-full h-20 md:h-24 object-cover hover:scale-105 transition-transform cursor-pointer shadow-sm" alt="photo3">
+                          </div>
+                        </div>
+
+                        <div class="mb-3">
+                          <p class="font-bold text-neutral-dark dark:text-white mb-1.5 flex items-center gap-1.5"><span class="text-lg">💡</span> {{ t.hero.chat.copyTitle }}</p>
+                          <p class="text-[13px] md:text-sm text-neutral-gray dark:text-gray-300 mb-1.5"><strong class="text-neutral-dark dark:text-gray-200">标题：</strong>{{ t.hero.chat.copyTitleText }}</p>
+                          <p class="text-[13px] md:text-sm text-neutral-gray dark:text-gray-300 mb-1"><strong class="text-neutral-dark dark:text-gray-200">正文思路：</strong></p>
+                          <ul class="space-y-1 text-[13px] md:text-sm text-neutral-gray dark:text-gray-300 ml-4 list-disc marker:text-primary">
+                            <li v-for="(item, i) in t.hero.chat.copyBody" :key="i">{{ item }}</li>
+                          </ul>
+                        </div>
+
+                        <div class="border-t border-gray-100 dark:border-gray-600 pt-3 mt-3">
+                          <p class="text-[13px] md:text-sm text-neutral-gray dark:text-gray-300 mb-2 leading-relaxed" v-html="t.hero.chat.questionIntro"></p>
+                          <ul class="space-y-1.5 text-[13px] md:text-sm text-neutral-gray dark:text-gray-300 mb-2">
+                            <li v-for="(item, i) in t.hero.chat.questionOptions" :key="i" class="flex gap-1.5">
+                              <span>{{ item.icon }}</span>
+                              <span><strong class="text-neutral-dark dark:text-gray-200">{{ item.name }}：</strong>{{ item.desc }}</span>
+                            </li>
+                          </ul>
+                          <p class="text-[13px] md:text-sm text-neutral-gray dark:text-gray-300">{{ t.hero.chat.questionOutro }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
               <!-- Decorative Elements -->
-              <div class="absolute -top-10 -right-10 text-6xl opacity-20 text-primary animate-pulse">📷</div>
-              <div class="absolute bottom-10 -left-10 text-6xl opacity-20 text-primary">🗺️</div>
-              
-              <!-- Floating Card 1 -->
-              <div class="absolute top-20 right-0 md:-right-12 bg-white dark:bg-slate-800 p-2 md:p-4 rounded-xl shadow-lg z-20 animate-float max-w-[180px] sm:max-w-none md:max-w-none" style="animation-delay: 1s;">
-                <div class="flex items-center gap-3">
-                  <div class="w-5 h-5 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-500">🎫</div>
-                  <div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ t.hero.card1.title }}</div>
-                    <div class="text-sm font-bold dark:text-white">{{ t.hero.card1.desc }}</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Floating Card 2 -->
-              <div class="absolute bottom-32 left-0 md:-left-8 bg-white dark:bg-slate-800 p-2 md:p-4 rounded-xl shadow-lg z-20 animate-float max-w-[180px] md:max-w-none" style="animation-delay: 2s;">
-                <div class="flex items-center gap-3">
-                  <div class="w-5 h-5 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-500">📝</div>
-                  <div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ t.hero.card2.title }}</div>
-                    <div class="text-sm font-bold dark:text-white">{{ t.hero.card2.desc }}</div>
-                  </div>
-                </div>
-              </div>
+              <div class="absolute -top-6 -right-6 text-4xl opacity-20 text-primary animate-pulse z-0">✨</div>
+              <div class="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-400/20 rounded-full blur-2xl z-0"></div>
             </div>
           </div>
         </div>
@@ -372,14 +419,42 @@ const i18n = {
       download: '立即下载'
     },
     hero: {
-      title1: 'AI赋能出行记忆',
+      title1: 'AI赋能家庭相册',
       title2: '你的专属行影集',
-      desc: 'AI智能分析、整理旅行照片、生成专属记忆报告，<br class="hidden md:inline">让每一段出行都值得珍藏',
+      desc: 'AI智能分析、整理相册照片、生成专属记忆报告，<br class="hidden md:inline">让每一段出行都值得珍藏',
       tags: ['智能相册', '足迹相册', '生活相册'],
       download: '立即下载',
       details: '查看功能详情',
-      card1: { title: '识别成功', desc: 'G1234 北京 -> 上海' },
-      card2: { title: 'AI 日记生成', desc: '今天去滑雪（摔了一跤）...' }
+      chat: {
+        online: '在线',
+        userMsg: '我去年国庆去哪玩了，帮我整理一个旅游攻略，我准备发一个小红书',
+        aiMsg1: '从你的照片足迹来看，去年国庆（2025年10月）你进行了一场超级丰富的旅行！🏔️🌊🏙️',
+        itineraryTitle: '国庆旅行足迹',
+        itinerary: [
+          { date: '10月1日', desc: '湖州、苏州（苏州园林）' },
+          { date: '10月2日', desc: '黄山、徽州古城' },
+          { date: '10月3日', desc: '景德镇' },
+          { date: '10月4日', desc: '金华、衢州' },
+          { date: '10月5日', desc: '宁波、舟山' },
+          { date: '10月6-7日', desc: '上海' }
+        ],
+        photoTitle: '精选旅行照片',
+        copyTitle: '小红书文案建议',
+        copyTitleText: '《国庆7天，9城打卡！我的旅行清单太丰富了😭》',
+        copyBody: [
+          '开头：分享国庆旅行的喜悦',
+          '中间：按时间线介绍每个城市亮点',
+          '结尾：附上实用Tips（住宿、交通等）'
+        ],
+        questionIntro: '不过，由于每张照片的具体描述信息有限，<strong class="text-neutral-dark dark:text-gray-200">你想针对哪个城市或景点写更详细的攻略呢？</strong> 比如：',
+        questionOptions: [
+          { icon: '🏯', name: '苏州园林', desc: '园林建筑、拍照机位' },
+          { icon: '⛰️', name: '徽州古城', desc: '古村落、徽派建筑' },
+          { icon: '🏮', name: '景德镇', desc: '陶瓷文化、窑址体验' },
+          { icon: '🌊', name: '舟山', desc: '海岛风光、港口夜景' }
+        ],
+        questionOutro: '告诉我你重点想写哪个地方，我可以帮你整理更详细的攻略内容！✨'
+      }
     },
     screenshots: {
       title: '功能展示'
@@ -388,7 +463,7 @@ const i18n = {
       title: '核心特色 · 重新定义相册记忆'
     },
     overview: {
-      title: '功能概览 · 全方位覆盖出行记忆需求',
+      title: '功能概览 · 全方位覆盖智能化需求',
       demoSuffix: ' 演示',
       demoPlaceholder: '（此处展示功能演示动图/视频）'
     },
@@ -423,8 +498,36 @@ const i18n = {
       tags: ['Smart Album', 'Footprint Album', 'Life Album'],
       download: 'Download',
       details: 'View Features',
-      card1: { title: 'Success', desc: 'G1234 BJ -> SH' },
-      card2: { title: 'AI Diary', desc: 'Skiing today (fell)...' }
+      chat: {
+        online: 'Online',
+        userMsg: 'Where did I travel last National Day? Help me organize a travel guide for a social media post.',
+        aiMsg1: 'Based on your photo footprints, you had a super rich trip last National Day (Oct 2025)! 🏔️🌊🏙️',
+        itineraryTitle: 'National Day Itinerary',
+        itinerary: [
+          { date: 'Oct 1', desc: 'Huzhou, Suzhou (Gardens)' },
+          { date: 'Oct 2', desc: 'Huangshan, Huizhou Ancient City' },
+          { date: 'Oct 3', desc: 'Jingdezhen' },
+          { date: 'Oct 4', desc: 'Jinhua, Quzhou' },
+          { date: 'Oct 5', desc: 'Ningbo, Zhoushan' },
+          { date: 'Oct 6-7', desc: 'Shanghai' }
+        ],
+        photoTitle: 'Selected Travel Photos',
+        copyTitle: 'Xiaohongshu Copy Suggestions',
+        copyTitleText: '"7 Days, 9 Cities! My National Day Trip was Insane 😭"',
+        copyBody: [
+          'Intro: Share the joy of the trip',
+          'Body: Highlight each city chronologically',
+          'Outro: Add practical tips (hotels, transport, etc.)'
+        ],
+        questionIntro: 'However, since photo details are limited, <strong class="text-neutral-dark dark:text-gray-200">which city/spot do you want a more detailed guide for?</strong> For example:',
+        questionOptions: [
+          { icon: '🏯', name: 'Suzhou Gardens', desc: 'Architecture, photo spots' },
+          { icon: '⛰️', name: 'Huizhou City', desc: 'Ancient villages, Hui architecture' },
+          { icon: '🏮', name: 'Jingdezhen', desc: 'Ceramic culture, kiln experience' },
+          { icon: '🌊', name: 'Zhoushan', desc: 'Island scenery, port night view' }
+        ],
+        questionOutro: 'Tell me where you want to focus, and I\'ll organize a detailed guide for you! ✨'
+      }
     },
     screenshots: {
       title: 'Feature Screenshots'
@@ -686,5 +789,103 @@ const prevTestimonial = () => {
 
 .animate-float {
   animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0); }
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+/* Typing effect */
+.typing-container p, .typing-container li {
+  overflow: hidden;
+  opacity: 0;
+  animation: reveal-text 0.1s forwards;
+}
+
+@keyframes reveal-text {
+  to { opacity: 1; }
+}
+
+/* Add delays for typing effect */
+.typing-container > p:nth-child(1) { animation-delay: 1.0s; }
+.typing-container > div:nth-child(2) p { animation-delay: 2.0s; }
+.typing-container > div:nth-child(2) li:nth-child(1) { animation-delay: 2.5s; }
+.typing-container > div:nth-child(2) li:nth-child(2) { animation-delay: 2.8s; }
+.typing-container > div:nth-child(2) li:nth-child(3) { animation-delay: 3.1s; }
+.typing-container > div:nth-child(2) li:nth-child(4) { animation-delay: 3.4s; }
+.typing-container > div:nth-child(2) li:nth-child(5) { animation-delay: 3.7s; }
+.typing-container > div:nth-child(2) li:nth-child(6) { animation-delay: 4.0s; }
+
+.typing-container > div:nth-child(3) p { animation-delay: 4.8s; }
+
+.thumbnails-container {
+  opacity: 0;
+  animation: fade-in-up 0.8s ease-out forwards;
+  animation-delay: 5.5s;
+}
+
+.typing-container > div:nth-child(4) p:nth-child(1) { animation-delay: 6.5s; }
+.typing-container > div:nth-child(4) p:nth-child(2) { animation-delay: 7.0s; }
+.typing-container > div:nth-child(4) p:nth-child(3) { animation-delay: 7.5s; }
+.typing-container > div:nth-child(4) li:nth-child(1) { animation-delay: 8.0s; }
+.typing-container > div:nth-child(4) li:nth-child(2) { animation-delay: 8.5s; }
+.typing-container > div:nth-child(4) li:nth-child(3) { animation-delay: 9.0s; }
+
+.typing-container > div:nth-child(5) p:nth-child(1) { animation-delay: 10.0s; }
+.typing-container > div:nth-child(5) li:nth-child(1) { animation-delay: 10.5s; }
+.typing-container > div:nth-child(5) li:nth-child(2) { animation-delay: 11.0s; }
+.typing-container > div:nth-child(5) li:nth-child(3) { animation-delay: 11.5s; }
+.typing-container > div:nth-child(5) li:nth-child(4) { animation-delay: 12.0s; }
+.typing-container > div:nth-child(5) p:nth-child(3) { animation-delay: 13.0s; }
+
+/* Custom Scrollbar for Chat Window */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5); /* gray-400 with opacity */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.8); /* gray-500 with opacity */
+}
+
+/* Firefox scrollbar support */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+html.dark .custom-scrollbar {
+  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5); /* gray-600 with opacity */
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.8); /* gray-500 with opacity */
 }
 </style>

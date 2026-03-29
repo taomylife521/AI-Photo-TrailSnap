@@ -21,7 +21,6 @@ export default withMermaid(defineConfig({
       themeConfig: {
         nav: [
           { text: '首页', link: '/' },
-          { text: '功能演示', link: '/docs/guide/demo' },
           { text: '用户指南', link: '/docs/guide/install' },
           { text: '开发者文档', link: '/docs/dev/guide' },
           { text: '博客', link: '/docs/blog/' },
