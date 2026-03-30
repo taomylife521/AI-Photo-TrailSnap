@@ -47,7 +47,6 @@ uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 服务默认运行在 `8001` 端口。
 
 ## API 文档
-
 启动服务后，访问 Swagger UI 查看接口文档：
 http://localhost:8001/docs
 
