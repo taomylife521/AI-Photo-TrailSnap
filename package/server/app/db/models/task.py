@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, JSON, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, JSON, DateTime, Text, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import enum
@@ -44,3 +44,8 @@ class Task(Base):
     # Progress tracking
     total_items = Column(Integer, default=0)
     processed_items = Column(Integer, default=0)
+
+    __table_args__ = (
+        Index('ix_tasks_status_priority_created', 'status', 'priority', 'created_at'),
+        Index('ix_tasks_type_status', 'type', 'status'),
+    )

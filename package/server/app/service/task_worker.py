@@ -16,6 +16,7 @@ from app.db.models.index_log import IndexLog
 from app.db.models.system import SystemState
 from app.crud import album as album_crud
 from app.core.config_manager import config_manager
+from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
 # Import handlers
@@ -125,7 +126,7 @@ class TaskWorker:
         # But if it was in config.json, it was system-wide.
         # Let's assume default 10 if not found, or maybe we can fetch from a "system" user if one exists?
         # For now, let's use a safe default as we removed system config.
-        max_workers = 10 
+        max_workers = system_config.config.task.max_concurrent_tasks
         self.process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=os.cpu_count())
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers * 2) # More threads for IO
 
@@ -261,7 +262,7 @@ class TaskWorker:
                             logging.info(f"Restarting process pool")
                             self.process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=os.cpu_count())
                     if self.thread_pool is None and active_io_count > 0:
-                        max_workers = 10
+                        max_workers = system_config.config.task.max_concurrent_tasks
                         logging.info(f"Restarting thread pool")
                         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers * 2)
 
@@ -291,7 +292,7 @@ class TaskWorker:
                         allowed_types.extend(other_types)
                 else:
                     # Normal Mode: Strict Concurrency Limit
-                    max_concurrency = 10
+                    max_concurrency = system_config.config.task.max_concurrent_tasks
                     active_ai = sum(1 for t in self.active_task_map.values() if t in AI_TASKS)
                     max_ai = 2
 
@@ -337,7 +338,23 @@ class TaskWorker:
                         if active_count == 0:
                             self.scan_status['running'] = False
                             self.scan_status['message'] = "Idle"
-                        await asyncio.sleep(1)
+                            if idle_start_time:
+                                idle_duration = (datetime.now() - idle_start_time).total_seconds()
+                                if idle_duration > 300: # 5 minutes
+                                    logging.info("Worker idle for 5 minutes, exiting to release resources...")
+                                    self.running = False
+                                    import sys
+                                    sys.exit(0)
+                                elif idle_duration > 60:
+                                    await asyncio.sleep(5)
+                                elif idle_duration > 10:
+                                    await asyncio.sleep(2)
+                                else:
+                                    await asyncio.sleep(1)
+                            else:
+                                await asyncio.sleep(1)
+                        else:
+                            await asyncio.sleep(1)
                 except Exception as e:
                     logging.error(f"Error in worker loop: {e}")
                     await asyncio.sleep(5)

@@ -14,6 +14,7 @@ from app.schemas.user import (
 from app.schemas.token import Token
 from app.core import security
 from app.core.config_manager import config_manager
+from app.core.system_config import system_config
 from app.core.migration import migrate_system_config
 from app.dependencies import get_db
 
@@ -39,7 +40,7 @@ def login_access_token(
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="用户已被禁用")
     
-    access_token_expires = timedelta(minutes=config_manager.get_user_config(user.id, db).security.access_token_expire_minutes)
+    access_token_expires = timedelta(minutes=system_config.config.security.access_token_expire_minutes)
     return {
         "access_token": security.create_access_token(
             {"sub": str(user.id)}, expires_delta=access_token_expires

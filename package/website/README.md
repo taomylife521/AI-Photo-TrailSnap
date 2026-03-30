@@ -24,7 +24,7 @@ TrailSnap 的前端应用，基于 Vue 3 + TypeScript + Vite 构建。
 ```bash
 cd package/website
 
-# 安装 pnpm (如果未安装)
+# 安装 pnpm
 npm install -g pnpm
 
 # 安装项目依赖

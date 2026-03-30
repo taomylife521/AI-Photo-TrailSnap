@@ -118,9 +118,6 @@ class AISettings(BaseModel):
     visual_narrative_prompt: str = Field(default=DEFAULT_NARRATIVE_PROMPT, description="Prompt for narrative generation")
     # OCR settings can be added here later
 
-class TaskSettings(BaseModel):
-    max_concurrent_tasks: int = Field(default=10, description="Maximum number of concurrent tasks")
-
 class StorageSettings(BaseModel):
     photo_storage_path: str = Field(default="./data/uploads", description="Main photo storage root path")
     external_directories: List[str] = Field(default=[], description="List of external gallery directories")
@@ -143,20 +140,13 @@ class MapSettings(BaseModel):
     provider: str = Field(default="tianditu", description="Map provider (tianditu, amap, baidu)")
     api_keys: List[str] = Field(default=[], description="Map API Key")
 
-class SecuritySettings(BaseModel):
-    secret_key: str = Field(default="09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7", description="Secret key for JWT")
-    algorithm: str = Field(default="HS256", description="JWT algorithm")
-    access_token_expire_minutes: int = Field(default=60*24*3, description="Access token expiration in minutes")
-
 class AppSettings(BaseModel):
     version: str = "0.3.2"
     ai: AISettings = Field(default_factory=AISettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     image: ImageSettings = Field(default_factory=ImageSettings)
     filter: FilterSettings = Field(default_factory=FilterSettings)
-    task: TaskSettings = Field(default_factory=TaskSettings)
     map: MapSettings = Field(default_factory=MapSettings)
-    security: SecuritySettings = Field(default_factory=SecuritySettings)
 
     class Config:
         arbitrary_types_allowed = True

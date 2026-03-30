@@ -39,20 +39,33 @@ from app.worker import run_worker
 from app.core.config_manager import VERSION
 worker_process = None
 
+import asyncio
+
+async def monitor_worker():
+    global worker_process
+    while True:
+        await asyncio.sleep(10)
+        if worker_process and not worker_process.is_alive():
+            logging.info("Worker process is dead, restarting to release resources...")
+            worker_process = multiprocessing.Process(target=run_worker, daemon=False)
+            worker_process.start()
+            logging.info(f"Worker process restarted with PID: {worker_process.pid}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global log_listener, worker_process
     log_listener = setup_logging('api')
 
     # Start Worker Process
-    # Start a separate process for background tasks
-    # This process will run the TaskManager loop
-    # daemon must be False to allow sub-processes (ProcessPoolExecutor)
     worker_process = multiprocessing.Process(target=run_worker, daemon=False)
     worker_process.start()
     logging.info(f"Worker process started with PID: {worker_process.pid}")
+
+    monitor_task = asyncio.create_task(monitor_worker())
+
     yield
 
+    monitor_task.cancel()
     # Stop Worker Process
     if worker_process and worker_process.is_alive():
         logging.info("Terminating worker process...")
@@ -68,8 +81,8 @@ async def lifespan(app: FastAPI):
         log_listener.stop()
 
 app = FastAPI(
-    title="TrailSnap - 足迹相册", 
-    lifespan=lifespan, 
+    title="TrailSnap - 足迹相册",
+    lifespan=lifespan,
     version=VERSION,
     swagger_ui_parameters={"persistAuthorization": True}
 )
@@ -106,6 +119,7 @@ async def log_requests(request: Request, call_next):
         }
         logging.getLogger("app.middleware").error(f"Request failed: {str(e)}", exc_info=e, extra=extra)
         raise e
+
 # 自定义 GZip 中间件
 class CustomGZipMiddleware(GZipMiddleware):
     def __init__(
