@@ -39,7 +39,7 @@
               :is-selector="true" 
               :store="selectionStore"
               :title="`添加到 ${album?.title}`"
-              @select="handlePhotosSelected"
+              @select="handleAddPhotosToAlbum"
               @cancel="showPhotoSelector = false"
             />
           </div>
@@ -107,7 +107,7 @@ const handleUploadComplete = () => {
     photoStore.loadAlbumPhotos(albumId, true)
 }
 
-const handlePhotosSelected = async (ids: string[]) => {
+const handleAddPhotosToAlbum = async (ids: string[]) => {
     if (ids.length === 0) return
     try {
         await albumStore.addPhotosToAlbum(ids, 'add_to_album', albumId)

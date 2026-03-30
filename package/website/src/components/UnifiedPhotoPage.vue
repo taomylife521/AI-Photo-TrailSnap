@@ -378,6 +378,7 @@ const handleBatchRemoveFromAlbum = (ids: string[]) => {
             handleBatchDelete(ids)
         } else {
             emit('remove-from-album', ids)
+            galleryRef.value?.exitSelectionMode()
         }
     }).catch(() => {
         // 用户点击取消

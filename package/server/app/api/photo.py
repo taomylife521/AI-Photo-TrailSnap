@@ -431,12 +431,13 @@ def get_photo_metadata(photo_id: UUID, db: Session = Depends(get_db), current_us
 
     if not db_metadata:
         raise HTTPException(status_code=404, detail="Metadata not found")
-
+    photo = app.crud.photo.get_photo(db, photo_id=photo_id)
     albums = crud_album.get_albums_by_photo_id(db, photo_id=photo_id)
     faces_identities = crud_face.get_identities_by_photo_id(db, photo_id=photo_id)
     tags = crud_tag.get_photo_tags(db, photo_id=photo_id)
 
     photo_metadata = PhotoMetadata.model_validate(db_metadata)
+    photo_metadata.file_path = photo.file_path
     photo_metadata.albums = albums
     photo_metadata.faces_identities = faces_identities
     photo_metadata.tags = tags
@@ -466,10 +467,6 @@ def get_photo_tags(photo_id: UUID, db: Session = Depends(get_db), current_user: 
 
 @router.post("/{photo_id}/tags", response_model=tag_schemas.PhotoTagResponse)
 def add_photo_tag(photo_id: UUID, tag_data: tag_schemas.PhotoTagAdd, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Check photo ownership? Usually yes.
-    # But current implementation didn't check. Assuming user can tag photos they can see?
-    # Or strict ownership? "Users only operate on their own."
-    # So yes, check ownership.
     photo = app.crud.photo.get_photo(db, photo_id)
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")

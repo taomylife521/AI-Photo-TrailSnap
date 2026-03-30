@@ -23,7 +23,6 @@ from app.schemas.tag import PhotoTagResponse
 # Metadata Schemas
 class PhotoMetadataBase(BaseModel):
     exif_info: Optional[str] = None
-    location_api: Optional[str] = None
 
     # Camera info
     make: Optional[str] = None
@@ -49,6 +48,7 @@ class PhotoMetadataUpdate(PhotoMetadataBase):
 
 class PhotoMetadata(PhotoMetadataBase):
     photo_id: UUID
+    file_path: Optional[str] = None
     albums: Optional[List[Album]] = None
     faces_identities: Optional[List[FaceIdentitySchema]] = None
     tags: Optional[List[PhotoTagResponse]] = None

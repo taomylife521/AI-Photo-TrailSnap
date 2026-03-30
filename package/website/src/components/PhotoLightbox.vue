@@ -362,12 +362,13 @@ const initPlayer = () => {
             poster: props.image.thumbnail,
             playsinline: true,
             autoplay: true,
+            download: true,
             height: '100%',
             width: '100%',
             fitVideoSize: 'fixHeight',
             videoInit: true, // 初始化显示首帧
             lang: 'zh-cn',
-            playbackRate: [0.5, 0.75, 1, 1.25, 1.5, 2], // 倍速
+            playbackRate: [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 5], // 倍速
             fluid: false, // 禁止流式布局，让width/height生效
             // 针对移动端的特殊配置
             commonStyle: {
@@ -386,7 +387,18 @@ const initPlayer = () => {
             },
             cssFullscreen: false, // 使用原生全屏
             controls: {
-               mode: 'flex'
+                mode: 'flex'
+            },
+            screenShot: {
+                saveImg: true,
+                quality: 0.92,
+                type: 'image/png',
+                format: '.png'
+            },
+            keyShortcut: true,
+            keyShortcutStep: { //设置调整步长
+                currentTime: 15, //播放进度调整步长，默认10秒
+                volume: 0.2 //音量调整步长，默认0.1
             }
         })
     }
@@ -802,4 +814,5 @@ const handleDelete = () => {
         }
     })
 }
+
 </script>

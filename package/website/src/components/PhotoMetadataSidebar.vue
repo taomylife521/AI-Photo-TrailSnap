@@ -32,6 +32,10 @@
                 <span v-if="image?.width && image?.height">{{ image.width }} x {{ image.height }}</span>
                 <span>{{ formatSize(image?.size) }}</span>
             </div>
+            <!-- 文件路径过长时显示省略号，鼠标悬浮显示完整路径 -->
+            <p class="text-xs text-gray-500 overflow-hidden whitespace-nowrap text-ellipsis break-all" :title="metadata.file_path">
+                {{ metadata.file_path }}
+            </p>
             <button @click="showExifDialog = true" class="text-xs text-primary-500 hover:text-primary-400 hover:underline pt-1 dark:bg-gray-800">
                 查看文件 EXIF 信息
             </button>

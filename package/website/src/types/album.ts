@@ -15,6 +15,7 @@ export interface Tag {
 
 export interface PhotoMetadata {
   photo_id: string;
+  file_path?: string;
   exif_info?: string;
   location?: any;
   address?: string;
