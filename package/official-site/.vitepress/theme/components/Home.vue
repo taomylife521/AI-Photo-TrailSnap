@@ -822,36 +822,36 @@ const prevTestimonial = () => {
 }
 
 /* Add delays for typing effect */
-.typing-container > p:nth-child(1) { animation-delay: 1.0s; }
-.typing-container > div:nth-child(2) p { animation-delay: 2.0s; }
-.typing-container > div:nth-child(2) li:nth-child(1) { animation-delay: 2.5s; }
-.typing-container > div:nth-child(2) li:nth-child(2) { animation-delay: 2.8s; }
-.typing-container > div:nth-child(2) li:nth-child(3) { animation-delay: 3.1s; }
-.typing-container > div:nth-child(2) li:nth-child(4) { animation-delay: 3.4s; }
-.typing-container > div:nth-child(2) li:nth-child(5) { animation-delay: 3.7s; }
-.typing-container > div:nth-child(2) li:nth-child(6) { animation-delay: 4.0s; }
+.typing-container > p:nth-child(1) { animation-delay: 0.5s; }
+.typing-container > div:nth-child(2) p { animation-delay: 1.0s; }
+.typing-container > div:nth-child(2) li:nth-child(1) { animation-delay: 1.2s; }
+.typing-container > div:nth-child(2) li:nth-child(2) { animation-delay: 1.3s; }
+.typing-container > div:nth-child(2) li:nth-child(3) { animation-delay: 1.4s; }
+.typing-container > div:nth-child(2) li:nth-child(4) { animation-delay: 1.5s; }
+.typing-container > div:nth-child(2) li:nth-child(5) { animation-delay: 1.6s; }
+.typing-container > div:nth-child(2) li:nth-child(6) { animation-delay: 1.7s; }
 
-.typing-container > div:nth-child(3) p { animation-delay: 4.8s; }
+.typing-container > div:nth-child(3) p { animation-delay: 2.0s; }
 
 .thumbnails-container {
   opacity: 0;
-  animation: fade-in-up 0.8s ease-out forwards;
-  animation-delay: 5.5s;
+  animation: fade-in-up 0.5s ease-out forwards;
+  animation-delay: 2.2s;
 }
 
-.typing-container > div:nth-child(4) p:nth-child(1) { animation-delay: 6.5s; }
-.typing-container > div:nth-child(4) p:nth-child(2) { animation-delay: 7.0s; }
-.typing-container > div:nth-child(4) p:nth-child(3) { animation-delay: 7.5s; }
-.typing-container > div:nth-child(4) li:nth-child(1) { animation-delay: 8.0s; }
-.typing-container > div:nth-child(4) li:nth-child(2) { animation-delay: 8.5s; }
-.typing-container > div:nth-child(4) li:nth-child(3) { animation-delay: 9.0s; }
+.typing-container > div:nth-child(4) p:nth-child(1) { animation-delay: 2.5s; }
+.typing-container > div:nth-child(4) p:nth-child(2) { animation-delay: 2.7s; }
+.typing-container > div:nth-child(4) p:nth-child(3) { animation-delay: 2.9s; }
+.typing-container > div:nth-child(4) li:nth-child(1) { animation-delay: 3.1s; }
+.typing-container > div:nth-child(4) li:nth-child(2) { animation-delay: 3.3s; }
+.typing-container > div:nth-child(4) li:nth-child(3) { animation-delay: 3.5s; }
 
-.typing-container > div:nth-child(5) p:nth-child(1) { animation-delay: 10.0s; }
-.typing-container > div:nth-child(5) li:nth-child(1) { animation-delay: 10.5s; }
-.typing-container > div:nth-child(5) li:nth-child(2) { animation-delay: 11.0s; }
-.typing-container > div:nth-child(5) li:nth-child(3) { animation-delay: 11.5s; }
-.typing-container > div:nth-child(5) li:nth-child(4) { animation-delay: 12.0s; }
-.typing-container > div:nth-child(5) p:nth-child(3) { animation-delay: 13.0s; }
+.typing-container > div:nth-child(5) p:nth-child(1) { animation-delay: 3.8s; }
+.typing-container > div:nth-child(5) li:nth-child(1) { animation-delay: 4.0s; }
+.typing-container > div:nth-child(5) li:nth-child(2) { animation-delay: 4.2s; }
+.typing-container > div:nth-child(5) li:nth-child(3) { animation-delay: 4.4s; }
+.typing-container > div:nth-child(5) li:nth-child(4) { animation-delay: 4.6s; }
+.typing-container > div:nth-child(5) p:nth-child(3) { animation-delay: 4.8s; }
 
 /* Custom Scrollbar for Chat Window */
 .custom-scrollbar::-webkit-scrollbar {
