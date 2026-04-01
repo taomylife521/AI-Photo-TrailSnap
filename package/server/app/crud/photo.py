@@ -77,6 +77,11 @@ def batch_create_photos(db: Session, photos_data: List[dict], user_id: Optional[
             db.bulk_save_objects(metadatas)
 
         db.commit()
+        
+        if user_id:
+            from app.crud.album import trigger_conditional_albums_update
+            trigger_conditional_albums_update(db, user_id, [p.id for p in photos])
+            
         return len(photos)
     except Exception as e:
         db.rollback()
@@ -103,6 +108,11 @@ def update_photo_metadata(db: Session, photo_id: UUID, metadata: PhotoMetadataUp
     db.add(db_metadata)
     db.commit()
     db.refresh(db_metadata)
+    
+    if user_id:
+        from app.crud.album import trigger_conditional_albums_update
+        trigger_conditional_albums_update(db, user_id, [photo_id])
+        
     return db_metadata
 
 
@@ -557,6 +567,10 @@ def create_photo(db: Session, photo: photo_schemas.PhotoCreate, album_id: Option
 
     db.commit()
 
+    if user_id:
+        from app.crud.album import trigger_conditional_albums_update
+        trigger_conditional_albums_update(db, user_id, [db_photo.id])
+
     return db_photo
 
 
@@ -572,6 +586,9 @@ def update_photo(db: Session, photo_id: UUID, photo_update: photo_schemas.PhotoU
             db_photo.photo_time = photo_update.photo_time
         db.commit()
         db.refresh(db_photo)
+        if user_id:
+            from app.crud.album import trigger_conditional_albums_update
+            trigger_conditional_albums_update(db, user_id, [photo_id])
     return db_photo
 
 
@@ -634,6 +651,10 @@ def batch_delete_photos_db(db: Session, photo_ids: List[UUID], is_delete_file = 
     # Update counts
     for album_id in affected_album_ids:
         _update_album_photo_count(db, album_id)
+
+    if user_id:
+        from app.crud.album import trigger_conditional_albums_update
+        trigger_conditional_albums_update(db, user_id, [])
 
     return count
 

@@ -171,77 +171,84 @@ async def handle_extract_metadata(task_manager, task: Task, db: Session):
     res = await sync_rebuild_metadata_cpu_job(file_path, photo_id)
     if res['success']:
         meta = res['meta']
-        # Update DB
-        db_meta = db.query(PhotoMetadata).filter(PhotoMetadata.photo_id == photo.id).first()
-        if not db_meta:
-            db_meta = PhotoMetadata(photo_id=photo.id)
-            db.add(db_meta)
-
-        # Update fields
-        if meta.get("exif_info"):
-            exif_dict = meta["exif_info"]
-            # Serialize for storage
-            # Convert non-serializable objects to string
-            def default_serializer(obj):
-                if isinstance(obj, (bytes, bytearray)):
-                    return str(obj)
-                return str(obj)
-
-            db_meta.exif_info = json.dumps(exif_dict, default=default_serializer, ensure_ascii=False)
-
-            # Extract Camera Info
-            if exif_dict.get('Make'):
-                db_meta.make = str(exif_dict.get('Make')).strip().replace('\x00', '')
-            if exif_dict.get('Model'):
-                db_meta.model = str(exif_dict.get('Model')).strip().replace('\x00', '')
-            
-            sp = {}
-            # FNumber often comes as a ratio, we store string representation
-            if exif_dict.get('FNumber'):
-                sp['f_number'] = str(exif_dict.get('FNumber'))
-            if exif_dict.get('ExposureTime'):
-                sp['exposure_time'] = str(exif_dict.get('ExposureTime'))
-            if exif_dict.get('ISOSpeedRatings'):
-                sp['iso'] = str(exif_dict.get('ISOSpeedRatings'))
-            if exif_dict.get('FocalLength'):
-                sp['focal_length'] = str(exif_dict.get('FocalLength'))
-            if exif_dict.get('FocalLengthIn35mmFilm'):
-                sp['focal_length_35mm'] = str(exif_dict.get('FocalLengthIn35mmFilm'))
-            if sp:
-                db_meta.shooting_params = sp
-
-        loc_details = meta.get("location_details", {})
-        if loc_details:
-            if loc_details.get("longitude"): db_meta.longitude = loc_details.get("longitude")
-            if loc_details.get("latitude"): db_meta.latitude = loc_details.get("latitude")
-            if loc_details.get("city"): db_meta.city = loc_details.get("city")
-            if loc_details.get("district"): db_meta.district = loc_details.get("district")
-            if loc_details.get("province"): db_meta.province = loc_details.get("province")
-            if loc_details.get("country"): db_meta.country = loc_details.get("country")
-            if loc_details.get("address"): db_meta.address = loc_details.get("address")
-
-            # Identify Scene
-            if db_meta.latitude is not None and db_meta.longitude is not None:
-                try:
-                    scene_id = identify_scene(db, float(db_meta.latitude), float(db_meta.longitude))
-                    if scene_id:
-                        db_meta.scene_id = scene_id
-                except Exception as e:
-                    logging.error(f"Error identifying scene: {e}")
-
-        if meta.get("photo_time"):
-            photo.photo_time = meta["photo_time"]
-        photo.image_type = determine_image_type(photo.filename, photo.width, photo.height, meta.get("exif_info", {}))
-
-        # Mark as processed
-        tasks_status = dict(photo.processed_tasks or {})
-        tasks_status['metadata'] = True
-        photo.processed_tasks = tasks_status
-        db.add(photo)
-        db.commit()
+        update_photo_metadata_from_extract(db, photo, meta)
         return {'status': 'success'}
     else:
         raise Exception(res.get('error'))
+
+def update_photo_metadata_from_extract(db: Session, photo: Photo, meta: dict):
+    # Update DB
+    db_meta = db.query(PhotoMetadata).filter(PhotoMetadata.photo_id == photo.id).first()
+    if not db_meta:
+        db_meta = PhotoMetadata(photo_id=photo.id)
+        db.add(db_meta)
+
+    # Update fields
+    if meta.get("exif_info"):
+        exif_dict = meta["exif_info"]
+        # Serialize for storage
+        # Convert non-serializable objects to string
+        def default_serializer(obj):
+            if isinstance(obj, (bytes, bytearray)):
+                return str(obj)
+            return str(obj)
+
+        db_meta.exif_info = json.dumps(exif_dict, default=default_serializer, ensure_ascii=False)
+
+        # Extract Camera Info
+        if exif_dict.get('Make'):
+            db_meta.make = str(exif_dict.get('Make')).strip().replace('\x00', '')
+        if exif_dict.get('Model'):
+            db_meta.model = str(exif_dict.get('Model')).strip().replace('\x00', '')
+        
+        sp = {}
+        # FNumber often comes as a ratio, we store string representation
+        if exif_dict.get('FNumber'):
+            sp['f_number'] = str(exif_dict.get('FNumber'))
+        if exif_dict.get('ExposureTime'):
+            sp['exposure_time'] = str(exif_dict.get('ExposureTime'))
+        if exif_dict.get('ISOSpeedRatings'):
+            sp['iso'] = str(exif_dict.get('ISOSpeedRatings'))
+        if exif_dict.get('FocalLength'):
+            sp['focal_length'] = str(exif_dict.get('FocalLength'))
+        if exif_dict.get('FocalLengthIn35mmFilm'):
+            sp['focal_length_35mm'] = str(exif_dict.get('FocalLengthIn35mmFilm'))
+        if sp:
+            db_meta.shooting_params = sp
+
+    loc_details = meta.get("location_details", {})
+    if loc_details:
+        if loc_details.get("longitude"): db_meta.longitude = loc_details.get("longitude")
+        if loc_details.get("latitude"): db_meta.latitude = loc_details.get("latitude")
+        if loc_details.get("city"): db_meta.city = loc_details.get("city")
+        if loc_details.get("district"): db_meta.district = loc_details.get("district")
+        if loc_details.get("province"): db_meta.province = loc_details.get("province")
+        if loc_details.get("country"): db_meta.country = loc_details.get("country")
+        if loc_details.get("address"): db_meta.address = loc_details.get("address")
+
+        # Identify Scene
+        if db_meta.latitude is not None and db_meta.longitude is not None:
+            try:
+                scene_id = identify_scene(db, float(db_meta.latitude), float(db_meta.longitude))
+                if scene_id:
+                    db_meta.scene_id = scene_id
+            except Exception as e:
+                logging.error(f"Error identifying scene: {e}")
+
+    if meta.get("photo_time"):
+        photo.photo_time = meta["photo_time"]
+    photo.image_type = determine_image_type(photo.filename, photo.width, photo.height, meta.get("exif_info", {}))
+
+    # Mark as processed
+    tasks_status = dict(photo.processed_tasks or {})
+    tasks_status['metadata'] = True
+    photo.processed_tasks = tasks_status
+    db.add(photo)
+    db.commit()
+    
+    if photo.owner_id:
+        from app.crud.album import trigger_conditional_albums_update
+        trigger_conditional_albums_update(db, photo.owner_id, [photo.id])
 
 async def handle_rebuild_metadata(task_manager, task: Task, db: Session):
     scope = task.payload.get('scope', 'all')

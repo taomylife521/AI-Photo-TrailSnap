@@ -177,11 +177,15 @@ def remove_directory(
         norm_path = os.path.normpath(path)
         photos = db.query(Photo).filter(Photo.owner_id == target_user.id).all()
 
+        photo_ids_to_delete = []
         for p in photos:
             if os.path.normpath(p.file_path).startswith(norm_path):
-                delete_thumbnails(target_user.id, p.id)
-                db.delete(p)
+                photo_ids_to_delete.append(p.id)
                 db.add(IndexLog(action='deleted', file_path=p.file_path, photo_id=p.id, owner_id=target_user.id))
+        
+        if photo_ids_to_delete:
+            from app.crud.photo import batch_delete_photos_db
+            batch_delete_photos_db(db, photo_ids_to_delete, is_delete_file=False, user_id=target_user.id)
         
         db.commit()
         db.refresh(target_user)
@@ -292,11 +296,16 @@ def apply_filter_task_bg(user_id: str = None):
                  query = query.filter(Photo.owner_id == user_id)
              
              photos_to_delete = query.filter(or_(*filters)).all()
+             
+             photo_ids_to_delete = []
              for p in photos_to_delete:
-                 delete_thumbnails(target_user.id, p.id)
-                 db.delete(p)
+                 photo_ids_to_delete.append(p.id)
                  db.add(IndexLog(action='deleted', file_path=p.file_path, photo_id=p.id, owner_id=p.owner_id))
                  deleted_count += 1
+                 
+             if photo_ids_to_delete:
+                 from app.crud.photo import batch_delete_photos_db
+                 batch_delete_photos_db(db, photo_ids_to_delete, is_delete_file=False, user_id=user_id)
              db.commit()
              
         # 2. Regex-based filtering (Filename)
@@ -319,6 +328,7 @@ def apply_filter_task_bg(user_id: str = None):
                 
                 all_photos = query.all()
                 
+                photo_ids_to_delete = []
                 for pid, path in all_photos:
                     basename = os.path.basename(path)
                     matched = False
@@ -331,10 +341,12 @@ def apply_filter_task_bg(user_id: str = None):
                         # Re-fetch to delete (ensure it still exists)
                         p = db.query(Photo).get(pid)
                         if p:
-                            delete_thumbnails(target_user.id, p.id)
-                            db.delete(p)
+                            photo_ids_to_delete.append(p.id)
                             db.add(IndexLog(action='deleted', file_path=p.file_path, photo_id=p.id, owner_id=p.owner_id))
                             deleted_count += 1
+                if photo_ids_to_delete:
+                    from app.crud.photo import batch_delete_photos_db
+                    batch_delete_photos_db(db, photo_ids_to_delete, is_delete_file=False, user_id=user_id)
                 db.commit()
 
         logging.info(f"Filter applied. Deleted {deleted_count} files.")

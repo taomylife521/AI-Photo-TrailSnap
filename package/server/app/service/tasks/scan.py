@@ -248,10 +248,15 @@ async def handle_scan_folder(task_manager, task: Task, db: Session):
             for i in range(0, len(deleted_list), chunk_size):
                 chunk = deleted_list[i:i+chunk_size]
                 photos_to_delete = db.query(Photo).filter(Photo.owner_id==user_id, Photo.file_path.in_(chunk)).all()
+                photo_ids_to_delete = []
                 for ph in photos_to_delete:
-                    storage.delete_thumbnails(user_id, ph.id)
-                    db.delete(ph)
+                    photo_ids_to_delete.append(ph.id)
                     db.add(IndexLog(action='deleted', file_path=ph.file_path, photo_id=ph.id, owner_id=user_id))
+                
+                if photo_ids_to_delete:
+                    from app.crud.photo import batch_delete_photos_db
+                    batch_delete_photos_db(db, photo_ids_to_delete, is_delete_file=False, user_id=user_id)
+                    
                 db.commit()
                 task_manager.scan_status['deleted'] += len(photos_to_delete)
 

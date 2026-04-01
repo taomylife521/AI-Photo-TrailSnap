@@ -497,6 +497,8 @@ class TaskWorker:
             self.scan_status['total_files'] = max(self.scan_status['total_files'], total_unfinished)
             logging.info(f"Recovered total {total_unfinished} unfinished tasks (pending: {pending_tasks}, processing: {processing_tasks})")
             self._save_system_state('scan_status', self.scan_status)
+            paused_list = self._load_system_state('paused_categories', [])
+            self.paused_categories = set(paused_list)
 
         except Exception as e:
             logging.error(f"Failed to recover unfinished tasks: {e}", exc_info=True)

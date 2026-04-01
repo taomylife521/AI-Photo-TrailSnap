@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from datetime import datetime
 
-from app.db.models.album import Album
+from app.db.models.album import Album, AlbumPhoto
 from app.db.models.photo import Photo
 from app.db.models.photo_metadata import PhotoMetadata
 from app.db.models.face import Face
@@ -92,6 +92,8 @@ def _build_album_query(db: Session, album: Album):
     
     return query
 
+import threading
+
 def _update_album_photo_count(db: Session, album_id: UUID):
     album = db.query(Album).filter(Album.id == album_id).first()
     if album:
@@ -100,6 +102,77 @@ def _update_album_photo_count(db: Session, album_id: UUID):
         album.num_photos = count
         db.add(album)
         db.commit()
+
+def trigger_conditional_albums_update(db: Session, user_id: UUID, photo_ids: List[UUID] = None):
+    """
+    Trigger update for all conditional/smart albums for a given user.
+    If photo_ids is provided, only those photos will be checked and updated, 
+    making it much more efficient than a full scan.
+    """
+    albums = db.query(Album).filter(
+        Album.owner_id == user_id,
+        Album.type.in_(['conditional', 'smart'])
+    ).all()
+    
+    if not albums:
+        return
+        
+    if photo_ids is not None:
+        if not photo_ids:
+            return
+            
+        for album in albums:
+            # Check which of the given photos match the album condition
+            if len(photo_ids) == 1:
+                photo_id = photo_ids[0]
+                matching_query = _build_album_query(db, album).filter(Photo.id == photo_id)
+            else:
+                matching_query = _build_album_query(db, album).filter(Photo.id.in_(photo_ids))
+            matching_photos = matching_query.all()
+            matching_photo_ids = {p.id for p in matching_photos}
+            
+            # Current association for these photos and this album
+            existing_relations = db.query(AlbumPhoto).filter(
+                AlbumPhoto.album_id == album.id,
+                AlbumPhoto.photo_id.in_(photo_ids)
+            ).all()
+            existing_photo_ids = {r.photo_id for r in existing_relations}
+            
+            to_add = matching_photo_ids - existing_photo_ids
+            to_remove = existing_photo_ids - matching_photo_ids
+            
+            if to_add:
+                new_relations = [
+                    AlbumPhoto(album_id=album.id, photo_id=pid)
+                    for pid in to_add
+                ]
+                db.add_all(new_relations)
+                
+            if to_remove:
+                db.query(AlbumPhoto).filter(
+                    AlbumPhoto.album_id == album.id,
+                    AlbumPhoto.photo_id.in_(to_remove)
+                ).delete(synchronize_session=False)
+                
+            if to_add or to_remove:
+                db.commit()
+                _update_album_photo_count(db, album.id)
+                
+                # Update cover if needed
+                if not album.cover_id or (album.cover_id in to_remove):
+                    first_photo = _build_album_query(db, album).order_by(Photo.photo_time.asc()).first()
+                    album.cover_id = first_photo.id if first_photo else None
+                    db.add(album)
+                    db.commit()
+    else:
+        # Fallback to full async scan if no photo_ids provided
+        from app.service.tasks.album import scan_album_task
+        album_ids = [album.id for album in albums]
+        def _run_scans(ids):
+            for aid in ids:
+                scan_album_task(aid)
+                
+        threading.Thread(target=_run_scans, args=(album_ids,)).start()
 
 def get_album(db: Session, album_id: UUID, user_id: UUID = None):
     query = db.query(Album).options(joinedload(Album.cover)).filter(Album.id == album_id)

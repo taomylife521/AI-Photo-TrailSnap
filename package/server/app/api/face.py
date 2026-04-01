@@ -155,6 +155,8 @@ async def add_photos_to_identity(
             count += 1
             
     db.commit()
+    from app.crud.album import trigger_conditional_albums_update
+    trigger_conditional_albums_update(db, current_user.id, payload.photo_ids)
     return {"status": "success", "count": count}
 
 @router.put("/identities/{id}", summary="更新人物信息", description="修改人物的显示名称、描述和标签")
@@ -223,6 +225,9 @@ def delete_identity(
     if not crud_face.delete_identity(db, id, owner_id=current_user.id):
         raise HTTPException(status_code=404, detail="Identity not found")
     
+    from app.crud.album import trigger_conditional_albums_update
+    # 删除人物影响的照片不好直接获取，传 None 触发全量扫描
+    trigger_conditional_albums_update(db, current_user.id, None)
     return {"status": "success"}
 
 @router.post("/identities/{id}/remove-photos", summary="从人物中移除照片", description="将指定照片从该人物中移除（解除人脸关联）")
@@ -239,6 +244,8 @@ def remove_photos_from_identity(
         raise HTTPException(status_code=404, detail="Identity not found")
         
     count = crud_face.remove_photos_from_identity(db, id, payload.photo_ids, owner_id=current_user.id)
+    from app.crud.album import trigger_conditional_albums_update
+    trigger_conditional_albums_update(db, current_user.id, payload.photo_ids)
     return {"status": "success", "count": count}
 
 @router.put("/identities/{id}/cover", summary="设置人物封面", description="将指定照片设为该人物的封面照片")
@@ -272,6 +279,9 @@ def merge_identities(
     if not crud_face.merge_identities(db, payload.target_id, payload.source_ids, owner_id=current_user.id):
          raise HTTPException(status_code=400, detail="Merge failed")
     
+    from app.crud.album import trigger_conditional_albums_update
+    # 难以获取所有影响的 photo_ids，传 None 触发全量扫描
+    trigger_conditional_albums_update(db, current_user.id, None)
     return {"status": "success"}
 
 @router.post("/identities/{id}/rescan", summary="重新扫描人物人脸", description="根据当前人物的人脸中心，重新扫描未分配的人脸并尝试关联")
@@ -288,4 +298,7 @@ def rescan_identity(
         
     service = FaceClusterService(db)
     count = service.rescan_identity(id, owner_id=current_user.id)
+    
+    from app.crud.album import trigger_conditional_albums_update
+    trigger_conditional_albums_update(db, current_user.id, None)
     return {"status": "success", "count": count}

@@ -157,6 +157,11 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                     photo.processed_tasks = tasks_status
                     db.add(photo)
                     db.commit()
+                    
+                    if photo.owner_id:
+                        from app.crud.album import trigger_conditional_albums_update
+                        trigger_conditional_albums_update(db, photo.owner_id, [photo.id])
+                        
                     return {'status': 'success', 'faces_found': count}
                 else:
                     return {'status': 'failed', 'error': f"AI Service error: {resp.status}"}
