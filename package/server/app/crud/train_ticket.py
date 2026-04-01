@@ -8,6 +8,7 @@
 @File        : server-train_ticket.py
 @Description : 
 """
+import logging
 
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -64,6 +65,15 @@ def get_all_train_tickets(db: Session, owner_id: uuid.UUID = None) -> List[Train
 
 def create_train_ticket(db: Session, ticket: TrainTicketCreate, owner_id: uuid.UUID = None) -> TrainTicket:
     """创建新的火车票"""
+    # Check duplicate
+    existing = db.query(TrainTicket).filter(
+        TrainTicket.train_code == ticket.train_code,
+        TrainTicket.date_time == ticket.date_time,
+        TrainTicket.seat_num == (ticket.seat_num or '无座')
+    ).first()
+    if existing:
+        logging.info(f"Duplicate train ticket found: {ticket.train_code} {ticket.date_time}")
+        return None
     db_ticket = TrainTicket(
         train_code=ticket.train_code,
         departure_station=ticket.departure_station,
@@ -116,5 +126,12 @@ def delete_train_ticket(db: Session, ticket_id: str) -> bool:
         return False
 
     db.delete(db_ticket)
+    db.commit()
+    return True
+
+def delete_train_ticket_by_photo_id(db: Session, ticket_id: str) -> bool:
+    """删除火车票"""
+    # 删除photo对应的火车票
+    db.query(TrainTicket).filter(TrainTicket.photo_id == str(ticket_id)).delete()
     db.commit()
     return True

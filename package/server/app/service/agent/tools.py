@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Q
 from sqlalchemy import or_, func, distinct
 from langchain_core.tools import tool, StructuredTool
 
+from app.utils.embedding import get_embedding
 from app.core.config_manager import config_manager
 from app.db.models import ImageVector
 from app.db.session import SessionLocal
@@ -110,16 +111,8 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
                 query = query.filter(Photo.faces.any(Face.identity.has(FaceIdentity.identity_name.in_(persons))))
             distance = None
             if description:
-                import requests
                 # 1. Get Text Embedding from AI Service
-                api_url = f"{config_manager.get_user_config(user_id, db).ai.ai_api_url}/classification/embed/text"
-                try:
-                    resp = requests.post(api_url, json={"text": description}, timeout=10)
-                    if resp.status_code != 200:
-                        raise HTTPException(status_code=502, detail=f"AI Service error: {resp.status_code}")
-                    embedding = resp.json()
-                except requests.RequestException as e:
-                    raise HTTPException(status_code=502, detail=f"AI Service error: {str(e)}")
+                embedding = get_embedding(description, user_id, db)
                 
                 distance = ImageVector.embedding.cosine_distance(embedding)
                 query = query.join(ImageVector, Photo.id == ImageVector.photo_id)

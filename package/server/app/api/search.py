@@ -17,6 +17,7 @@ from app.core.config_manager import config_manager
 from app.schemas.photo import Photo as PhotoSchema
 from app.crud import album as crud_album
 from app.api.deps import get_current_user
+from app.utils.embedding import async_get_embedding
 
 # DB Models
 from app.db.models.ocr import OCR
@@ -212,15 +213,7 @@ async def search_by_text(
 
         else:
             # 1. Get Text Embedding from AI Service
-            async with aiohttp.ClientSession() as session:
-                api_url = f"{config_manager.get_user_config(user.id, db).ai.ai_api_url}/classification/embed/text"
-                async with session.post(
-                    api_url,
-                    json={"text": request.text}
-                ) as resp:
-                    if resp.status != 200:
-                        raise HTTPException(status_code=502, detail=f"AI Service error: {resp.status}")
-                    embedding = await resp.json()
+            embedding = await async_get_embedding(request.text, user.id, db)
 
             # 2. Search Vectors
             results = crud_vector.search_similar_vectors(db, embedding, request.limit, request.skip, user_id=user.id)

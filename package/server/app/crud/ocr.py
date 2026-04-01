@@ -11,3 +11,10 @@ def delete_ocr_by_photo_id(db: Session, photo_id: UUID) -> int:
     result = db.query(OCR).filter(OCR.photo_id == photo_id).delete()
     db.commit()
     return result
+
+def create_ocr(db: Session, ocr: schemas.OCRCreate) -> OCR:
+    db_ocr = OCR(**ocr.model_dump())
+    db.add(db_ocr)
+    db.commit()
+    db.refresh(db_ocr)
+    return db_ocr

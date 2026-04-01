@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import logging
 
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -41,6 +42,15 @@ def get_flight_tickets(
 
 def create_flight_ticket(db: Session, ticket: FlightTicketCreate, owner_id: uuid.UUID = None) -> FlightTicket:
     """创建新的飞机票"""
+    # Check duplicate
+    existing = db.query(FlightTicket).filter(
+        FlightTicket.flight_code == ticket.flight_code,
+        FlightTicket.date_time == ticket.date_time,
+        FlightTicket.name == ticket.name
+    ).first()
+    if existing:
+        logging.info(f"Duplicate flight ticket found: {ticket.flight_code} {ticket.date_time} {ticket.name}")
+        return None
     db_ticket = FlightTicket(
         flight_code=ticket.flight_code,
         departure_city=ticket.departure_city,
@@ -84,5 +94,12 @@ def delete_flight_ticket(db: Session, ticket_id: str) -> bool:
         return False
 
     db.delete(db_ticket)
+    db.commit()
+    return True
+
+def delete_flight_ticket_by_photo_id(db: Session, ticket_id: str) -> bool:
+    """删除飞机票"""
+    # 删除photo对应的飞机票
+    db.query(FlightTicket).filter(FlightTicket.photo_id == str(ticket_id)).delete()
     db.commit()
     return True

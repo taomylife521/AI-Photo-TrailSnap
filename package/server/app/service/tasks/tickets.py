@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 from app.db.models.task import Task, TaskType
 from app.db.models.photo import Photo, FileType
 from app.db.models.trip import TrainTicket, FlightTicket
+from app.crud import train_ticket as crud_train_tickets
+from app.crud import flight_ticket as crud_flight_tickets
+from app.schemas.train_ticket import TrainTicketCreate, TrainTicketUpdate
+from app.schemas.flight_ticket import FlightTicketCreate, FlightTicketUpdate
+
 from typing import Dict, Any, List
 from datetime import datetime
 from app.core.config_manager import config_manager
@@ -56,7 +61,7 @@ async def get_schedule_info(train_code: str) -> Dict[str, Any]:
             return None
 
 # 计算车票里程和时间
-async def calculate_ticket_mileage_and_time(ticket: TrainTicket) -> Dict[str, Any]:
+async def calculate_ticket_mileage_and_time(ticket: TrainTicketCreate) -> Dict[str, Any]:
     """计算车票里程和时间"""
     total_mileage = 0
     total_time = 0
@@ -156,9 +161,8 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
             if not target_path or not os.path.exists(target_path):
                 return {'status': 'failed', 'error': 'file not found'}
         # 删除photo对应的车票和机票
-        db.query(TrainTicket).filter(TrainTicket.photo_id == str(photo.id)).delete()
-        db.query(FlightTicket).filter(FlightTicket.photo_id == str(photo.id)).delete()
-        db.commit()
+        crud_train_tickets.delete_train_ticket_by_photo_id(db, photo.id)
+        crud_flight_tickets.delete_flight_ticket_by_photo_id(db, photo.id)
 
         async with aiohttp.ClientSession() as session:
             with open(target_path, 'rb') as f:
@@ -222,18 +226,8 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                                     # Process Flight Ticket
                                     if not t_info.get('flight_code'):
                                         continue
-                                    
-                                    # Check duplicate
-                                    existing = db.query(FlightTicket).filter(
-                                        FlightTicket.flight_code == t_info['flight_code'],
-                                        FlightTicket.date_time == dt,
-                                        FlightTicket.name == (t_info.get('name') or '未知')
-                                    ).first()
-                                    if existing:
-                                        logger.info(f"Duplicate flight ticket found: {t_info['flight_code']} {dt}")
-                                        continue
 
-                                    new_ticket = FlightTicket(
+                                    new_ticket = FlightTicketCreate(
                                         flight_code=t_info['flight_code'],
                                         departure_city=t_info.get('departure_city', '未知'),
                                         arrival_city=t_info.get('arrival_city', '未知'),
@@ -243,12 +237,13 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                                         total_mileage=0,
                                         total_running_time=0,
                                         comments=f"自动识别自图片: {photo.filename}",
-                                        photo_id=str(photo.id),
-                                        owner_id=photo.owner_id
+                                        photo_id=str(photo.id)
                                     )
-                                    db.add(new_ticket)
-                                    db.flush()
-                                    t_info['saved_id'] = new_ticket.id
+                                    # Create Ticket
+                                    ticket = crud_flight_tickets.create_flight_ticket(db, new_ticket, owner_id=photo.owner_id)
+                                    if not ticket:
+                                        continue
+                                    t_info['saved_id'] = ticket.id
                                     added_count += 1
                                 
                                 else:
@@ -256,18 +251,8 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                                     if not t_info.get('train_code'):
                                         continue
 
-                                    # Check duplicate
-                                    existing = db.query(TrainTicket).filter(
-                                        TrainTicket.train_code == t_info['train_code'],
-                                        TrainTicket.date_time == dt,
-                                        TrainTicket.seat_num == (t_info.get('seat_num') or '无座')
-                                    ).first()
-                                    if existing:
-                                        logger.info(f"Duplicate train ticket found: {t_info['train_code']} {dt}")
-                                        continue
-                                    
                                     # Create Ticket
-                                    new_ticket = TrainTicket(
+                                    new_ticket = TrainTicketCreate(
                                         train_code=t_info['train_code'],
                                         departure_station=t_info.get('departure_station', '未知'),
                                         arrival_station=t_info.get('arrival_station', '未知'),
@@ -283,18 +268,18 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                                         total_running_time=0,
                                         stop_stations="[]",
                                         comments=f"自动识别自图片: {photo.filename}",
-                                        photo_id=str(photo.id),
-                                        owner_id=photo.owner_id
+                                        photo_id=str(photo.id)
                                     )
                                     # Calculate mileage and time
                                     ticket_info = await calculate_ticket_mileage_and_time(new_ticket)
-                                    print(ticket_info)
                                     new_ticket.total_mileage = ticket_info['total_mileage']
                                     new_ticket.total_running_time = ticket_info['total_time']
                                     new_ticket.stop_stations = json.dumps(ticket_info['stop_stations'], ensure_ascii=False)
-                                    db.add(new_ticket)
-                                    db.flush()
-                                    t_info['saved_id'] = new_ticket.id
+                                    # Create Ticket
+                                    ticket = crud_train_tickets.create_train_ticket(db, new_ticket, owner_id=photo.owner_id)
+                                    if not ticket:
+                                        continue
+                                    t_info['saved_id'] = ticket.id
                                     added_count += 1
 
                             except Exception as ex:

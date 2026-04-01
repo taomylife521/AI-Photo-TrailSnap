@@ -343,7 +343,7 @@ const formatCategory = (cat: string) => {
 
 onMounted(() => {
     fetchTasks()
-    taskPollTimer = window.setInterval(fetchTasks, 2000)
+    taskPollTimer = window.setInterval(fetchTasks, 5000)
 })
 
 onUnmounted(() => {

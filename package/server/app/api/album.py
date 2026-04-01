@@ -16,6 +16,7 @@ from app.service.tasks.album import scan_album_task
 from app.api.deps import get_current_user
 from app.db.models.user import User
 from app.api.media import upload_photo_generic
+from app.utils.embedding import async_get_embedding
 
 router = APIRouter()
 
@@ -25,21 +26,7 @@ router = APIRouter()
 async def create_album(album: schemas.AlbumCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query_embedding = None
     if album.type == 'smart' and album.description:
-        # Call AI service
-        try:
-            async with aiohttp.ClientSession() as session:
-                url = f"{config_manager.get_user_config(current_user.id, db).ai.ai_api_url}/classification/embed/text"
-                payload = {'text': album.description}
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        query_embedding = data
-                    else:
-                        logging.info(resp.status, await resp.text())
-                        raise HTTPException(status_code=500, detail=f"AI Service error: {resp.status}")
-        except Exception as e:
-            logging.info(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Failed to connect to AI service: {e}")
+        query_embedding = await async_get_embedding(album.description, current_user.id, db)
 
     db_album = crud.create_album(db=db, album=album, query_embedding=query_embedding, user_id=current_user.id)
     
@@ -101,20 +88,7 @@ async def update_album(album_id: UUID, album: schemas.AlbumUpdate, background_ta
     query_embedding = None
     if current_album.type == 'smart':
         if album.description and album.description != current_album.description:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    url = f"{config_manager.get_user_config(current_user.id, db).ai.ai_api_url}/classification/embed/text"
-                    payload = {'text': album.description}
-                    async with session.post(url, json=payload) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            query_embedding = data
-                        else:
-                            logging.info(resp.status, await resp.text())
-                            raise HTTPException(status_code=500, detail=f"AI Service error: {resp.status}")
-            except Exception as e:
-                logging.info(traceback.format_exc())
-                raise HTTPException(status_code=500, detail=f"Failed to connect to AI service: {e}")
+            query_embedding = await async_get_embedding(album.description, current_user.id, db)
 
     db_album = crud.update_album(db, album_id=album_id, album=album, query_embedding=query_embedding)
     

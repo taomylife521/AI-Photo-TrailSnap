@@ -8,8 +8,11 @@ from app.db.models.task import Task, TaskType
 from app.db.models.photo import Photo, FileType
 from app.db.models.ocr import OCR
 from typing import Dict, Any, List
+from app.crud import ocr as crud_ocr
 from app.core.config_manager import config_manager
 from PIL import Image
+
+from app.schemas.ocr import OCRCreate
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +149,7 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                     rec_polys = pruned_result.get('rec_polys', [])
 
                     # Clean up old OCR results for this photo
-                    db.query(OCR).filter(OCR.photo_id == photo.id).delete()
+                    crud_ocr.delete_ocr_by_photo_id(db, photo.id)
 
                     count = 0
 
@@ -169,13 +172,15 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                             # Let's hope dimensions are there.
                             norm_poly = poly
 
-                        ocr_record = OCR(
-                            photo_id=photo.id,
-                            text=text,
-                            text_score=score,
-                            polygon=norm_poly
+                        ocr_record = crud_ocr.create_ocr(
+                            db,
+                            OCRCreate(
+                                photo_id=photo.id,
+                                text=text,
+                                text_score=score,
+                                polygon=norm_poly
+                            )
                         )
-                        db.add(ocr_record)
                         count += 1
 
                     # Update Status
