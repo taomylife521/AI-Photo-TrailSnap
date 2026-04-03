@@ -664,10 +664,24 @@ def get_on_this_day_photos(db: Session, user_id: UUID, month: int, day: int, yea
     获取“那年今日”的照片：
     1. 过滤：同月同日，排除截图，排除当年
     2. 排序：AI 评分 (memory_score + quality_score) -> 向量相似度 (POSITIVE_SENTIMENT_VECTOR) -> 时间倒序
+    3. 去重：去除相似度高的照片，相似照片只返回一张
     """
-    query = db.query(Photo).options(
+    import numpy as np
+
+    # 排序 1: AI 评分 (memory_score + quality_score)
+    ai_score = func.coalesce(ImageDescription.memory_score, 0) + func.coalesce(ImageDescription.quality_score, 0)
+    
+    # 在 SQLAlchemy 中查询多列并且包含 list/numpy.ndarray 类型时，.all() 会尝试对结果去重（如果是 tuple 的话）
+    # 但如果包含 numpy.ndarray 就会报 unhashable type 错误，所以不能直接 select 两列
+    # 这里我们只查询 Photo 对象，然后遍历时通过 photo.image_vector (或手动 join 出来的字段) 获取 embedding
+    
+    photo_query = db.query(Photo).options(
         joinedload(Photo.metadata_info),
-        joinedload(Photo.image_description)
+        joinedload(Photo.image_description),
+        # 不能用 joinedload ImageVector，因为我们只想要 embedding 并且上面外连接了，
+        # 为了避免 hash 问题，我们直接用外连接然后在后面查询中只选 Photo。
+        # 实际上在 Photo 对象上没有直接映射 image_vector，如果有，可以直接加载。
+        # 我们修改查询：只选择 Photo 对象，但是保留 outerjoin 以便排序
     ).outerjoin(ImageDescription).outerjoin(ImageVector).filter(
         Photo.owner_id == user_id,
         func.extract('month', Photo.photo_time) == month,
@@ -676,15 +690,56 @@ def get_on_this_day_photos(db: Session, user_id: UUID, month: int, day: int, yea
         Photo.image_type != ImageType.SCREENSHOT,
         Photo.file_type != FileType.video
     )
-
-    # 排序 1: AI 评分 (memory_score + quality_score)
-    ai_score = func.coalesce(ImageDescription.memory_score, 0) + func.coalesce(ImageDescription.quality_score, 0)
     
-    # 排序 2: 向量相似度 (如果 POSITIVE_SENTIMENT_VECTOR 不为空)
+    # 重新应用排序
     if POSITIVE_SENTIMENT_VECTOR.embedding:
         distance = ImageVector.embedding.cosine_distance(POSITIVE_SENTIMENT_VECTOR.embedding)
-        query = query.order_by(ai_score.desc(), distance.asc(), Photo.photo_time.desc())
+        photo_query = photo_query.order_by(ai_score.desc(), distance.asc(), Photo.photo_time.desc())
     else:
-        query = query.order_by(ai_score.desc(), Photo.photo_time.desc())
+        photo_query = photo_query.order_by(ai_score.desc(), Photo.photo_time.desc())
 
-    return query.limit(limit).all()
+    # 获取更多候选照片
+    candidates = photo_query.limit(limit * 5).all()
+
+    # 如果需要用到 embedding 进行去重，我们需要额外查询这批照片的 embeddings
+    candidate_ids = [photo.id for photo in candidates]
+    
+    embeddings_map = {}
+    if candidate_ids:
+        # 单独查一次 vectors，避免与 joinedload 冲突
+        vectors = db.query(ImageVector).filter(ImageVector.photo_id.in_(candidate_ids)).all()
+        for v in vectors:
+            embeddings_map[v.photo_id] = v.embedding
+
+    def cosine_similarity(vec1, vec2):
+        v1 = np.array(vec1)
+        v2 = np.array(vec2)
+        norm1 = np.linalg.norm(v1)
+        norm2 = np.linalg.norm(v2)
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        return np.dot(v1, v2) / (norm1 * norm2)
+
+    result_photos = []
+    selected_embeddings = []
+
+    for photo in candidates:
+        if len(result_photos) >= limit:
+            break
+            
+        embedding = embeddings_map.get(photo.id)
+        is_similar = False
+        
+        if embedding is not None:
+            for sel_emb in selected_embeddings:
+                if sel_emb is not None:
+                    sim = cosine_similarity(embedding, sel_emb)
+                    if sim > 0.90:  # 相似度大于0.9认为是相似照片
+                        is_similar = True
+                        break
+        
+        if not is_similar:
+            result_photos.append(photo)
+            selected_embeddings.append(embedding)
+
+    return result_photos

@@ -160,17 +160,22 @@
 
             <div class="h-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
             <!-- Mobile Date Range Picker -->
-            <div v-if="isCustomRange" class="p-2">
+            <div v-if="isCustomRange" class="p-2 flex flex-col items-center gap-2">
               <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
+                v-model="dateRangeStart"
+                type="date"
+                placeholder="开始日期"
                 value-format="YYYY-MM-DD"
                 size="small"
-                class="!w-full"
-                @change="handleDateRangeChange"
+                class="flex-1 !w-full"
+              />
+              <el-date-picker
+                v-model="dateRangeEnd"
+                type="date"
+                placeholder="结束日期"
+                value-format="YYYY-MM-DD"
+                size="small"
+                class="flex-1 !w-full"
               />
             </div>
 
@@ -408,6 +413,36 @@ const availableYears = ref<number[]>([])
 const dateRange = ref<[string, string] | null>(null)
 const isCustomRange = ref(false)
 
+const dateRangeStart = computed({
+  get: () => dateRange.value?.[0] || '',
+  set: (val) => {
+    if (!dateRange.value) {
+      dateRange.value = [val || '', '']
+    } else {
+      dateRange.value[0] = val || ''
+    }
+    if (!dateRange.value[0] && !dateRange.value[1]) {
+      dateRange.value = null
+    }
+    handleMobileDateChange(val, 'start')
+  }
+})
+
+const dateRangeEnd = computed({
+  get: () => dateRange.value?.[1] || '',
+  set: (val) => {
+    if (!dateRange.value) {
+      dateRange.value = ['', val || '']
+    } else {
+      dateRange.value[1] = val || ''
+    }
+    if (!dateRange.value[0] && !dateRange.value[1]) {
+      dateRange.value = null
+    }
+    handleMobileDateChange(val, 'end')
+  }
+})
+
 const filterOptions = [
   { label: '全部', value: 'all' },
   { label: '已打卡', value: 'checked' },
@@ -552,17 +587,39 @@ const handleCustomRangeClick = () => {
   fetchLocations()
 }
 
-const handleDateRangeChange = (val: [string, string] | null) => {
-  if (val) {
-    const startYear = val[0].substring(0, 4)
-    const endYear = val[1].substring(0, 4)
-    if (val[0] === `${startYear}-01-01` && val[1] === `${endYear}-12-31` && startYear === endYear) {
+const handleMobileDateChange = (val: string | null, type: 'start' | 'end') => {
+  if (dateRange.value) {
+    const startYear = dateRange.value[0]?.substring(0, 4) || ''
+    const endYear = dateRange.value[1]?.substring(0, 4) || ''
+    if (dateRange.value[0] === `${startYear}-01-01` && dateRange.value[1] === `${endYear}-12-31` && startYear === endYear && startYear) {
       selectedYear.value = parseInt(startYear)
       isCustomRange.value = false
     } else {
       selectedYear.value = null
       isCustomRange.value = true
     }
+  } else {
+    selectedYear.value = null
+  }
+  // Do not close showLevelMenu on mobile to allow selecting the other date
+  if (type === 'end') {
+    fetchLocations()
+  } else {
+    showLevelMenu.value = true
+  }
+}
+
+const handleDateRangeChange = (val: [string, string] | null) => {
+    const startYear = val?.[0]?.substring(0, 4) || ''
+    const endYear = val?.[1]?.substring(0, 4) || ''
+    if (dateRange.value) {
+      if (val?.[0] === `${startYear}-01-01` && val?.[1] === `${endYear}-12-31` && startYear === endYear && startYear) {
+        selectedYear.value = parseInt(startYear)
+        isCustomRange.value = false
+      } else {
+        selectedYear.value = null
+        isCustomRange.value = true
+      }
   } else {
     selectedYear.value = null
     // keep isCustomRange state

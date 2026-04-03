@@ -179,7 +179,9 @@
             <!-- Time Range -->
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">时间范围</label>
+                <!-- Desktop Date Range -->
                 <el-date-picker
+                    v-if="!isMobile"
                     v-model="form.timeRange"
                     type="daterange"
                     range-separator="至"
@@ -189,6 +191,24 @@
                     class="w-full"
                     style="width: 100%"
                 />
+                <!-- Mobile Date Range -->
+                <div v-else class="flex items-center gap-2">
+                    <el-date-picker
+                        v-model="timeRangeStart"
+                        type="date"
+                        placeholder="开始日期"
+                        value-format="YYYY-MM-DDTHH:mm:ss"
+                        class="flex-1 !w-full"
+                    />
+                    <span class="text-gray-500 text-xs">至</span>
+                    <el-date-picker
+                        v-model="timeRangeEnd"
+                        type="date"
+                        placeholder="结束日期"
+                        value-format="YYYY-MM-DDTHH:mm:ss"
+                        class="flex-1 !w-full"
+                    />
+                </div>
             </div>
             
             <!-- Locations -->
@@ -281,6 +301,7 @@ const store = useAlbumStore()
 
 const { width } = useWindowSize()
 const dialogWidth = computed(() => width.value < 640 ? '90%' : '500px')
+const isMobile = computed(() => width.value < 640)
 
 const formatDate = (timestamp: number) => {
   return format(new Date(timestamp), 'yyyy-MM-dd')
@@ -394,6 +415,23 @@ const form = reactive({
   threshold: 0.25
 })
 
+const timeRangeStart = computed({
+  get: () => form.timeRange[0] || '',
+  set: (val) => {
+    form.timeRange[0] = val || ''
+    if (!form.timeRange[0] && !form.timeRange[1]) form.timeRange = []
+  }
+})
+
+const timeRangeEnd = computed({
+  get: () => form.timeRange[1] || '',
+  set: (val) => {
+    if (!form.timeRange[0]) form.timeRange[0] = ''
+    form.timeRange[1] = val || ''
+    if (!form.timeRange[0] && !form.timeRange[1]) form.timeRange = []
+  }
+})
+
 const fetchFaces = async () => {
     try {
         const data = await faceApi.listIdentities(1, 1000); // Fetch all/many faces
@@ -444,7 +482,7 @@ const openEditModal = async (album: any) => {
           form.timeRange = [
               album.condition.time_range.start || '',
               album.condition.time_range.end || ''
-          ].filter(Boolean)
+          ]
       }
       if (album.condition.locations) {
           form.locations = album.condition.locations.map((l: any) => {
@@ -488,9 +526,9 @@ const submitForm = async () => {
 
     if (form.type === 'conditional') {
         payload.condition = {
-            time_range: form.timeRange && form.timeRange.length === 2 ? {
-                start: form.timeRange[0],
-                end: form.timeRange[1]
+            time_range: form.timeRange && form.timeRange.length === 2 && (form.timeRange[0] || form.timeRange[1]) ? {
+                start: form.timeRange[0] || undefined,
+                end: form.timeRange[1] || undefined
             } : undefined,
             locations: form.locations.filter(l => l.province || l.city || l.district).map(l => ({
                 province: l.province || undefined,
