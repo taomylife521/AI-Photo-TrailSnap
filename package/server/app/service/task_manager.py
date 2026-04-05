@@ -10,18 +10,19 @@ from app.db.models.task import Task, TaskType, TaskStatus
 from app.db.models.system import SystemState
 
 DEFAULT_PRIORITIES = {
-    TaskType.SCAN_FOLDER: 10,
-    TaskType.PROCESS_BASIC: 9,
-    TaskType.GENERATE_THUMBNAIL: 8,
-    TaskType.EXTRACT_METADATA: 8,
-    TaskType.REBUILD_METADATA: 8,
-    TaskType.REBUILD_THUMBNAILS: 8,
+    TaskType.SCAN_FOLDER: 100,
+    TaskType.PROCESS_BASIC: 99,
+    TaskType.GENERATE_THUMBNAIL: 98,
+    TaskType.EXTRACT_METADATA: 97,
+    TaskType.REBUILD_METADATA: 96,
+    TaskType.REBUILD_THUMBNAILS: 95,
     TaskType.RECOGNIZE_FACE: 7,
     TaskType.CLASSIFY_IMAGE: 6,
     TaskType.OCR: 5,
-    TaskType.RECOGNIZE_TICKET: 1,
+    TaskType.RECOGNIZE_TICKET:4,
     TaskType.VISUAL_DESCRIPTION: 1,
-    TaskType.SIMILAR_PHOTO_CLUSTERING: 1,
+    TaskType.SIMILAR_PHOTO_CLUSTERING: 1000,
+    TaskType.FIND_DUPLICATE_PHOTOS: 1000,
 }
 
 DEFAULT_SCAN_STATUS = {
@@ -53,6 +54,7 @@ CATEGORY_MAP = {
     TaskType.VISUAL_DESCRIPTION: 'ai',
     TaskType.OCR: 'ocr',
     TaskType.SIMILAR_PHOTO_CLUSTERING: 'similar',
+    TaskType.FIND_DUPLICATE_PHOTOS: 'duplicate',
 }
 
 CATEGORY_DESCRIPTION_MAP = {
@@ -65,6 +67,7 @@ CATEGORY_DESCRIPTION_MAP = {
     'ai': '用于生成图片的视觉描述',
     'ocr': '用于识别图片中的文字',
     'similar': '用于相似照片聚类',
+    'duplicate': '用于扫描重复照片',
 }
 
 CATEGORY_NAME_MAP = {
@@ -77,6 +80,7 @@ CATEGORY_NAME_MAP = {
     'ai': '大模型智能分析',
     'ocr': '文字识别',
     'similar': '相似照片清理',
+    'duplicate': '重复照片清理',
 }
 
 class TaskManager:
@@ -147,7 +151,7 @@ class TaskManager:
 
         stats = []
         # Define categories to show
-        categories = ['basic', 'metadata', 'face', 'classification', 'ocr', 'tickets', 'ai', 'similar']
+        categories = ['basic', 'metadata', 'face', 'classification', 'ocr', 'tickets', 'ai', 'similar', 'duplicate']
 
         # Priority map for categories (higher is better)
         cat_priority = {
@@ -158,7 +162,8 @@ class TaskManager:
             'ocr': DEFAULT_PRIORITIES.get(TaskType.OCR, 0),
             'tickets': DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_TICKET, 0),
             'ai': DEFAULT_PRIORITIES.get(TaskType.VISUAL_DESCRIPTION, 0),
-            'similar': DEFAULT_PRIORITIES.get(TaskType.SIMILAR_PHOTO_CLUSTERING, 0)
+            'similar': DEFAULT_PRIORITIES.get(TaskType.SIMILAR_PHOTO_CLUSTERING, 0),
+            'duplicate': DEFAULT_PRIORITIES.get(TaskType.FIND_DUPLICATE_PHOTOS, 0)
         }
 
         for cat in categories:

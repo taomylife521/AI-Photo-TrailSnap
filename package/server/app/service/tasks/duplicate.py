@@ -1,0 +1,79 @@
+import logging
+import os
+import asyncio
+from sqlalchemy.orm import Session
+from app.db.models.task import Task, TaskStatus
+from app.db.models.photo import Photo
+from app.utils.hash import calculate_file_md5_async
+
+async def handle_duplicate_task(worker, task: Task, db: Session):
+    """
+    Handle finding duplicate photos task by calculating MD5 for photos that don't have one.
+    """
+    try:
+        user_id = str(task.owner_id)
+        logging.info(f"Starting duplicate photo scan for user {user_id}")
+
+        # 1. Fetch all photos for the user where MD5 is empty or null
+        photos = db.query(Photo).filter(
+            Photo.owner_id == user_id,
+            (Photo.md5 == None) | (Photo.md5 == "")
+        ).all()
+
+        total_photos = len(photos)
+        task.total_items = total_photos
+        task.processed_items = 0
+        db.commit()
+
+        if total_photos == 0:
+            task.result = {'message': 'No photos need MD5 calculation'}
+            task.status = TaskStatus.COMPLETED
+            db.commit()
+            return {'status': 'completed', 'count': 0}
+
+        # 2. Process photos in batches concurrently
+        processed_count = 0
+        updated_count = 0
+        batch_size = 20  # You can adjust concurrency level here
+
+        for i in range(0, total_photos, batch_size):
+            batch_photos = photos[i:i + batch_size]
+            
+            # Create async tasks for MD5 calculation
+            md5_tasks = []
+            for photo in batch_photos:
+                if photo.file_path and os.path.exists(photo.file_path):
+                    md5_tasks.append(calculate_file_md5_async(photo.file_path))
+                else:
+                    async def empty_md5(): return ""
+                    md5_tasks.append(empty_md5())
+            
+            # Gather results concurrently
+            md5_results = await asyncio.gather(*md5_tasks)
+            
+            # Update photo objects
+            for photo, md5_hash in zip(batch_photos, md5_results):
+                if md5_hash:
+                    photo.md5 = md5_hash
+                    updated_count += 1
+                processed_count += 1
+            
+            # Update progress and commit in batches
+            task.processed_items = processed_count
+            db.commit()
+
+        # Final commit for any remaining items
+        task.processed_items = total_photos
+        task.status = TaskStatus.COMPLETED
+        task.result = {'updated_count': updated_count}
+        db.commit()
+        
+        logging.info(f"Finished duplicate photo scan for user {user_id}. Updated {updated_count}/{total_photos} photos.")
+        return {'status': 'completed', 'updated_count': updated_count}
+
+    except Exception as e:
+        logging.error(f"Duplicate task failed: {e}")
+        task.status = TaskStatus.FAILED
+        task.error = str(e)
+        db.commit()
+        raise e

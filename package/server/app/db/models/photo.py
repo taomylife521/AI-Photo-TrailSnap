@@ -33,6 +33,7 @@ class Photo(Base):
     height = Column(Integer)
     duration = Column(Float, default=0)
     image_type = Column(Enum(ImageType))  # Screenshot, Camera, Other
+    md5 = Column(String(32), nullable=True, index=True)
     # Task Status Tracking: {"thumbnail": true, "metadata": true, "face": false}
     processed_tasks = Column(JSON, default={})
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)

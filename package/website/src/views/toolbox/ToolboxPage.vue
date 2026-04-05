@@ -38,7 +38,7 @@
       <!-- Clean Duplicates -->
       <div 
         class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md transition-all border border-gray-100 dark:border-gray-700"
-        @click="$router.push('/tools/clean')"
+        @click="$router.push('/toolbox/duplicate')"
       >
         <div class="flex items-center gap-4 mb-3">
           <div class="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-500 text-2xl">

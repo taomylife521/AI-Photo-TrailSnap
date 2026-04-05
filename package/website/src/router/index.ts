@@ -22,6 +22,7 @@ const MobileSearch = () => import('@/views/search/MobileSearch.vue');
 const CleanupPage = () => import('@/views/toolbox/CleanupPage.vue');
 const ToolboxPage = () => import('@/views/toolbox/ToolboxPage.vue');
 const SimilarPhotoCleanup = () => import('@/views/toolbox/SimilarPhotoCleanup.vue');
+const DuplicatePhotoCleanup = () => import('@/views/toolbox/DuplicatePhotoCleanup.vue');
 
 const NotFound = () => import('@/views/NotFound.vue');
 
@@ -46,6 +47,7 @@ const routes: RouteRecordRaw[] = [
       { path: '/cleanup', name: 'Cleanup', component: CleanupPage, meta: { title: '清理相册' } },
       { path: '/toolbox', name: 'Toolbox', component: ToolboxPage, meta: { title: '工具箱' } },
       { path: '/toolbox/similar', name: 'SimilarPhotoCleanup', component: SimilarPhotoCleanup, meta: { title: '相似照片清理' } },
+      { path: '/toolbox/duplicate', name: 'DuplicatePhotoCleanup', component: DuplicatePhotoCleanup, meta: { title: '重复照片清理' } },
       { path: '/toolbox/cleanup', name: 'Cleanup', component: CleanupPage, meta: { title: '清理相册' } },
       { path: '/photos', name: 'Photos', component: PhotosPage, meta: { title: '所有照片' } },
       { path: '/mobile-search', name: 'MobileSearch', component: MobileSearch, meta: { title: '搜索', layout: 'blank' } },

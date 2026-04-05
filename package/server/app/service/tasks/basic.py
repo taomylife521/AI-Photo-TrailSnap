@@ -17,6 +17,7 @@ from app.db.models.photo import FileType
 from app.schemas.metadata import PhotoMetadataCreate
 from app.service import storage
 from app.utils import exif
+from app.utils.hash import calculate_file_md5
 from app.schemas import photo as photo_schemas
 from app.utils import motion_photo
 
@@ -59,6 +60,9 @@ def process_basic_cpu_job(file_path: str, file_id: UUID, storage_root: str, user
         if image_obj:
             image_obj.close()
 
+        # 4. Calculate MD5
+        md5_hash = calculate_file_md5(file_path)
+
         # Check for Google Motion Photo and extract video
         is_motion_photo = False
         if ext in ('.jpg', '.jpeg'):
@@ -76,7 +80,8 @@ def process_basic_cpu_job(file_path: str, file_id: UUID, storage_root: str, user
             "duration": duration,
             "file_name": file_name,
             "photo_create_data": None, # Placeholder
-            "is_motion_photo": is_motion_photo
+            "is_motion_photo": is_motion_photo,
+            "md5_hash": md5_hash
         }
     except Exception as e:
         return {
@@ -137,7 +142,8 @@ async def handle_process_basic(task_manager, task: Task, db: Session):
         height=result['height'],
         duration=result['duration'],
         filename=result['file_name'],
-        photo_time=meta["photo_time"]
+        photo_time=meta["photo_time"],
+        md5=result.get('md5_hash')
     )
 
     metadata_create = PhotoMetadataCreate(

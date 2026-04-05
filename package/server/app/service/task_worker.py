@@ -20,7 +20,7 @@ from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
 # Import handlers
-from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar
+from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar, duplicate
 
 CPU_TASKS = {
     TaskType.GENERATE_THUMBNAIL,
@@ -38,6 +38,7 @@ IO_TASKS = {
     TaskType.OCR,
     TaskType.CLASSIFY_IMAGE,
     TaskType.RECOGNIZE_TICKET,
+    TaskType.FIND_DUPLICATE_PHOTOS,
 }
 
 AI_TASKS = {
@@ -432,6 +433,8 @@ class TaskWorker:
             return await visual_description.handle_visual_description_task(self, task, db)
         elif task.type == TaskType.SIMILAR_PHOTO_CLUSTERING:
             return await similar.handle_similar_task(self, task, db)
+        elif task.type == TaskType.FIND_DUPLICATE_PHOTOS:
+            return await duplicate.handle_duplicate_task(self, task, db)
         else:
             return {'status': 'not_implemented', 'type': task.type}
 

@@ -26,6 +26,7 @@ class TaskType(str, enum.Enum):
     OCR = "OCR"
     VISUAL_DESCRIPTION = "VISUAL_DESCRIPTION"
     SIMILAR_PHOTO_CLUSTERING = "SIMILAR_PHOTO_CLUSTERING"
+    FIND_DUPLICATE_PHOTOS = "FIND_DUPLICATE_PHOTOS"
 
 class Task(Base):
     __tablename__ = "tasks"
