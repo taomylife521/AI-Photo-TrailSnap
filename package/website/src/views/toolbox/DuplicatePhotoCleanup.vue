@@ -186,7 +186,7 @@
                             </div>
                         </div>
                         <!-- File Path -->
-                        <div v-if="photo.file_path" class="text-xs text-gray-500 dark:text-gray-400 truncate text-center">
+                        <div v-if="photo.file_path" class="text-xs text-gray-500 dark:text-gray-400 truncate text-center " :title="photo.file_path">
                             {{ photo.file_path }}
                         </div>
                     </div>
