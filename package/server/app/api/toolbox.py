@@ -9,7 +9,7 @@ from app.dependencies import get_db
 from app.db.models.photo import Photo
 from app.db.models.task import TaskType, TaskStatus, Task
 from app.service.task_manager import TaskManager
-from app.schemas.photo import Photo as PhotoSchema
+from app.schemas.photo import PhotoDetail as PhotoSchema
 from pydantic import BaseModel
 
 class DuplicatePhotoGroup(BaseModel):

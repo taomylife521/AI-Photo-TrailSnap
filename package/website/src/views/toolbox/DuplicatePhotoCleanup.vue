@@ -58,8 +58,14 @@
         </div>
     </div>
 
+    <!-- Loading State -->
+    <div v-else-if="loading" class="flex-1 flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500"></div>
+        <p class="text-gray-500 mt-4 text-sm">正在加载...</p>
+    </div>
+
     <!-- Error/Start State -->
-    <div v-else-if="!task || task.status === 'failed' || task.status === 'cancelled'" class="flex-1 flex flex-col items-center justify-center">
+    <div v-else-if="groups.length === 0 && (!task || task.status === 'failed' || task.status === 'cancelled')" class="flex-1 flex flex-col items-center justify-center">
         <div v-if="task?.status === 'failed'" class="text-red-500 mb-4">
             任务失败: {{ task.error }}
         </div>
@@ -179,6 +185,10 @@
                                 {{ photo.filename }}
                             </div>
                         </div>
+                        <!-- File Path -->
+                        <div v-if="photo.file_path" class="text-xs text-gray-500 dark:text-gray-400 truncate text-center">
+                            {{ photo.file_path }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -268,6 +278,7 @@ const scroll = (index: number, direction: number) => {
 
 // Data Fetching
 const fetchGroups = async () => {
+    loading.value = true;
     try {
         const result = await toolboxApi.getDuplicatePhotos();
         groups.value = result.map(g => ({
@@ -280,27 +291,6 @@ const fetchGroups = async () => {
     } catch (err) {
         console.error(err);
         ElMessage.error('加载重复照片列表失败');
-    }
-};
-
-const fetchLatestTask = async () => {
-    loading.value = true;
-    try {
-        // Query the latest FIND_DUPLICATE_PHOTOS task
-        const tasks = await tasksApi.listTasks(undefined, 'FIND_DUPLICATE_PHOTOS', 1);
-        if (tasks && tasks.length > 0) {
-            const latestTask = tasks[0];
-            task.value = latestTask;
-            
-            if (latestTask.status === 'completed') {
-                await fetchGroups();
-            } else if (['pending', 'processing'].includes(latestTask.status)) {
-                startPolling();
-            }
-        }
-    } catch (err) {
-        console.error(err);
-        error.value = '加载任务状态失败';
     } finally {
         loading.value = false;
     }
@@ -360,7 +350,7 @@ const cancelTask = async () => {
 };
 
 onMounted(() => {
-    fetchLatestTask();
+    fetchGroups();
 });
 
 onUnmounted(() => {

@@ -52,7 +52,7 @@ export interface Photo {
   album_ids?: string[];
   filename?: string;
   photo_time: string;
-  // file_path: string; // Deprecated/Excluded
+  file_path?: string;
   url: string;
   thumbnail_url: string;
   file_type: FileType;
@@ -100,6 +100,7 @@ export interface AlbumImage {
   size?: number
   filename?: string
   file_type: 'image' | 'video' | 'live_photo'
+  file_path?: string
   duration?: string
   live_photo_video_url?: string
   has_live_video?: boolean

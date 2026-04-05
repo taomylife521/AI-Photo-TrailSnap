@@ -106,7 +106,8 @@ export const mapPhotoToImage = (photo: Photo): AlbumImage => {
       file_type: photo.file_type || 'image',
       duration: formatDuration(photo.duration ?? null) || '00:00',
       live_photo_video_url,
-      has_live_video: live_photo_video_url !== undefined
+      has_live_video: live_photo_video_url !== undefined,
+      file_path: photo.file_path || ''
     }
   }
 
