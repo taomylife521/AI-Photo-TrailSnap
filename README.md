@@ -189,7 +189,7 @@ TrailSnap/
 
 ## 📚 文档
 
-更多详细技术文档请参阅 `doc/` 目录：
+更多详细技术文档请参阅 `doc/` 目录（文档更新不及时，仅供参考使用）：
 - [架构设计文档](doc/architecture_design.md)
 - [前端框架分析](doc/frontend_analysis.md)
 - [后端框架分析](doc/backend_analysis.md)
