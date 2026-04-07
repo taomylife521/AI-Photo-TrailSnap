@@ -4,6 +4,8 @@ export interface ChatRequest {
   message: string;
   session_id?: string;
   stream?: boolean;
+  connection_id?: string;
+  model_name?: string;
 }
 
 export interface ChatResponse {

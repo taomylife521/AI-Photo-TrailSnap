@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ import tempfile
 import json
 import re
 import logging
+import requests
 from app.dependencies import get_db
 from app.api.deps import get_current_user
 from app.db.models.user import User
@@ -64,6 +66,76 @@ class PathValidator:
             raise HTTPException(status_code=400, detail='Path is not a directory')
             
         return os.path.abspath(path)
+
+@router.get('/models')
+def get_available_models(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    config = config_manager.get_user_config(current_user.id, db)
+    ai_config = config.ai
+    
+    connections = []
+    for conn in ai_config.connections:
+        if not conn.enable:
+            continue
+        
+        models = conn.model_names
+        # If no models specified and we have an api_base, try to fetch them dynamically
+        if not models and conn.api_base:
+            try:
+                base_url = conn.api_base.rstrip('/')
+                headers = {}
+                if conn.api_key:
+                    headers['Authorization'] = f"Bearer {conn.api_key}"
+                
+                resp = requests.get(f"{base_url}/models", headers=headers, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if 'data' in data:
+                        models = [m.get('id') for m in data['data'] if m.get('id')]
+            except Exception as e:
+                logging.error(f"Failed to fetch models from {conn.api_base}: {e}")
+                
+        connections.append({
+            "id": conn.id,
+            "provider": getattr(conn, "provider", "OpenAI"),
+            "api_base": conn.api_base,
+            "models": models
+        })
+        
+    return {
+        "connections": connections,
+        "analysis_connection_id": ai_config.analysis_connection_id,
+        "analysis_model_name": ai_config.analysis_model_name,
+        "chat_connection_id": getattr(ai_config, "chat_connection_id", ""),
+        "chat_model_name": getattr(ai_config, "chat_model_name", "")
+    }
+
+class VerifyConnectionRequest(BaseModel):
+    api_base: str
+    api_key: str = ""
+
+@router.post('/verify-connection')
+def verify_connection(
+    req: VerifyConnectionRequest,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        base_url = req.api_base.rstrip('/')
+        headers = {}
+        if req.api_key:
+            headers['Authorization'] = f"Bearer {req.api_key}"
+        
+        resp = requests.get(f"{base_url}/models", headers=headers, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            if 'data' in data:
+                models = [m.get('id') for m in data['data'] if m.get('id')]
+                return {"success": True, "models": models}
+        return {"success": False, "message": f"HTTP {resp.status_code}: {resp.text}"}
+    except Exception as e:
+        return {"success": False, "message": "无效的连接" + str(e)}
 
 @router.get('/directories')
 def get_directories(

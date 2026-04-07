@@ -57,12 +57,29 @@
             <button @click="isSidebarOpen = !isSidebarOpen" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors dark:bg-slate-800 p-1 rounded-md">
               <Menu class="w-5 h-5" />
             </button>
-            <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center hidden sm:flex">
               <Bot class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <div>
-              <h3 class="font-semibold text-slate-800 dark:text-white text-sm m-0">TrailSnap</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400 m-0">您的智能相册管家</p>
+            <div class="flex flex-col">
+              <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-slate-800 dark:text-white text-sm m-0">TrailSnap</h3>
+                <el-select
+                  v-model="selectedModelValue"
+                  size="small"
+                  class="w-36"
+                  placeholder="选择模型"
+                  v-if="availableModels.length > 0 || isModelsLoading"
+                  :loading="isModelsLoading"
+                >
+                  <el-option
+                    v-for="m in availableModels"
+                    :key="m.conn_id + '|' + m.model"
+                    :label="m.label"
+                    :value="m.conn_id + '|' + m.model"
+                  />
+                </el-select>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 m-0 hidden sm:block">您的智能相册管家</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -213,6 +230,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Bot, User, X, Loader2, Send, Menu, Maximize2, Minimize2, Plus, Trash2, Pin, MessageSquare, ListChecks, Copy, MoreHorizontal, RefreshCw, Edit2 } from 'lucide-vue-next';
 import { agentApi, type AgentSession, type AgentMessage } from '@/api/agent';
+import { settingsApi } from '@/api/settings';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import PhotoLightbox from '@/components/PhotoLightbox.vue';
@@ -234,6 +252,44 @@ const allPhotos = ref<any[]>([]);
 // Layout & UI 状态
 const isFullscreen = ref(false);
 const isSidebarOpen = ref(false);
+
+// Models & Connections state
+const availableModels = ref<Array<{ conn_id: string, model: string, label: string }>>([]);
+const selectedModelValue = ref('');
+const isModelsLoading = ref(false);
+
+const loadModels = async () => {
+  isModelsLoading.value = true;
+  try {
+    const res = await settingsApi.getModels();
+    const list: Array<{ conn_id: string, model: string, label: string }> = [];
+    if (res && res.connections) {
+      res.connections.forEach((conn: any) => {
+        if (conn.models && conn.models.length > 0) {
+          conn.models.forEach((m: string) => {
+            list.push({
+              conn_id: conn.id,
+              model: m,
+              label: `${m} (${conn.api_base || conn.id})`
+            });
+          });
+        }
+      });
+    }
+    availableModels.value = list;
+    if (res.chat_connection_id && res.chat_model_name) {
+      selectedModelValue.value = `${res.chat_connection_id}|${res.chat_model_name}`;
+    } else if (res.analysis_connection_id && res.analysis_model_name) {
+      selectedModelValue.value = `${res.analysis_connection_id}|${res.analysis_model_name}`;
+    } else if (list.length > 0) {
+      selectedModelValue.value = `${list[0].conn_id}|${list[0].model}`;
+    }
+  } catch (e) {
+    console.error('Failed to load models', e);
+  } finally {
+    isModelsLoading.value = false;
+  }
+};
 
 // 会话管理
 const sessions = ref<AgentSession[]>([]);
@@ -708,10 +764,14 @@ const sendMessage = async () => {
     let aiMessageIndex = -1;
     let sessionIdReceived = false;
 
+    const [conn_id, model] = selectedModelValue.value.split('|');
+
     await agentApi.chatStream(
       {
         message: userText,
-        session_id: currentSession.value?.id || undefined
+        session_id: currentSession.value?.id || undefined,
+        connection_id: conn_id || undefined,
+        model_name: model || undefined
       },
       (content) => {
         if (aiMessageIndex === -1) {
@@ -779,6 +839,7 @@ const sendMessage = async () => {
 
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
+    loadModels();
     loadSessions();
     scrollToBottom(true);
   }
@@ -786,6 +847,7 @@ watch(() => props.modelValue, (newVal) => {
 
 onMounted(() => {
   if (props.modelValue) {
+    loadModels();
     loadSessions();
     scrollToBottom();
   }

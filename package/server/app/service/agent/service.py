@@ -27,22 +27,36 @@ def get_session_history(db: Session, session_id: str) -> List[BaseMessage]:
     return messages
 
 
-def get_agent_executor(user_id: str, session_id: str, db: Session):
+def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id: str = None, model_name: str = None):
     """
     完全适配 langgraph==1.1.3 的 Agent 初始化
     """
     user_config = config_manager.get_user_config(user_id, db)
 
-    llm_settings = user_config.ai.llm_settings
+    ai_settings = user_config.ai
 
-    if not llm_settings.api_key or not llm_settings.model_name:
-        raise ValueError("请先在「设置 -> 基础设置 -> 语言大模型配置」中配置 API Key 和 Model Name。")
+    c_id = connection_id or ai_settings.analysis_connection_id
+    m_name = model_name or ai_settings.analysis_model_name
+
+    if not c_id or not m_name:
+        raise ValueError("未配置智能分析模型，请在「系统设置 -> 智能分析」中配置连接和模型。")
+
+    # Find connection
+    connection = next((c for c in ai_settings.connections if c.id == c_id), None)
+    if not connection:
+        raise ValueError(f"未找到指定的 AI 连接配置: {c_id}")
+        
+    if not connection.enable:
+        raise ValueError(f"选中的 AI 连接已禁用: {c_id}")
+
+    if not connection.api_key:
+        raise ValueError(f"选中的 AI 连接未配置 API Key: {c_id}")
 
     # 初始化 LLM
     llm = ChatOpenAI(
-        model=llm_settings.model_name,
-        api_key=llm_settings.api_key,
-        base_url=llm_settings.base_url if llm_settings.base_url else None,
+        model=m_name,
+        api_key=connection.api_key,
+        base_url=connection.api_base if connection.api_base else None,
         temperature=0.7,
         streaming=True
     )
@@ -76,11 +90,11 @@ def get_agent_executor(user_id: str, session_id: str, db: Session):
     return agent, system_prompt
 
 
-def chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session) -> str:
+def chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session, connection_id: str = None, model_name: str = None) -> str:
     """
     与 Agent 对话，维护上下文历史
     """
-    agent, system_prompt = get_agent_executor(user_id, session_id, db)
+    agent, system_prompt = get_agent_executor(user_id, session_id, db, connection_id, model_name)
     messages = get_session_history(db, session_id)
     
     # 将 system_prompt 作为第一条消息传入，如果它不在历史中
@@ -131,15 +145,22 @@ def generate_session_title_task(user_id: str, session_id: str, user_input: str):
             if isinstance(user_id, str):
                 user_id = UUID(user_id)
             user_config = config_manager.get_user_config(user_id, db)
-            llm_settings = user_config.ai.llm_settings
             
-            if not llm_settings.api_key or not llm_settings.model_name:
+            ai_settings = user_config.ai
+            c_id = ai_settings.analysis_connection_id
+            m_name = ai_settings.analysis_model_name
+            
+            if not c_id or not m_name:
+                return None
+                
+            connection = next((c for c in ai_settings.connections if c.id == c_id), None)
+            if not connection or not connection.enable or not connection.api_key:
                 return None
                 
             llm = ChatOpenAI(
-                model=llm_settings.model_name,
-                api_key=llm_settings.api_key,
-                base_url=llm_settings.base_url if llm_settings.base_url else None,
+                model=m_name,
+                api_key=connection.api_key,
+                base_url=connection.api_base if connection.api_base else None,
                 temperature=0.7
             )
             
@@ -161,12 +182,12 @@ def generate_session_title_task(user_id: str, session_id: str, user_input: str):
         logger.error(f"Failed to generate title: {e}")
         return None
 
-def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session):
+def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session, connection_id: str = None, model_name: str = None):
     """
     与 Agent 对话，并使用 SSE 流式返回大模型的回复
     """
     try:
-        agent, system_prompt = get_agent_executor(user_id, session_id, db)
+        agent, system_prompt = get_agent_executor(user_id, session_id, db, connection_id, model_name)
         messages = get_session_history(db, session_id)
 
         if not messages or not isinstance(messages[0], SystemMessage):

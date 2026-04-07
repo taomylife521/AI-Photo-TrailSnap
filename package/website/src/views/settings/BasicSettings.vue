@@ -134,61 +134,139 @@
         </template>
         <div class="px-6 pb-6">
           <el-form label-position="top" class="max-w-3xl">
-        <el-form-item label="AI API 地址">
+        <el-form-item label="AI API 地址（人脸识别、OCR等AI微服务地址）">
           <el-input v-model="aiForm.ai_api_url" placeholder="http://localhost:8001" />
         </el-form-item>
 
         <el-collapse v-model="aiActiveNames" class="my-4 border-none">
-          <!-- Language LLM -->
-          <el-collapse-item name="llm">
+          <!-- LLM Connections -->
+          <el-collapse-item name="connections">
             <template #title>
               <div class="flex items-center w-full">
-                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">语言大模型配置 (Language LLM)</span>
-                <el-tooltip content="用于自然语言处理、搜索增强等任务" placement="top">
+                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">大模型连接配置 (LLM Connections)</span>
+                <el-tooltip content="配置大模型 API 连接，用于智能分析、对话等任务" placement="top">
                   <Info class="w-4 h-4 text-gray-400 cursor-help" />
                 </el-tooltip>
               </div>
             </template>
             <div class="bg-blue-50 dark:bg-gray-700 p-3 rounded mb-3 text-xs text-blue-600 dark:text-blue-300">
-              配置用于文本理解和生成的语言模型。与视觉模型分开配置，以便使用不同的提供商或模型。
+              添加多个大模型提供商连接，配置后可为不同任务分配不同模型。
             </div>
-            <el-form-item label="Base URL">
-                <el-input v-model="aiForm.llm_settings.base_url" placeholder="https://api.openai.com/v1" />
-            </el-form-item>
-            <el-form-item label="API Key">
-                <el-input v-model="aiForm.llm_settings.api_key" type="password" show-password placeholder="sk-..." />
-            </el-form-item>
-            <el-form-item label="Model Name">
-                <el-input v-model="aiForm.llm_settings.model_name" placeholder="gpt-3.5-turbo" />
-            </el-form-item>
+            
+            <div v-for="(conn, index) in aiForm.connections" :key="conn.id" class="border border-gray-200 dark:border-gray-600 rounded-md p-4 mb-4 relative bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
+              <div class="flex-1 overflow-hidden mr-4">
+                <div class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1 truncate" :title="conn.api_base">
+                  URL: {{ conn.api_base || '未设置' }}
+                </div>
+                <div class="text-xs text-gray-500 flex items-center">
+                  API Key: 
+                  <span class="ml-2 font-mono bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded cursor-pointer" @click="toggleKeyVisibility(index)">
+                    {{ visibleKeys.has(index) ? (conn.api_key || '未设置') : '••••••••••••••••' }}
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <el-switch v-model="conn.enable" />
+                <el-button type="primary" size="small" plain @click="editConnection(index)">编辑</el-button>
+              </div>
+            </div>
+            
+            <el-button type="primary" plain @click="addConnection" class="w-full mt-2">
+              + 添加连接
+            </el-button>
           </el-collapse-item>
 
-          <!-- Visual LLM -->
-          <el-collapse-item name="vl">
+          <!-- Analysis LLM Config -->
+          <el-collapse-item name="analysis">
             <template #title>
               <div class="flex items-center w-full">
-                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">视觉大模型配置 (Visual LLM)</span>
-                <el-tooltip content="选择带有图像理解能力的大模型，用于图片内容理解、标签生成等视觉任务" placement="top">
+                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">大模型智能分析配置</span>
+                <el-tooltip content="选择用于图片内容理解、标签生成、智能总结等核心分析任务的模型" placement="top">
                   <Info class="w-4 h-4 text-gray-400 cursor-help" />
                 </el-tooltip>
               </div>
             </template>
-            <p class="bg-red-50 dark:bg-gray-700 p-3 rounded mb-3 text-xs text-red-600 dark:text-red-300">用于图片内容理解、标签生成、评分等视觉任务
-              <a href="http://trailsnap.cn/docs/guide/settings/aisetting.html" target="_blank" class="text-blue-500 hover:underline">
-                点击查看详细说明
-              </a>
+            <p class="bg-red-50 dark:bg-gray-700 p-3 rounded mb-3 text-xs text-red-600 dark:text-red-300">
+              用于图片内容理解、标签生成、评分等核心任务，请确保选定的模型支持视觉能力。
             </p>
-            <el-form-item label="Base URL">
-                <el-input v-model="aiForm.llm_vl_settings.base_url" placeholder="https://api.openai.com/v1" />
+            <el-form-item label="分析连接及模型">
+              <div class="flex flex-col sm:flex-row gap-4 w-full">
+                <el-select v-model="aiForm.analysis_connection_id" placeholder="选择连接" class="flex-1" @change="onAnalysisConnectionChange">
+                  <el-option
+                    v-for="conn in aiForm.connections.filter(c => c.enable)"
+                    :key="conn.id"
+                    :label="conn.api_base || '未命名连接'"
+                    :value="conn.id"
+                  />
+                </el-select>
+                <el-select
+                  v-model="aiForm.analysis_model_name"
+                  placeholder="选择模型"
+                  class="flex-1"
+                  :disabled="!aiForm.analysis_connection_id"
+                  filterable
+                  allow-create
+                  @focus="fetchModelsFromApi(aiForm.analysis_connection_id)"
+                  :loading="fetchingModels[aiForm.analysis_connection_id]"
+                >
+                  <el-option
+                    v-for="m in getAvailableModels(aiForm.analysis_connection_id)"
+                    :key="m"
+                    :label="m"
+                    :value="m"
+                  />
+                </el-select>
+              </div>
+              <div v-if="!aiForm.analysis_model_name && aiForm.analysis_connection_id" class="text-red-500 text-xs mt-1">必须指定模型名称</div>
             </el-form-item>
-            <el-form-item label="API Key">
-                <el-input v-model="aiForm.llm_vl_settings.api_key" type="password" show-password placeholder="sk-..." />
-            </el-form-item>
-            <el-form-item label="Model Name">
-                <el-input v-model="aiForm.llm_vl_settings.model_name" placeholder="gpt-4-vision-preview" />
-            </el-form-item>
+            
             <el-form-item label="图片分析提示词">
                 <el-input v-model="aiForm.visual_evaluation_prompt" type="textarea" :rows="4" placeholder="用于生成评分和描述的提示词" />
+            </el-form-item>
+          </el-collapse-item>
+
+          <!-- Chat LLM Config -->
+          <el-collapse-item name="chat">
+            <template #title>
+              <div class="flex items-center w-full">
+                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">AI 对话默认配置</span>
+                <el-tooltip content="设置智能助手对话时默认使用的连接和模型" placement="top">
+                  <Info class="w-4 h-4 text-gray-400 cursor-help" />
+                </el-tooltip>
+              </div>
+            </template>
+            <p class="bg-blue-50 dark:bg-gray-700 p-3 rounded mb-3 text-xs text-blue-600 dark:text-blue-300">
+              用于设置智能助手对话时默认加载的模型。您依然可以在对话界面中临时切换。
+            </p>
+            <el-form-item label="默认对话连接及模型">
+              <div class="flex flex-col sm:flex-row gap-4 w-full">
+                <el-select v-model="aiForm.chat_connection_id" placeholder="选择连接" class="flex-1" @change="onChatConnectionChange">
+                  <el-option
+                    v-for="conn in aiForm.connections.filter(c => c.enable)"
+                    :key="conn.id"
+                    :label="conn.api_base || '未命名连接'"
+                    :value="conn.id"
+                  />
+                </el-select>
+                <el-select
+                  v-model="aiForm.chat_model_name"
+                  placeholder="选择模型"
+                  class="flex-1"
+                  :disabled="!aiForm.chat_connection_id"
+                  filterable
+                  allow-create
+                  @focus="fetchModelsFromApi(aiForm.chat_connection_id)"
+                  :loading="fetchingModels[aiForm.chat_connection_id]"
+                >
+                  <el-option
+                    v-for="m in getAvailableModels(aiForm.chat_connection_id)"
+                    :key="m"
+                    :label="m"
+                    :value="m"
+                  />
+                </el-select>
+              </div>
+              <div v-if="!aiForm.chat_model_name && aiForm.chat_connection_id" class="text-red-500 text-xs mt-1">建议指定模型名称</div>
             </el-form-item>
           </el-collapse-item>
 
@@ -359,6 +437,50 @@
         </div>
       </el-collapse-item>
     </el-collapse>
+
+    <!-- Edit Connection Dialog -->
+    <el-dialog v-model="editDialogVisible" title="编辑大模型连接" width="500px">
+      <el-form label-position="top" v-if="editingConnection">
+        <el-form-item label="API 提供商">
+          <el-select v-model="editingConnection.provider" placeholder="选择提供商" class="w-full">
+             <el-option label="OpenAI" value="OpenAI" />
+             <el-option label="Ollama" value="Ollama" disabled />
+             <el-option label="Google" value="Google" disabled />
+             <el-option label="Amazon" value="Amazon" disabled />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Base URL">
+          <el-input v-model="editingConnection.api_base" placeholder="https://api.openai.com/v1" />
+        </el-form-item>
+        <el-form-item label="API Key">
+          <el-input v-model="editingConnection.api_key" type="password" show-password placeholder="sk-..." />
+        </el-form-item>
+        <el-form-item label="可用模型 (可选)">
+          <el-select
+            v-model="editingConnection.model_names"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="输入模型名称后按回车，不填则可以使用该连接的所有模型"
+            class="w-full"
+          >
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="flex justify-between items-center w-full">
+          <div class="flex gap-2">
+            <el-button type="danger" plain @click="deleteEditingConnection">删除</el-button>
+            <el-button type="success" plain @click="verifyEditingConnection" :loading="verifying">验证</el-button>
+          </div>
+          <div>
+            <el-button @click="editDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="saveEditingConnection">保存</el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -404,17 +526,159 @@ const aiForm = ref({
   face_recognition_min_photos: 5,
   visual_evaluation_prompt: '',
   visual_narrative_prompt: '',
-  llm_vl_settings: {
-    base_url: '',
-    model_name: '',
-    api_key: ''
-  },
-  llm_settings: {
-    base_url: '',
-    model_name: '',
-    api_key: ''
-  }
+  connections: [] as Array<{
+    id: string;
+    provider: string;
+    api_base: string;
+    api_key: string;
+    model_names: string[];
+    enable: boolean;
+  }>,
+  analysis_connection_id: '',
+  analysis_model_name: '',
+  chat_connection_id: '',
+  chat_model_name: ''
 })
+
+const addConnection = () => {
+  const newConn = {
+    id: `conn_${Date.now()}`,
+    provider: 'OpenAI',
+    api_base: '',
+    api_key: '',
+    model_names: [],
+    enable: true
+  }
+  aiForm.value.connections.push(newConn)
+  editConnection(aiForm.value.connections.length - 1)
+}
+
+const removeConnection = (index: number) => {
+  aiForm.value.connections.splice(index, 1)
+  if (aiForm.value.analysis_connection_id && !aiForm.value.connections.find(c => c.id === aiForm.value.analysis_connection_id)) {
+    aiForm.value.analysis_connection_id = ''
+    aiForm.value.analysis_model_name = ''
+  }
+}
+
+const visibleKeys = ref(new Set<number>())
+const toggleKeyVisibility = (index: number) => {
+  const newSet = new Set(visibleKeys.value)
+  if (newSet.has(index)) {
+    newSet.delete(index)
+  } else {
+    newSet.add(index)
+  }
+  visibleKeys.value = newSet
+}
+
+const editDialogVisible = ref(false)
+const editingConnectionIndex = ref(-1)
+const editingConnection = ref<any>(null)
+const verifying = ref(false)
+
+const editConnection = (index: number) => {
+  editingConnectionIndex.value = index
+  editingConnection.value = JSON.parse(JSON.stringify(aiForm.value.connections[index]))
+  editDialogVisible.value = true
+}
+
+const deleteEditingConnection = () => {
+  if (editingConnectionIndex.value >= 0) {
+    removeConnection(editingConnectionIndex.value)
+    editDialogVisible.value = false
+  }
+}
+
+const saveEditingConnection = () => {
+  if (editingConnectionIndex.value >= 0) {
+    aiForm.value.connections[editingConnectionIndex.value] = editingConnection.value
+    editDialogVisible.value = false
+    // Clear the cached models so it re-fetches if they changed settings
+    delete fetchedModels.value[editingConnection.value.id]
+    if (editingConnection.value.model_names && editingConnection.value.model_names.length > 0) {
+      fetchedModels.value[editingConnection.value.id] = editingConnection.value.model_names
+    } else {
+      if (aiForm.value.analysis_connection_id === editingConnection.value.id) {
+        fetchModelsFromApi()
+      }
+    }
+  }
+  saveAISettings();
+}
+
+const verifyEditingConnection = async () => {
+  if (!editingConnection.value.api_base) {
+    ElMessage.warning('请先填写 Base URL')
+    return
+  }
+  verifying.value = true
+  try {
+    const res = await settingsApi.verifyConnection(editingConnection.value.api_base, editingConnection.value.api_key || '')
+    if (res && res.success) {
+      ElMessage.success(`连接成功！发现 ${res.models.length} 个可用模型`)
+    } else {
+      ElMessage.error(`验证失败: ${res?.message || '未知错误'}`)
+    }
+  } catch (e: any) {
+    ElMessage.error(`验证失败: ${e.message || '网络错误'}`)
+  } finally {
+    verifying.value = false
+  }
+}
+
+const onAnalysisConnectionChange = async () => {
+  aiForm.value.analysis_model_name = ''
+  const connId = aiForm.value.analysis_connection_id
+  if (!connId) return
+  delete fetchedModels.value[connId]
+  fetchModelsFromApi(connId)
+}
+
+const onChatConnectionChange = async () => {
+  aiForm.value.chat_model_name = ''
+  const connId = aiForm.value.chat_connection_id
+  if (!connId) return
+  delete fetchedModels.value[connId]
+  fetchModelsFromApi(connId)
+}
+
+const fetchedModels = ref<Record<string, string[]>>({})
+const fetchingModels = ref<Record<string, boolean>>({})
+
+const fetchModelsFromApi = async (connId?: string) => {
+  if (!connId) return
+  
+  const conn = aiForm.value.connections.find(c => c.id === connId)
+  if (conn && conn.model_names && conn.model_names.length > 0) {
+    fetchedModels.value[connId] = conn.model_names
+    return
+  }
+  
+  if (fetchedModels.value[connId]) return // already fetched
+
+  if (conn && conn.api_base) {
+    fetchingModels.value[connId] = true
+    try {
+      const res = await settingsApi.verifyConnection(conn.api_base, conn.api_key || '')
+      if (res && res.success && res.models) {
+        fetchedModels.value[connId] = res.models
+      }
+    } catch (e) {
+      console.error('Failed to fetch models for initial connection', e)
+    } finally {
+      fetchingModels.value[connId] = false
+    }
+  }
+}
+
+const getAvailableModels = (connId: string) => {
+  const conn = aiForm.value.connections.find(c => c.id === connId)
+  if (conn && conn.model_names && conn.model_names.length > 0) {
+    return conn.model_names
+  }
+  return fetchedModels.value[connId] || []
+}
 
 const imageForm = ref({
   thumbnail_quality: 80,
@@ -556,8 +820,11 @@ const loadData = async () => {
           aiForm.value = { 
             ...aiForm.value,
             ...settings.ai,
-            llm_vl_settings: settings.ai.llm_vl_settings || { base_url: '', model_name: '', api_key: '' },
-            llm_settings: settings.ai.llm_settings || { base_url: '', model_name: '', api_key: '' },
+            connections: settings.ai.connections || [],
+            analysis_connection_id: settings.ai.analysis_connection_id || '',
+            analysis_model_name: settings.ai.analysis_model_name || '',
+            chat_connection_id: settings.ai.chat_connection_id || '',
+            chat_model_name: settings.ai.chat_model_name || '',
             visual_evaluation_prompt: settings.ai.visual_evaluation_prompt || '',
             visual_narrative_prompt: settings.ai.visual_narrative_prompt || ''
           }

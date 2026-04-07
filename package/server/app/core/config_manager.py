@@ -101,14 +101,20 @@ DEFAULT_EVALUATION_PROMPT = """你是一个“个人相册照片评估助手”�
 }
 不要输出任何多余文字，不要加注释，禁止思考。/no_think"""
 
-class LLMSettings(BaseModel):
-    base_url: str = Field(default="", description="LLM API base URL")
-    model_name: str = Field(default="", description="LLM model name")
+class LLMConnection(BaseModel):
+    id: str = Field(default="", description="Connection ID")
+    provider: str = Field(default="OpenAI", description="API Provider (e.g. OpenAI, Ollama, Google)")
+    api_base: str = Field(default="", description="LLM API base URL")
     api_key: str = Field(default="", description="LLM API key")
+    model_names: List[str] = Field(default_factory=list, description="Available model names")
+    enable: bool = Field(default=True, description="Whether this connection is enabled")
 
 class AISettings(BaseModel):
-    llm_settings: LLMSettings = Field(default_factory=LLMSettings)
-    llm_vl_settings: LLMSettings = Field(default_factory=LLMSettings)
+    connections: List[LLMConnection] = Field(default_factory=list, description="LLM Connections")
+    analysis_connection_id: str = Field(default="", description="Default connection ID for analysis")
+    analysis_model_name: str = Field(default="", description="Default model name for analysis")
+    chat_connection_id: str = Field(default="", description="Default connection ID for agent chat")
+    chat_model_name: str = Field(default="", description="Default model name for agent chat")
     ai_api_url: str = Field(default=os.getenv("AI_API_URL", "http://localhost:8001"), description="AI Service API URL")
     face_recognition_threshold: float = Field(default=0.7, description="Face recognition confidence threshold")
     face_cluster_threshold: float = Field(default=0.4, description="Face cluster distance threshold")
@@ -210,6 +216,19 @@ class ConfigManager:
 
         # Merge existing settings with new settings
         current_settings = dict(user.settings) if user.settings else {}
+        
+        # Handle migration from old AI settings in DB
+        if 'ai' in current_settings:
+            ai_settings = current_settings['ai']
+            if 'llm_settings' in ai_settings or 'llm_vl_settings' in ai_settings:
+                ai_settings.pop('llm_settings', None)
+                ai_settings.pop('llm_vl_settings', None)
+                if 'connections' not in ai_settings:
+                    ai_settings['connections'] = []
+                if 'analysis_connection_id' not in ai_settings:
+                    ai_settings['analysis_connection_id'] = ""
+                if 'analysis_model_name' not in ai_settings:
+                    ai_settings['analysis_model_name'] = ""
 
         # Deep merge helper
         def deep_merge(target, source):
@@ -241,6 +260,19 @@ class ConfigManager:
         """
         if not user_settings:
             return AppSettings()
+
+        # Handle migration from old AI settings
+        if 'ai' in user_settings:
+            ai_settings = user_settings['ai']
+            if 'llm_settings' in ai_settings or 'llm_vl_settings' in ai_settings:
+                ai_settings.pop('llm_settings', None)
+                ai_settings.pop('llm_vl_settings', None)
+                if 'connections' not in ai_settings:
+                    ai_settings['connections'] = []
+                if 'analysis_connection_id' not in ai_settings:
+                    ai_settings['analysis_connection_id'] = ""
+                if 'analysis_model_name' not in ai_settings:
+                    ai_settings['analysis_model_name'] = ""
 
         # Start with default config as base
         current_data = AppSettings().model_dump()

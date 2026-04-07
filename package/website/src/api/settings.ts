@@ -85,5 +85,13 @@ export const settingsApi = {
   async applyFilter() {
     const { data } = await request.post('/api/settings/filter/apply')
     return data
+  },
+  async getModels() {
+    const { data } = await request.get('/api/settings/models')
+    return data
+  },
+  async verifyConnection(apiBase: string, apiKey: string) {
+    const { data } = await request.post('/api/settings/verify-connection', { api_base: apiBase, api_key: apiKey })
+    return data
   }
 }
