@@ -57,17 +57,16 @@ def _get_valid_station_names():
     if not _VALID_STATION_NAMES:
         try:
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.abspath(os.path.join(current_dir, "../../../.."))
-            csv_path = os.path.join(project_root, "package", "server", "railway", "source", "station.csv")
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                import csv
-                reader = csv.DictReader(f)
-                for row in reader:
-                    name = row.get("station_name", "").strip()
+            json_path = os.path.abspath(os.path.join(current_dir, "..", "data", "railway_station.json"))
+            with open(json_path, 'r', encoding='utf-8') as f:
+                import json
+                station_list = json.load(f)
+                for name in station_list:
+                    name = name.strip()
                     if name:
                         _VALID_STATION_NAMES.add(name)
         except Exception as e:
-            logging.error(f"Failed to load station names from csv: {e}")
+            logging.error(f"Failed to load station names from json: {e}")
     return _VALID_STATION_NAMES
 
 def _is_valid_station_name(name: str) -> bool:
@@ -1317,7 +1316,7 @@ def parse_ticket_info(ocr_texts, polys):
     _split_carriage_seat_if_glued(ticket_info)
     
     # --- 新增：兜底策略和后处理 ---
-    # 只提取 railway/source/station.csv 文件下的 station_name
+    # 提取 package/ai/app/data/railway_station.json 文件下的 station_name
     valid_stations = _get_valid_station_names()
     if valid_stations:
         for k in ("departure_station", "arrival_station"):
