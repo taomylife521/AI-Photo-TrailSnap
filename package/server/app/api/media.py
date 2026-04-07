@@ -52,11 +52,14 @@ async def get_live_photo_video(
         file_path = photo.file_path[:-3] + 'mp4'
         exists = await run_in_threadpool(os.path.exists, file_path)
         if not exists:
-            thumb_path = await run_in_threadpool(_get_thumbnail_path, photo.owner_id, photo_id, db, 'medium')
-            file_path = thumb_path[:-4] + '.mp4'
+            file_path = photo.file_path[:-3] + 'mov'
+            exists = await run_in_threadpool(os.path.exists, file_path)
+            if not exists:
+                thumb_path = await run_in_threadpool(_get_thumbnail_path, photo.owner_id, photo_id, db, 'medium')
+                file_path = thumb_path[:-4] + '.mp4'
     else:
         file_path = photo.file_path[:-4] + 'MOV'
-        
+
     file_size = await run_in_threadpool(os.path.getsize, file_path)
 
     # Determine media type (usually mp4 or mov)
