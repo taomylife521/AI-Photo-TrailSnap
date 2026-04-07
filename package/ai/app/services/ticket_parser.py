@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import logging
@@ -41,13 +42,33 @@ _STATION_INTERFERENCE = {
     "学生票", "非现金", "线上购买", "交回", "须交回",
     "餐饮", "特产", "订酒店", "租车", "约车",
      "经停", "经停站", "检票口", "检票", "前往",
-     "购票成功", "抢票成功", "成功", "以车"
+     "购票成功", "抢票成功", "成功", "以车","已出","已进"
 }
 
 
 def _normalize_station_name(name: str) -> str:
     return (name or "").strip()
 
+
+_VALID_STATION_NAMES = set()
+
+def _get_valid_station_names():
+    global _VALID_STATION_NAMES
+    if not _VALID_STATION_NAMES:
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.abspath(os.path.join(current_dir, "../../../.."))
+            csv_path = os.path.join(project_root, "package", "server", "railway", "source", "station.csv")
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                import csv
+                reader = csv.DictReader(f)
+                for row in reader:
+                    name = row.get("station_name", "").strip()
+                    if name:
+                        _VALID_STATION_NAMES.add(name)
+        except Exception as e:
+            logging.error(f"Failed to load station names from csv: {e}")
+    return _VALID_STATION_NAMES
 
 def _is_valid_station_name(name: str) -> bool:
     if not name:
@@ -252,10 +273,13 @@ _NAME_BLOCKLIST_SUBSTR = {
     "仅供报销", "报销", "凭证", "遗失", "不补", "退票", "改签",
     "检票", "限乘", "当日", "当次", "中途下车失效","和谐号","复兴号",
     "买票请到", "请到", "12306", "95306","经停信息","成人票",
-    "车站", "售", "出发", "到达","复制", "已支付", "学生票", "非现金支付", "线上购买",
-    "靠窗", "过道", "购票成功", "抢票成功", "返程", "加速包", "公众号", "行程", "积分", "价值", "换座", "申报", "大屏",
-    "抢票", "专属", "关注", "分享", "祝您", "出行", "愉快", "返现"
+    "车站", "售", "出发", "到达","复制", "已支付", "学生票", "非现金支付",
+    "线上购买","靠窗", "过道", "购票成功", "抢票成功", "返程", "加速包", "公众号",
+    "行程", "积分", "价值", "换座", "申报", "大屏",
+    "抢票", "专属", "关注", "分享", "祝您", "出行", "愉快", "返现","已进站","已出站",
+    "星期一","星期二","星期三","星期四","星期五","星期六","星期日",
 }
+
 
 
 def _is_name_candidate_text(txt: str, ticket_info: dict, station_name_set: set) -> bool:
@@ -384,6 +408,19 @@ def _extract_month_day(txt: str):
         return None
     s = _fix_ocr_text(txt).strip()
     
+    # 0. 点号格式 (如 2026.04.02)
+    m0 = re.search(r'(?:\d{4}\.)?(\d{1,2})\.(\d{1,2})', s)
+    if m0:
+        mm = m0.group(1).zfill(2)
+        dd = m0.group(2).zfill(2)
+        try:
+            imonth = int(mm)
+            iday = int(dd)
+            if 1 <= imonth <= 12 and 1 <= iday <= 31:
+                return (mm, dd)
+        except:
+            pass
+
     # 1. 标准格式：X月X日
     m = re.search(r'(\d{1,2})\s*月\s*(\d{1,2})\s*日', s)
     if m:
@@ -486,7 +523,7 @@ def _build_departure_datetime(ocr_texts: list, polys: list, anchor_y=None) -> st
     year = ""
     for t in ocr_texts:
         tt = _fix_ocr_text(t).strip()
-        ym = re.search(r'(\d{4})年', tt)
+        ym = re.search(r'(\d{4})[年\.]', tt)
         if ym:
             year = ym.group(1)
             break
@@ -645,14 +682,13 @@ def parse_ticket_info(ocr_texts, polys):
 
     # 从visual_texts中提取车站
     station_candidates = []  # (name, visual_idx, cx)
-    interference = _STATION_INTERFERENCE
 
     for idx, txt in enumerate(visual_texts):
         orig_idx = visual_order_indices[idx]  # 原始索引，用于取 polys
         fixed_txt = _fix_ocr_text(txt)
         for match in re.finditer(r'([\u4e00-\u9fa5]{1,6})站', txt):
             name = match.group(1)
-            if not any(w in name for w in interference):
+            if _is_valid_station_name(name):
                 # 获取该文本块的原始 poly，计算 x 中心
                 poly = polys[orig_idx]
                 cx = sum(p[0] for p in poly) / 4 if len(poly) >= 4 else 0
@@ -786,7 +822,7 @@ def parse_ticket_info(ocr_texts, polys):
             stations_in_txt = []
             for match in re.finditer(r'([\u4e00-\u9fa5]{1,6})站', txt):
                 name = match.group(1)
-                if not any(w in name for w in _STATION_INTERFERENCE):
+                if _is_valid_station_name(name):
                     stations_in_txt.append((name, match.start(), match.end()))
 
             # 2. 查找车次及其位置
@@ -841,11 +877,18 @@ def parse_ticket_info(ocr_texts, polys):
                     ym = re.search(r'(\d{4})年', tt)
                     if ym:
                         year_candidate = ym.group(1)
-                # B) 完整日期块：YYYY年MM月DD日（你原来的规则）
+                # B) 完整日期块：YYYY年MM月DD日（你原来的规则）或 YYYY.MM.DD
                 if not date_candidate:
                     d_match = re.search(r'(\d{4}年\d{1,2}月\d{1,2}日)', tt)
                     if d_match:
                         date_candidate = d_match.group(1)
+                    else:
+                        d_match_dot = re.search(r'(\d{4})\.(\d{1,2})\.(\d{1,2})', tt)
+                        if d_match_dot:
+                            yy = d_match_dot.group(1)
+                            mm = d_match_dot.group(2).zfill(2)
+                            dd = d_match_dot.group(3).zfill(2)
+                            date_candidate = f"{yy}年{mm}月{dd}日"
                 # C) 月日+时间在同一块：如 "06月02日10:40开"
                 #    把月日和时分一起抓出来，供 year-only 拼接用
                 if not mdhm_candidate:
@@ -1009,9 +1052,8 @@ def parse_ticket_info(ocr_texts, polys):
                     if 1 <= d <= 31 and 0 <= h <= 23:
                         ticket_info["datetime"] = f"{year_month}{day}日 {hour}:{minute}"
 
-            # 如果已提取到时间，跳过后续字段处理
-            if ticket_info["datetime"]:
-                continue
+            # 如果已提取到时间，不在这里 continue，让其他字段（比如车次、座位号、价格等）继续尝试从该文本块匹配
+            # 删除了: if ticket_info["datetime"]: continue
 
         # ====== 无座/站票优先处理：seat_type = 无座(或站票)，seat_num 必须为空 ======
         if not ticket_info["seat_num"]:
@@ -1273,6 +1315,22 @@ def parse_ticket_info(ocr_texts, polys):
 
     ticket_info = _post_fix_arrival_station(ticket_info, ocr_texts)
     _split_carriage_seat_if_glued(ticket_info)
+    
+    # --- 新增：兜底策略和后处理 ---
+    # 只提取 railway/source/station.csv 文件下的 station_name
+    valid_stations = _get_valid_station_names()
+    if valid_stations:
+        for k in ("departure_station", "arrival_station"):
+            v = (ticket_info.get(k) or "").strip()
+            if v:
+                if v in valid_stations:
+                    ticket_info[k] = v
+                elif v.endswith("站") and v[:-1] in valid_stations:
+                    ticket_info[k] = v[:-1]
+                else:
+                    ticket_info[k] = ""
+    # ---------------------------------
+
     # 再构建 station_name_set（保证包含最终的 dep/arr）
     station_name_set = set()
     for k in ("departure_station", "arrival_station"):
