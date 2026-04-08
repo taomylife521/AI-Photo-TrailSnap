@@ -18,6 +18,7 @@ export interface TicketBackend {
   total_mileage: number; // km
   stop_stations?: string;
   comments?: string;
+  photo_id?: string;
   type?: 'train'; // 标识字段
 }
 
@@ -59,6 +60,7 @@ export interface TicketFrontend {
   distance: number;
   comments: string;
   duration: string; // "xh yymin"
+  photo_id?: string; // 可选
 }
 
 // 表单提交用的数据接口

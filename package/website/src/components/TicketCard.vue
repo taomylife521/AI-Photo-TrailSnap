@@ -68,6 +68,14 @@
         <!-- Desktop Buttons -->
         <div class="hidden md:flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0">
           <button 
+            v-if="ticket.photo_id"
+            @click.stop="handleViewPhoto" 
+            class="p-2 text-indigo-600 bg-indigo-50 dark:bg-slate-700 dark:text-indigo-400 rounded-md hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white transition-colors"
+            title="查看车票照片"
+          >
+            <ImageIcon class="w-4 h-4" />
+          </button>
+          <button 
             v-if="ticket.type === 'train'"
             @click.stop="handleViewPaper" 
             class="p-2 text-orange-600 bg-orange-50 dark:bg-slate-700 dark:text-orange-400 rounded-md hover:bg-orange-500 hover:text-white dark:hover:bg-orange-600 dark:hover:text-white transition-colors"
@@ -91,6 +99,12 @@
             </button>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item v-if="ticket.photo_id" command="viewPhoto">
+                  <div class="flex items-center gap-2">
+                    <ImageIcon class="w-4 h-4" />
+                    <span>查看车票照片</span>
+                  </div>
+                </el-dropdown-item>
                 <el-dropdown-item v-if="ticket.type === 'train'" command="viewPaper">
                   <div class="flex items-center gap-2">
                     <TicketIcon class="w-4 h-4" />
@@ -123,7 +137,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { MoveRight, Clock, Route, Pencil, Trash2, Check, Plane, Ticket as TicketIcon, MoreHorizontal } from 'lucide-vue-next';
+import { MoveRight, Clock, Route, Pencil, Trash2, Check, Plane, Ticket as TicketIcon, MoreHorizontal, Image as ImageIcon } from 'lucide-vue-next';
 
 const props = defineProps({
   // 车票数据
@@ -146,7 +160,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['toggle-select', 'edit', 'delete', 'view-paper']);
+const emit = defineEmits(['toggle-select', 'edit', 'delete', 'view-paper', 'view-photo']);
 
 // 计算属性：当前车票是否被选中
 const isSelected = computed(() => {
@@ -183,9 +197,17 @@ const handleViewPaper = () => {
   emit('view-paper', props.ticket);
 };
 
+// 处理查看照片
+const handleViewPhoto = () => {
+  emit('view-photo', props.ticket);
+};
+
 // 处理下拉菜单命令
 const handleCommand = (command) => {
   switch (command) {
+    case 'viewPhoto':
+      handleViewPhoto();
+      break;
     case 'viewPaper':
       handleViewPaper();
       break;

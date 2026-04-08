@@ -56,6 +56,7 @@
             @edit="openTicketModal"
             @delete="confirmDelete"
             @view-paper="openPaperTicketModal"
+            @view-photo="openPhotoLightbox"
             @open-ticket-modal="openTicketModal()"
           />
         </section>
@@ -119,6 +120,13 @@
         style="width: 856px; height: 540px;"
       />
     </div>
+
+    <!-- 查看照片 -->
+    <PhotoLightbox
+      :visible="isPhotoLightboxVisible"
+      :image="currentPhoto"
+      @close="closePhotoLightbox"
+    />
   </div>
 </template>
 
@@ -155,6 +163,8 @@ import TicketExportModal from './components/TicketExportModal.vue';
 import TicketFormModal from '@/components/TicketFormModal.vue';
 import FlightTicketFormModal from '@/components/FlightTicketFormModal.vue';
 import TrainTicket from '@/components/TrainTicket.vue';
+import PhotoLightbox from '@/components/PhotoLightbox.vue';
+import type { AlbumImage } from '@/types/album';
 
 const { isDarkMode, currentTheme } = injectTheme();
 const ticketStore = useTicketStore();
@@ -194,6 +204,9 @@ const saving = ref(false);
 // 初始编辑对象，使用 Partial 或特定类型
 const currentTicket = ref<Partial<TicketFormData>>({});
 const currentFlightTicket = ref<Partial<FlightTicketFormData>>({});
+
+const isPhotoLightboxVisible = ref(false);
+const currentPhoto = ref<AlbumImage | null>(null);
 
 // --- 统计与导入导出 ---
 const goToStatistics = () => {
@@ -538,6 +551,27 @@ const openPaperTicketModal = (ticket: TicketFrontend) => {
   currentPaperTicket.value = ticket;
   const isHighSpeed = ['G', 'D', 'C'].includes(ticket.trainCode.charAt(0).toUpperCase());
   isPaperModalOpen.value = true;
+};
+
+const openPhotoLightbox = (ticket: TicketFrontend) => {
+  if (!ticket.photo_id) return;
+  currentPhoto.value = {
+    id: ticket.photo_id,
+    url: `/api/medias/${ticket.photo_id}/file`,
+    thumbnail: `/api/medias/${ticket.photo_id}/thumbnail`,
+    preview: `/api/medias/${ticket.photo_id}/thumbnail?size=medium`,
+    srcset: '',
+    timestamp: new Date(ticket.dateTime).getTime(),
+    albumIds: [],
+    file_type: 'image',
+    filename: ticket.photo_id,
+  };
+  isPhotoLightboxVisible.value = true;
+};
+
+const closePhotoLightbox = () => {
+  isPhotoLightboxVisible.value = false;
+  currentPhoto.value = null;
 };
 
 const exportPaperTicket = async (ticket: TicketFrontend) => {

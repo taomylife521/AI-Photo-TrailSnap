@@ -36,6 +36,7 @@
                   @edit="$emit('edit', ticket)"
                   @delete="$emit('delete', ticket.id)"
                   @view-paper="$emit('view-paper', ticket)"
+                  @view-photo="$emit('view-photo', ticket)"
                 />
             </div>
           </div>
@@ -64,6 +65,7 @@ const emit = defineEmits<{
   (e: 'edit', ticket: TicketFrontend): void;
   (e: 'delete', id: number | string): void;
   (e: 'view-paper', ticket: TicketFrontend): void;
+  (e: 'view-photo', ticket: TicketFrontend): void;
 }>();
 
 // --- 辅助逻辑 ---

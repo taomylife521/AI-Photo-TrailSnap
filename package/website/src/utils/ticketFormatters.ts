@@ -32,6 +32,7 @@ export const formatTicketToFrontend = (ticket: UniversalTicket): TicketFrontend 
           distance: flight.total_mileage || 0,
           comments: flight.comments || '',
           duration: formatDuration(flight.total_running_time || 0),
+          photo_id: flight.photo_id,
           // 飞机票可选字段置空
           carriage: undefined,
           seatNumber: undefined,
@@ -61,6 +62,7 @@ export const formatTicketToFrontend = (ticket: UniversalTicket): TicketFrontend 
           distance: train.total_mileage || 0,
           comments: train.comments || '',
           duration: formatDuration(train.total_running_time || 0),
+          photo_id: train.photo_id,
       };
   }
 };

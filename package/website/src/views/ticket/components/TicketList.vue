@@ -21,6 +21,7 @@
         @edit="$emit('edit', $event)"
         @delete="$emit('delete', $event)"
         @view-paper="$emit('view-paper', $event)"
+        @view-photo="$emit('view-photo', $event)"
       />
       <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TicketCard
@@ -33,6 +34,7 @@
           @edit="$emit('edit', $event)"
           @delete="$emit('delete', $event)"
           @view-paper="$emit('view-paper', $event)"
+          @view-photo="$emit('view-photo', $event)"
         />
       </div>
     </div>
@@ -69,6 +71,7 @@ defineEmits<{
   (e: 'edit', ticket: TicketFrontend): void;
   (e: 'delete', id: number | string): void;
   (e: 'view-paper', ticket: TicketFrontend): void;
+  (e: 'view-photo', ticket: TicketFrontend): void;
   (e: 'open-ticket-modal'): void;
 }>();
 </script>
