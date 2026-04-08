@@ -2,39 +2,14 @@
 
 ## 1. 整体架构图
 
-TrailSnap 采用典型的前后端分离架构，由前端展示层、后端服务层和数据存储层组成。
+TrailSnap 采用典型的前后端分离架构，由前端展示层、后端服务层、AI 微服务层和数据存储层组成。
 
-```mermaid
-flowchart TD
-    User[👨‍💻 用户浏览器] -->|⚡ HTTP/HTTPS| FE[前端应用<br/>Vue 3 + Vite]
+![](https://blog.siyuan.ink/static/img/140fbfde6e8ed0fd1d676af0c35116a2.clipboard-2026-04-08.webp)
 
-    subgraph Frontend_Layer[🖥️ 前端展示层]
-      FE -->|📡 Axios / REST| API8000
-      FE -->|💾 Pinia| Store[全局状态管理]
-      FE -->|🎨 ElementPlus| UI[UI组件库]
-    end
-
-    subgraph Backend_Layer[⚙️ 后端服务层]
-      API8001[后端服务<br/>FastAPI :8000] --> Routers[API路由分发]
-      Routers --> Services[业务逻辑服务]
-      Services -->|🗄️ ORM映射| DBConn[SQLAlchemy]
-      Services -->|📂 文件读写| FS[文件系统]
-      Services -->|⏳ 异步调度| TM[任务管理器]
-      TM -->|🔗 HTTP调用| AI8001
-    end
-
-    subgraph AI_Service[🤖 AI 微服务层]
-      AI8001[AI微服务<br/>FastAPI :8001] --> OCR[PaddleOCR 文字识别]
-      AI8001 --> Face[InsightFace 人脸识别]
-      AI8001 --> OD[目标对象检测]
-      AI8001 --> Ticket[车票识别<br/>YOLO + OCR]
-    end
-
-    subgraph Data_Layer[💽 数据持久层]
-      DBConn --> DB[(PostgreSQL 数据库)]
-      FS --> Storage[本地/挂载存储]
-    end
-```
+1. **前端展示层**：通过 Nginx 反向代理统一入口，支持 HTTP/HTTPS 访问，为用户提供前端交互界面。
+2. **后端服务层**：以 FastAPI 为核心，通过安全认证模块实现 JWT 身份鉴权与多用户权限隔离，保障家庭多用户使用安全；拆分业务逻辑服务与任务管理器，实现同步业务与异步 AI 任务的解耦；通过 SQLAlchemy ORM 对接 PostgreSQL 存储元数据，通过文件服务对接 NAS 本地文件系统存储图片，完全适配 NAS 存储架构。
+3. **AI 微服务层**：采用统一入口调度，内置模型管理器，实现模型按需懒加载、空闲自动卸载、按需自动下载的智能生命周期管理，大幅降低 NAS 内存与算力占用；集成 PaddleOCR、InsightFace、YOLO+OCR、CLIP 等 AI 能力，覆盖 OCR 识别、人脸识别、票据识别、向量检索等核心相册功能，同时支持对接 Qwen、GPT 等外部大模型，具备良好扩展性。
+4. **数据存储层**：元数据与文件分离存储，数据完全本地化，保障家庭数据隐私安全。
 
 ## 2. 技术选型及版本
 
@@ -57,7 +32,7 @@ flowchart TD
 - **日志**: 自定义 JSON 队列日志 + 按日容量滚动（server 与 ai 均内置）
 
 ### 2.3 数据库
-- **PostgreSQL**: 关系型数据库，存储用户、相册、照片元数据、系统设置等。
+- **PostgreSQL(PgVector)**: 关系型数据库，存储用户、相册、照片元数据、系统设置等。
 
 ## 3. 目录结构与模块说明
 

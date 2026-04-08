@@ -36,6 +36,11 @@ flowchart TD
     end
 ```
 
+```mermaid
+flowchart TD
+    User[👨‍💻 User Browser] -->|⚡ HTTP/HTTPS| FE[Frontend App<br/>Vue 3 + Vite]
+```
+
 ## 2. Technology Stack & Versions
 
 ### 2.1 Frontend Stack

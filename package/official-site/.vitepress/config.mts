@@ -67,8 +67,9 @@ export default withMermaid(defineConfig({
               items: [
                 { text: '快速开始', link: '/docs/dev/guide' },
                 { text: '架构设计', link: '/docs/dev/architecture' },
-                { text: '前端分析', link: '/docs/dev/frontend' },
-                { text: '后端分析', link: '/docs/dev/backend' },
+                { text: '前端设计', link: '/docs/dev/frontend' },
+                { text: '后端设计', link: '/docs/dev/backend' },
+                { text: 'AI微服务设计', link: '/docs/dev/ai_service' },
                 { text: '任务管理设计', link: '/docs/dev/task_manager' },
                 {
                   text: 'AI提示词',
