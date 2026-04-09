@@ -200,8 +200,19 @@ TrailSnap/
 
 ### QQ交流群
 
-![QQ群](./doc/image/QQ1.jpg)
+<img src="./doc/image/QQ1.jpg" alt="QQ交流群" width="200px">
 
 ### 相关项目
 
 - [InkTime](https://github.com/dai-hongtao/InkTime) InkTime 是一个可自托管的墨水屏电子相框。它用AI分析你的照片库，按值得回忆度打分，并按“历史上的今天”自动生成每日最具回忆价值的照片，让沉睡的记忆重新被看见。
+
+
+## 🌟 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=LC044/TrailSnap&type=Date)](https://star-history.com/?utm_source=bestxtools.com#LC044/TrailSnap&Date)
+
+## 🤝贡献者
+
+<a href="https://github.com/lc044/TrailSnap/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=lc044/TrailSnap" />
+</a>
