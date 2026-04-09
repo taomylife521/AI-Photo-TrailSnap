@@ -20,7 +20,7 @@ from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
 # Import handlers
-from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar, duplicate
+from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar, duplicate, image_embedding
 
 CPU_TASKS = {
     TaskType.GENERATE_THUMBNAIL,
@@ -39,6 +39,7 @@ IO_TASKS = {
     TaskType.CLASSIFY_IMAGE,
     TaskType.RECOGNIZE_TICKET,
     TaskType.FIND_DUPLICATE_PHOTOS,
+    TaskType.IMAGE_EMBEDDING,
 }
 
 AI_TASKS = {
@@ -435,6 +436,8 @@ class TaskWorker:
             return await similar.handle_similar_task(self, task, db)
         elif task.type == TaskType.FIND_DUPLICATE_PHOTOS:
             return await duplicate.handle_duplicate_task(self, task, db)
+        elif task.type == TaskType.IMAGE_EMBEDDING:
+            return await image_embedding.handle_image_embedding(self, task, db)
         else:
             return {'status': 'not_implemented', 'type': task.type}
 
@@ -599,6 +602,14 @@ class TaskWorker:
                         type=TaskType.VISUAL_DESCRIPTION,
                         payload={'file_path': file_path, 'photo_id': photo_id},
                         priority=DEFAULT_PRIORITIES.get(TaskType.VISUAL_DESCRIPTION, 2),
+                        status=TaskStatus.PENDING,
+                        owner_id=owner_id
+                    ))
+                    # 7. Embedding Generation Task (Low Priority)
+                    db.add(Task(
+                        type=TaskType.IMAGE_EMBEDDING,
+                        payload={'file_path': file_path, 'photo_id': photo_id},
+                        priority=DEFAULT_PRIORITIES.get(TaskType.IMAGE_EMBEDDING, 2),
                         status=TaskStatus.PENDING,
                         owner_id=owner_id
                     ))

@@ -1,21 +1,17 @@
 import logging
 import os
 import aiohttp
-from aiohttp import FormData
 from sqlalchemy.orm import Session
 from app.db.models.task import Task, TaskType
 from app.db.models.photo import Photo, FileType
-from app.db.models.tag import PhotoTag, PhotoTagRelation
 from app.db.models.image_vector import ImageVector
 from typing import Dict, Any, List
 from app.core.config_manager import config_manager
-from app.crud import tag as crud_tag
-
 from app.service import storage
 
 logger = logging.getLogger(__name__)
 
-async def handle_classify_image(task_manager, task: Task, db: Session) -> Dict[str, Any]:
+async def handle_image_embedding(task_manager, task: Task, db: Session) -> Dict[str, Any]:
     try:
         force = task.payload.get('force', False)
         
@@ -27,7 +23,7 @@ async def handle_classify_image(task_manager, task: Task, db: Session) -> Dict[s
             
             if not force:
                 tasks_status = photo.processed_tasks or {}
-                if tasks_status.get('classification'):
+                if tasks_status.get('image_embedding'):
                      return {'status': 'skipped', 'reason': 'already processed'}
 
             return await process_single_photo(task_manager, photo, db)
@@ -44,17 +40,20 @@ async def handle_classify_image(task_manager, task: Task, db: Session) -> Dict[s
 
             tasks_to_create = []
             for p in batch:
+                if p.file_type == FileType.video:
+                    continue
+                
                 should_process = False
                 if force:
                     should_process = True
                 else:
                     tasks_status = p.processed_tasks or {}
-                    if not tasks_status.get('classification'):
+                    if not tasks_status.get('image_embedding'):
                         should_process = True
                 
                 if should_process:
                     tasks_to_create.append({
-                        'type': TaskType.CLASSIFY_IMAGE,
+                        'type': TaskType.IMAGE_EMBEDDING,
                         'payload': {'photo_id': str(p.id), 'force': force},
                         'priority': 3,
                         'owner_id': p.owner_id
@@ -69,11 +68,11 @@ async def handle_classify_image(task_manager, task: Task, db: Session) -> Dict[s
         return {
             'processed': 0,
             'generated_tasks': generated_count,
-            'message': f'Generated {generated_count} classification tasks'
+            'message': f'Generated {generated_count} image embedding tasks'
         }
 
     except Exception as e:
-        logger.error(f"Classification task failed: {e}")
+        logger.error(f"Image embedding task failed: {e}")
         raise e
 
 async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[str, Any]:
@@ -92,57 +91,37 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
             b64_data = base64.b64encode(file_data).decode('utf-8')
             json_data = {"images": [b64_data]}
 
-            api_url = f"{config_manager.get_user_config(photo.owner_id, db).ai.ai_api_url}/classification/"
+            api_url = f"{config_manager.get_user_config(photo.owner_id, db).ai.ai_api_url}/embedding/image"
             async with session.post(api_url, json=json_data) as resp:
                 if resp.status == 200:
                     result = await resp.json()
-                    results = result.get('results', [])
-                    if results and results[0].get('status') == 'success':
-                        predictions = results[0].get('predictions', [])
+                    # Response is List[List[float]]
+                    if result and len(result) > 0:
+                        embedding = result[0]
+                        
+                        # Save Embedding
+                        vector = db.query(ImageVector).filter(ImageVector.photo_id == photo.id).first()
+                        if not vector:
+                            vector = ImageVector(photo_id=photo.id)
+                            db.add(vector)
+                        vector.embedding = embedding
+
+                        tasks_status = dict(photo.processed_tasks or {})
+                        tasks_status['image_embedding'] = True
+                        photo.processed_tasks = tasks_status
+                        db.add(photo)
+                        db.commit()
+                        return {'status': 'success', 'embedding_size': len(embedding)}
                     else:
-                        predictions = []
-
-                    crud_tag.remove_tags_from_photo(db, photo.id, ai_generated=True)
-
-                    # Save Tags
-                    for res in predictions:
-                        tag_name = res['label']
-                        # if tag_name == 'others':
-                        #     break
-                        confidence = res['confidence'] - 0.01
-                        if confidence < 0.65:
-                            break
-                        tag = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name).first()
-                        if not tag:
-                            tag = PhotoTag(tag_name=tag_name, type='yolo')
-                            db.add(tag)
-                            db.flush() # get id
-
-                        # Check relation
-                        rel = db.query(PhotoTagRelation).filter(
-                            PhotoTagRelation.photo_id == photo.id,
-                            PhotoTagRelation.tag_id == tag.id
-                        ).first()
-
-                        if not rel:
-                            rel = PhotoTagRelation(photo_id=photo.id, tag_id=tag.id, confidence=confidence)
-                            db.add(rel)
-                        else:
-                            rel.confidence = confidence
-                        break
-
-                    tasks_status = dict(photo.processed_tasks or {})
-                    tasks_status['classification'] = True
-                    photo.processed_tasks = tasks_status
-                    db.add(photo)
-                    db.commit()
-                    return {'status': 'success', 'tags_found': len(predictions)}
+                        return {'status': 'failed', 'error': 'No embedding returned'}
                 else:
+                    text = await resp.text()
+                    logger.error(f"AI Service error: {resp.status} {text}")
                     return {'status': 'failed', 'error': f"AI Service error: {resp.status}"}
     except Exception as e:
-        logger.error(f"Error processing Classification for photo {photo.id}: {e}")
+        logger.error(f"Error processing Image Embedding for photo {photo.id}: {e}")
         tasks_status = dict(photo.processed_tasks or {})
-        tasks_status['classification'] = False
+        tasks_status['image_embedding'] = False
         photo.processed_tasks = tasks_status
         db.add(photo)
         db.commit()

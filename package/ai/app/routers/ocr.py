@@ -10,7 +10,7 @@ from app.services.ocr_service import ocr_service
 router = APIRouter()
 
 class OCRRequest(BaseModel):
-    file: UploadFile = File(...)
+    images: List[str]
 
 class OCRResult(BaseModel):
     prunedResult: Dict[str, Any] = {}
@@ -19,16 +19,13 @@ class OCRResult(BaseModel):
     inputImage: str|None = ""
 
 class OCRResponse(BaseModel):
-    dataInfo: List[Dict[str, Any]]|None = []
-    ocrResults: List[OCRResult]|None
-
-
+    results: List[Dict[str, Any]]
 
 @router.post("/predict", response_model=OCRResponse, summary="OCR Prediction")
-async def ocr_predict(file: UploadFile = File(...)):
+async def ocr_predict(request: OCRRequest):
     """
-    Perform OCR prediction on the uploaded image file.
-    - **file**: The image file to perform OCR on.
+    Perform OCR prediction on multiple base64 encoded images.
+    - **images**: List of base64 encoded image strings.
     Returns:
         OCRResponse: The OCR results and images.
         - **dataInfo**: Additional information about the OCR process.
@@ -42,10 +39,22 @@ async def ocr_predict(file: UploadFile = File(...)):
             - **docPreprocessingImage**: The image of the document preprocessing step.
             - **inputImage**: The original input image.
     """
+    if not request.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+        
+    import base64
     try:
-        contents = await file.read()
-        results = ocr_service.detect_text(contents)
-        return OCRResponse(ocrResults=results, dataInfo=[])
+        batch_results = []
+        for b64 in request.images:
+            if ',' in b64:
+                b64 = b64.split(',')[1]
+            contents = base64.b64decode(b64)
+            results = ocr_service.detect_text(contents)
+            batch_results.append({
+                "ocrResults": results,
+                "dataInfo": []
+            })
+        return OCRResponse(results=batch_results)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

@@ -13,24 +13,37 @@ class FaceResult(BaseModel):
     embedding: List[float]     # 人脸特征向量
 
 # 接口响应模型
-class RecognitionResponse(BaseModel):
+class SingleImageRecognitionResponse(BaseModel):
     face_count: int            # 检测到的人脸数量
     faces: List[FaceResult]    # 每个人脸的详细结果
 
+class RecognitionResponse(BaseModel):
+    results: List[SingleImageRecognitionResponse]
+
+class FaceRecognitionRequest(BaseModel):
+    images: List[str]
+
 @router.post("/face-recognition", response_model=RecognitionResponse)
-async def face_recognition(file: UploadFile = File(...)):
+async def face_recognition(request: FaceRecognitionRequest):
     """
-    Upload an image file (JPG/PNG) to detect faces and extract features.
+    Upload multiple base64 encoded images to detect faces and extract features.
     """
-    if file.content_type not in ["image/jpeg", "image/png"]:
-        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG and PNG are supported.")
+    if not request.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+        
+    import base64
     try:
-        contents = await file.read()
-        results = face_service.process_image(contents)
-        return {
-            "face_count": len(results),
-            "faces": results
-        }
+        batch_results = []
+        for b64 in request.images:
+            if ',' in b64:
+                b64 = b64.split(',')[1]
+            contents = base64.b64decode(b64)
+            results = face_service.process_image(contents)
+            batch_results.append({
+                "face_count": len(results),
+                "faces": results
+            })
+        return {"results": batch_results}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:

@@ -74,6 +74,7 @@ class TicketService:
 
     def _register_downloads(self):
         def check_model():
+            return False
             model_path = os.path.join(settings.MODEL_PATH, 'ticket_recognition', 'best.pt')
             return os.path.exists(model_path)
 

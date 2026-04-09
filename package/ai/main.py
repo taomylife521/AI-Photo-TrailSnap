@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import system, face, ocr, object_detection, tickets, image_classification, ai_config
+from app.routers import system, face, ocr, object_detection, tickets, image_classification, ai_config, embedding
 from app.core.logger import setup_logging
 from app.services.model_downloader import model_downloader
 
@@ -80,7 +80,6 @@ app = FastAPI(
 # Initialize logging listener
 log_listener = None
 
-
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     global active_requests, last_request_time
@@ -103,6 +102,7 @@ async def log_requests(request: Request, call_next):
         # logging.getLogger("app.middleware").info("Request processed", extra=extra)
 
         return response
+
     except Exception as e:
         process_time = (time.time() - start_time) * 1000
         extra = {
@@ -125,6 +125,7 @@ app.include_router(ocr.router, prefix="/ocr", tags=["OCR"])
 app.include_router(object_detection.router, prefix="/object-detection", tags=["Object Detection"])
 app.include_router(tickets.router, prefix="/tickets", tags=["Ticket Recognition"])
 app.include_router(image_classification.router, prefix="/classification", tags=["Image Classification"])
+app.include_router(embedding.router, prefix="/embedding", tags=["Embedding"])
 app.include_router(ai_config.router, prefix="/ai", tags=["AI Configuration"])
 
 if __name__ == "__main__":

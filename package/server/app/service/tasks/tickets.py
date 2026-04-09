@@ -168,21 +168,18 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
             with open(target_path, 'rb') as f:
                 file_data = f.read()
 
-            form_data = FormData()
-            form_data.add_field(
-                name='file',
-                value=file_data,
-                filename=photo.filename,
-                content_type='image/jpeg'
-            )
+            import base64
+            b64_data = base64.b64encode(file_data).decode('utf-8')
+            json_data = {"images": [b64_data]}
 
             api_url = f"{config_manager.get_user_config(photo.owner_id, db).ai.ai_api_url}/tickets/predict"
-            async with session.post(api_url, data=form_data) as response:
+            async with session.post(api_url, json=json_data) as response:
                 if response.status == 200:
                     result = await response.json()
+                    results = result.get('results', [])
+                    tickets_data = results[0].get('tickets', []) if results else []
                     # === Auto-add tickets to database ===
-                    if result and 'tickets' in result:
-                        tickets_data = result['tickets']
+                    if tickets_data:
                         added_count = 0
                         for t_info in tickets_data:
                             try:

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 import logging
 import traceback
@@ -30,50 +30,34 @@ class TicketInfo(BaseModel):
     detection_id: int = 0
 
 class TicketRecognitionResponse(BaseModel):
-    ticket_count: int
-    tickets: List[TicketInfo]
+    results: List[Dict[str, Any]]
+
+class TicketRecognitionRequest(BaseModel):
+    images: List[str]
 
 @router.post("/predict", response_model=TicketRecognitionResponse)
-async def predict_ticket(file: UploadFile = File(...)):
+async def predict_ticket(request: TicketRecognitionRequest):
     """
-    Upload an image file (JPG/PNG) to recognize train tickets.
+    Upload multiple base64 encoded images to recognize train tickets.
     """
-    if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
-        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG and PNG are supported.")
-    
+    if not request.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+
+    import base64
     try:
-        contents = await file.read()
-        results = ticket_service.detect(contents)
-        return {
-            "ticket_count": results["count"],
-            "tickets": results["tickets"]
-        }
+        batch_results = []
+        for b64 in request.images:
+            if ',' in b64:
+                b64 = b64.split(',')[1]
+            contents = base64.b64decode(b64)
+            results = ticket_service.detect(contents)
+            batch_results.append({
+                "ticket_count": results["count"],
+                "tickets": results["tickets"]
+            })
+        return {"results": batch_results}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
-@router.post("/predict-batch")
-async def predict_tickets_batch(files: List[UploadFile] = File(...)):
-    """
-    Upload multiple images to recognize tickets.
-    """
-    results_list = []
-    for file in files:
-        try:
-            contents = await file.read()
-            res = ticket_service.detect(contents)
-            results_list.append({
-                "filename": file.filename,
-                "success": True,
-                "data": res
-            })
-        except Exception as e:
-            logging.error(f"Error processing {file.filename}: {e}")
-            results_list.append({
-                "filename": file.filename,
-                "success": False,
-                "error": str(e)
-            })
-    return {"results": results_list}

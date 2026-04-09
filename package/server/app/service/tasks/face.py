@@ -91,19 +91,16 @@ async def process_single_photo(task_manager, photo: Photo, db: Session) -> Dict[
                 file_data = f.read()
             width, height, _ = storage.get_image_dimensions(target_path)
 
-            form_data = FormData()
-            form_data.add_field(
-                name='file',
-                value=file_data,
-                filename=photo.filename,
-                content_type='image/jpeg'
-            )
+            import base64
+            b64_data = base64.b64encode(file_data).decode('utf-8')
+            json_data = {"images": [b64_data]}
 
             api_url = f"{config_manager.get_user_config(photo.owner_id, db).ai.ai_api_url}/face/face-recognition"
-            async with session.post(api_url, data=form_data) as resp:
+            async with session.post(api_url, json=json_data) as resp:
                 if resp.status == 200:
                     result = await resp.json()
-                    faces = result.get('faces', [])
+                    results = result.get('results', [])
+                    faces = results[0].get('faces', []) if results else []
 
                     # Clean up old faces
                     crud_face.delete_faces_by_photo(db, photo.id)
