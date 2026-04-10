@@ -86,6 +86,184 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
             logger.error(f"Face task failed: {e}")
             raise e
 
+
+    async def process_batch(self, worker, tasks: List[Task], db: Session) -> List[Dict]:
+        results = []
+        generator_tasks = []
+        photo_tasks = []
+
+        for task in tasks:
+            if task.payload and 'photo_id' in task.payload:
+                photo_tasks.append(task)
+            else:
+                generator_tasks.append(task)
+
+        # Process generator tasks normally
+        for task in generator_tasks:
+            try:
+                res = await self.process(worker, task, db)
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
+                    'result': res,
+                    'error': res.get('error') if res and isinstance(res, dict) else None
+                })
+            except Exception as e:
+                logger.error(f"Error processing generator task {task.id}: {e}")
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+
+        if not photo_tasks:
+            return results
+
+        # Group photo tasks by owner_id
+        tasks_by_owner = {}
+        for task in photo_tasks:
+            owner_id = task.owner_id
+            if owner_id not in tasks_by_owner:
+                tasks_by_owner[owner_id] = []
+            tasks_by_owner[owner_id].append(task)
+
+        import base64
+        for owner_id, owner_tasks in tasks_by_owner.items():
+            try:
+                photo_ids = [t.payload['photo_id'] for t in owner_tasks]
+                photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
+                photo_map = {str(p.id): p for p in photos}
+                
+                # Filter out already processed if not force
+                valid_tasks = []
+                b64_images = []
+                valid_photos = []
+                
+                for task in owner_tasks:
+                    photo_id = str(task.payload['photo_id'])
+                    photo = photo_map.get(photo_id)
+                    force = task.payload.get('force', False)
+                    
+                    if not photo:
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
+                        continue
+                        
+                    if not force:
+                        tasks_status = photo.processed_tasks or {}
+                        if tasks_status.get('face'):
+                            results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
+                            continue
+                            
+                    target_path = storage.get_preview_path(photo.owner_id, photo.id)
+                    if not os.path.exists(target_path):
+                        target_path = photo.file_path
+                        
+                    if not target_path or not os.path.exists(target_path):
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': 'file not found'})
+                        continue
+                        
+                    try:
+                        with open(target_path, 'rb') as f_img:
+                            b64_data = base64.b64encode(f_img.read()).decode('utf-8')
+                        b64_images.append(b64_data)
+                        valid_tasks.append(task)
+                        valid_photos.append(photo)
+                    except Exception as e:
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': f'read file error: {e}'})
+
+                if not valid_tasks:
+                    continue
+
+                # Batch AI request
+                api_url = f"{config_manager.get_user_config(owner_id, db).ai.ai_api_url}/face/face-recognition"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(api_url, json={"images": b64_images}) as resp:
+                        if resp.status == 200:
+                            result_data = await resp.json()
+                            ai_results = result_data.get('results', [])
+                            
+                            cluster_service = FaceClusterService(db, owner_id)
+                            threshold = config_manager.get_user_config(owner_id, db).ai.face_recognition_threshold
+                            
+                            for idx, task in enumerate(valid_tasks):
+                                photo = valid_photos[idx]
+                                faces_data = ai_results[idx].get('faces', []) if idx < len(ai_results) else []
+                                
+                                width, height, _ = storage.get_image_dimensions(photo.file_path)
+                                crud_face.delete_faces_by_photo(db, photo.id)
+                                
+                                count = 0
+                                has_unassigned = False
+                                
+                                for face_data in faces_data:
+                                    if face_data.get('det_score') < threshold:
+                                        continue
+                                        
+                                    bbox = face_data.get('bbox')
+                                    if bbox and len(bbox) == 4 and width and height and width > 0 and height > 0:
+                                        bbox = [
+                                            min(max(bbox[0] / width, 0.0), 1.0),
+                                            min(max(bbox[1] / height, 0.0), 1.0),
+                                            min(max(bbox[2] / width, 0.0), 1.0),
+                                            min(max(bbox[3] / height, 0.0), 1.0)
+                                        ]
+                                        
+                                    face = Face(
+                                        photo_id=photo.id,
+                                        face_feature=face_data.get('embedding'),
+                                        face_rect=bbox,
+                                        face_confidence=face_data.get('det_score'),
+                                        recognize_confidence=0.0
+                                    )
+                                    db.add(face)
+                                    db.flush()
+                                    
+                                    count += 1
+                                    if face.face_feature:
+                                        try:
+                                            assigned_id = cluster_service.assign_face_to_identity(face.id, face.face_feature)
+                                            if not assigned_id:
+                                                has_unassigned = True
+                                        except Exception as ce:
+                                            logger.error(f"Clustering failed for face {face.id}: {ce}")
+                                            
+                                if has_unassigned:
+                                    db.commit()
+                                    try:
+                                        cluster_service.process_unassigned_faces(owner_id)
+                                    except Exception as ce:
+                                        logger.error(f"Batch clustering failed: {ce}")
+                                        
+                                tasks_status = dict(photo.processed_tasks or {})
+                                tasks_status['face'] = True
+                                photo.processed_tasks = tasks_status
+                                db.add(photo)
+                                db.commit()
+                                
+                                if photo.owner_id:
+                                    from app.crud.album import trigger_conditional_albums_update
+                                    trigger_conditional_albums_update(db, photo.owner_id, [photo.id])
+                                    
+                                results.append({
+                                    'task_id': task.id,
+                                    'task_type': task.type,
+                                    'status': 'completed',
+                                    'result': {'status': 'success', 'faces_found': count}
+                                })
+                        else:
+                            err_msg = f"AI Service error: {resp.status}"
+                            for task in valid_tasks:
+                                results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
+                                
+            except Exception as e:
+                logger.error(f"Error processing batch for owner {owner_id}: {e}")
+                for task in owner_tasks:
+                    if not any(r['task_id'] == task.id for r in results):
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
+
+        return results
     async def process_single_photo(self, worker, photo: Photo, db: Session) -> Dict[str, Any]:
         try:
             cluster_service = FaceClusterService(db, photo.owner_id)

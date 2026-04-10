@@ -16,7 +16,45 @@ from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
 from app.service.task_strategy import TaskStrategyFactory
+# Import tasks to register strategies
 from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, image_embedding, visual_description, basic, duplicate, similar, tickets
+
+class TaskQueueManager:
+    def __init__(self):
+        # Priority queue structure: (priority, counter, batch)
+        # We use a counter to prevent comparing dicts when priorities are equal
+        self.queues = {
+            'CPU': asyncio.PriorityQueue(),
+            'IO': asyncio.PriorityQueue(),
+            'AI': asyncio.PriorityQueue()
+        }
+        import itertools
+        self._counters = {
+            'CPU': itertools.count(),
+            'IO': itertools.count(),
+            'AI': itertools.count()
+        }
+
+    async def put_batch(self, category: str, batch: List[Dict], priority: int = 1):
+        if category in self.queues:
+            # priority is inverted because PriorityQueue retrieves lowest first
+            count = next(self._counters[category])
+            await self.queues[category].put((-priority, count, batch))
+
+    async def get_batch(self, category: str) -> List[Dict]:
+        if category in self.queues:
+            item = await self.queues[category].get()
+            return item[2]
+        return []
+
+    def qsize(self, category: str) -> int:
+        if category in self.queues:
+            return self.queues[category].qsize()
+        return 0
+
+    def task_done(self, category: str):
+        if category in self.queues:
+            self.queues[category].task_done()
 
 class TaskWorker:
     """
@@ -45,16 +83,23 @@ class TaskWorker:
         self.running = False
         self.worker_task = None
         self.result_task = None
+        self.cpu_consumer_task = None
+        self.io_consumer_task = None
+        self.ai_consumer_task = None
         self.process_pool = None
         self.thread_pool = None
         self.result_queue = asyncio.Queue()
+        self.queue_manager = TaskQueueManager()
         self.scan_status = DEFAULT_SCAN_STATUS.copy()
+        self.category_map = CATEGORY_MAP.copy()
         
-        self.paused_categories: Set[str] = set()
-        self.category_map = CATEGORY_MAP
+        # Will be initialized in _sync_system_state_if_needed
+        self.paused_categories = set()
         self.fast_mode = False
-        self.active_task_map: Dict[Any, str] = {} # future -> task_type
-        self.last_active_time: Dict[str, datetime] = {} # task_type -> last active time
+        
+        # Maintain a map of Future/Task -> TaskType to track running tasks
+        self.active_task_map: Dict[asyncio.Future, TaskType] = {}
+        self.last_active_time: Dict[TaskType, datetime] = {}
 
     @classmethod
     def get_instance(cls):
@@ -119,6 +164,9 @@ class TaskWorker:
 
         self.worker_task = asyncio.create_task(self.worker_loop())
         self.result_task = asyncio.create_task(self.result_loop())
+        self.cpu_consumer_task = asyncio.create_task(self.consumer_loop('CPU'))
+        self.io_consumer_task = asyncio.create_task(self.consumer_loop('IO'))
+        self.ai_consumer_task = asyncio.create_task(self.consumer_loop('AI'))
         logging.info(f"TaskWorker started. Fast Mode: {self.fast_mode}")
 
     def stop(self):
@@ -127,6 +175,12 @@ class TaskWorker:
             self.worker_task.cancel()
         if self.result_task:
             self.result_task.cancel()
+        if self.cpu_consumer_task:
+            self.cpu_consumer_task.cancel()
+        if self.io_consumer_task:
+            self.io_consumer_task.cancel()
+        if self.ai_consumer_task:
+            self.ai_consumer_task.cancel()
         if self.process_pool:
             self.process_pool.shutdown(wait=False)
             self.process_pool = None
@@ -184,17 +238,21 @@ class TaskWorker:
         active_count = len(self.active_task_map)
         
         # Check for CPU Pool
-        active_cpu_count = sum(1 for t in self.active_task_map.values() if t in self.CPU_TASKS)
+        active_cpu_count = sum(1 for t in self.active_task_map.values() if TaskStrategyFactory.get_strategy(t).task_category == 'CPU')
         if active_cpu_count == 0 and self.process_pool:
-            last_cpu_run = max([self.last_active_time.get(t, datetime.min) for t in self.CPU_TASKS], default=datetime.min)
+            # CPU tasks run in process pool currently, but we are migrating to thread pool for simplification if needed
+            # For now keep as is. We need to check all CPU tasks.
+            cpu_tasks = [t for t in TaskType if TaskStrategyFactory.get_strategy(t).task_category == 'CPU']
+            last_cpu_run = max([self.last_active_time.get(t, datetime.min) for t in cpu_tasks], default=datetime.min)
             if (datetime.now() - last_cpu_run).total_seconds() > 300:
                 self.process_pool.shutdown(wait=False)
                 self.process_pool = None
 
         # Check for IO Pool
-        active_io_count = sum(1 for t in self.active_task_map.values() if t in self.IO_TASKS)
+        active_io_count = sum(1 for t in self.active_task_map.values() if TaskStrategyFactory.get_strategy(t).task_category == 'IO')
         if active_io_count == 0 and self.thread_pool:
-            last_io_run = max([self.last_active_time.get(t, datetime.min) for t in self.IO_TASKS], default=datetime.min)
+            io_tasks = [t for t in TaskType if TaskStrategyFactory.get_strategy(t).task_category == 'IO']
+            last_io_run = max([self.last_active_time.get(t, datetime.min) for t in io_tasks], default=datetime.min)
             if (datetime.now() - last_io_run).total_seconds() > 300:
                 self.thread_pool.shutdown(wait=False)
                 self.thread_pool = None
@@ -213,102 +271,212 @@ class TaskWorker:
 
     def _calculate_allowed_task_types(self) -> List[str]:
         allowed_types = []
-        active_count = len(self.active_task_map)
-        
+        # In queue architecture, active_count is the number of active task *batches* running
+        # We should rely more on queue depth rather than active count to fetch tasks
+        # But we still check system limits to avoid flooding DB
         if self.fast_mode:
-            active_cpu = sum(1 for t in self.active_task_map.values() if t in self.CPU_TASKS)
-            active_io = sum(1 for t in self.active_task_map.values() if t in self.IO_TASKS)
-            active_ai = sum(1 for t in self.active_task_map.values() if t in self.AI_TASKS)
-
-            max_cpu = os.cpu_count() or 4
-            max_io = 30
-            max_ai = 2
-
-            if active_cpu < max_cpu:
-                allowed_types.extend(self.CPU_TASKS)
-            if active_io < max_io:
-                allowed_types.extend(self.IO_TASKS)
-            if active_ai < max_ai:
-                allowed_types.extend(self.AI_TASKS)
-
-            other_types = [t for t in TaskType if t not in self.CPU_TASKS and t not in self.IO_TASKS and t not in self.AI_TASKS]
-            if active_cpu + active_io + active_ai < max_cpu + max_io + max_ai:
-                allowed_types.extend(other_types)
+            allowed_types.extend([t for t in TaskType if TaskStrategyFactory.get_strategy(t).task_category == 'CPU'])
+            allowed_types.extend([t for t in TaskType if TaskStrategyFactory.get_strategy(t).task_category == 'IO'])
+            allowed_types.extend([t for t in TaskType if TaskStrategyFactory.get_strategy(t).task_category == 'AI'])
+            other_types = [t for t in TaskType if TaskStrategyFactory.get_strategy(t).task_category not in ['CPU', 'IO', 'AI']]
+            allowed_types.extend(other_types)
         else:
-            max_concurrency = system_config.config.task.max_concurrent_tasks
-            active_ai = sum(1 for t in self.active_task_map.values() if t in self.AI_TASKS)
-            max_ai = 2
-
-            if active_count < max_concurrency:
-                allowed_types = [t for t in TaskType if t not in self.AI_TASKS]
-                if active_ai < max_ai:
-                    allowed_types.extend(self.AI_TASKS)
-                    
+            allowed_types = [t for t in TaskType]
         return allowed_types
 
-    def _fetch_and_dispatch_tasks_sync(self, allowed_types: List[str]) -> List[dict]:
+
+    def _fetch_tasks_to_queues_sync(self, allowed_types: List[str], current_qsizes: Dict[str, int]) -> Dict[str, List[Dict]]:
         db = SessionLocal()
-        dispatched_tasks = []
+        tasks_by_type = {}
         try:
             paused_types = []
             for type_enum, cat in self.category_map.items():
                 if cat in self.paused_categories:
                     paused_types.append(type_enum)
 
+            # We will fetch up to max_batch_size per category if its queue is below threshold
+            # Max items in queue per category
+            QUEUE_THRESHOLD = 50
+            # How many items to fetch in one DB query per category
+            FETCH_BATCH_SIZE = 50
+
+            # Filter allowed types based on current queue size
+            types_to_fetch = []
+            for t in allowed_types:
+                task_Factory = TaskStrategyFactory.get_strategy(t)
+                if not task_Factory: continue
+                cat = task_Factory.task_category
+                if cat and current_qsizes.get(cat, 0) < QUEUE_THRESHOLD:
+                    types_to_fetch.append(t)
+
+            if not types_to_fetch:
+                return {}
+
             query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
-            query = query.filter(Task.type.in_(allowed_types))
+            query = query.filter(Task.type.in_(types_to_fetch))
 
             if paused_types:
                 query = query.filter(Task.type.notin_(paused_types))
 
-            batch_size = 10
-            active_count = len(self.active_task_map)
-            if self.fast_mode:
-                max_cpu = os.cpu_count() or 4
-                max_io = 30
-                max_ai = 2
-                batch_size = max(1, (max_cpu + max_io + max_ai) - active_count)
-            else:
-                max_concurrency = system_config.config.task.max_concurrent_tasks
-                batch_size = max(1, max_concurrency - active_count)
-            
-            batch_size = min(batch_size, 20)
-
-            tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(batch_size).all()
+            # Fetch tasks. We fetch a bit more to fill the queues up
+            tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(FETCH_BATCH_SIZE * 3).all()
 
             if tasks:
                 for task in tasks:
+                    cat = TaskStrategyFactory.get_strategy(task.type).task_category
+                    if not cat: continue
+                    
+                    # Stop grouping for this category if we have enough
+                    if task.type not in tasks_by_type:
+                        tasks_by_type[task.type] = []
+                    
+                    # We can limit the number of items fetched per category here if we want strict limits
+                    # but simple fetching and updating is fine.
                     task.status = TaskStatus.PROCESSING
                     self.last_active_time[task.type] = datetime.now()
-                    dispatched_tasks.append({'id': task.id, 'type': task.type})
-                    self.scan_status['current_task'] = f"{task.type} - {task.id}"
+                    tasks_by_type[task.type].append({'id': task.id, 'type': task.type, 'priority': task.priority})
                 db.commit()
-                
-            return dispatched_tasks
+
+            return tasks_by_type
         except Exception as e:
             logging.error(f"Error fetching tasks: {e}")
-            return []
+            return {}
         finally:
             db.close()
 
-    async def _fetch_and_dispatch_tasks(self, allowed_types: List[str]) -> int:
-        # Run DB operation in thread pool to avoid blocking asyncio event loop
-        tasks = await asyncio.to_thread(self._fetch_and_dispatch_tasks_sync, allowed_types)
-        
-        for task_info in tasks:
-            future = asyncio.create_task(self.execute_task_wrapper(task_info['id'], task_info['type']))
-            self.active_task_map[future] = task_info['type']
+    async def consumer_loop(self, category: str):
+        logging.info(f"TaskWorker {category} consumer loop started")
+
+        # Configure max concurrency per consumer category based on system settings
+        # or Fast Mode. Using Semaphores to allow multiple batches to run concurrently.
+        max_concurrency = 1
+        if category == 'CPU':
+            max_concurrency = os.cpu_count() or 4
+        elif category == 'IO':
+            max_concurrency = 10
+        elif category == 'AI':
+            max_concurrency = 2
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        while self.running:
+            try:
+                # 必须先获取 semaphore 才能从队列拿任务，防止由于并发超限导致高优先级任务被取出后隐藏在内存中
+                await semaphore.acquire()
+
+                # 为了防止被无限期阻塞导致无法响应停止信号（self.running=False）
+                # 我们使用 wait_for，并设置一个较短的超时时间
+                try:
+                    batch = await asyncio.wait_for(self.queue_manager.get_batch(category), timeout=1.0)
+                except asyncio.TimeoutError:
+                    semaphore.release()
+                    continue
+
+                if not batch:
+                    semaphore.release()
+                    continue
+
+                async def wrapper(b):
+                    try:
+                        # if category == 'CPU':
+                        #     # Use ThreadPoolExecutor to prevent blocking the main async event loop with heavy sync tasks
+                        #     # like thumbnail generation or OpenCV operations.
+                        #     # The helper `_run_sync_wrapper` creates a new event loop in that thread.
+                        #     loop = asyncio.get_running_loop()
+                        #     future = asyncio.create_task(
+                        #         loop.run_in_executor(self.thread_pool, self._run_sync_wrapper, b, category)
+                        #     )
+                        # else:
+                            # For IO/AI tasks, they are already async-friendly (using aiohttp, etc.)
+                            # so they can run directly in the main event loop.
+                        future = asyncio.create_task(self.execute_batch_task_wrapper(b, category))
+                            
+                        self.active_task_map[future] = b[0]['type']
+                        await future
+                    except Exception as e:
+                        logging.error(f"Error executing batch in {category}: {e}")
+                    finally:
+                        self.queue_manager.task_done(category)
+                        semaphore.release()
+
+                # 放开后台任务执行
+                asyncio.create_task(wrapper(batch))
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.error(f"Unexpected error in {category} consumer loop: {e}", exc_info=True)
+                # Ensure semaphore is released on unexpected errors if we had acquired it
+                try:
+                    semaphore.release()
+                except ValueError:
+                    pass
+                await asyncio.sleep(1)
+
+    def _run_sync_wrapper(self, task_infos: List[Dict], category: str):
+        """Helper to run the async wrapper in a new event loop inside a thread."""
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.execute_batch_task_wrapper(task_infos, category))
+        finally:
+            loop.close()
+
+    async def execute_batch_task_wrapper(self, task_infos: List[Dict], category: str):
+        if not task_infos:
+            return
             
-        return len(tasks)
+        task_type = task_infos[0]['type']
+        task_ids = [t['id'] for t in task_infos]
+        db = SessionLocal()
+        try:
+            tasks = db.query(Task).filter(Task.id.in_(task_ids)).all()
+            if not tasks:
+                return
+
+            try:
+                # Use strategy's category for timeout logic
+                strategy = TaskStrategyFactory.get_strategy(task_type)
+                if not strategy:
+                    raise ValueError(f"Strategy not found for task type: {task_type}")
+
+                timeout = 120.0 if strategy.task_category == 'AI' else 300.0
+
+                results = await asyncio.wait_for(strategy.process_batch(self, tasks, db), timeout=timeout)
+                
+                for res in results:
+                    await self.result_queue.put(res)
+
+            except asyncio.TimeoutError:
+                logging.error(f"Task batch {task_type} timed out after {timeout} seconds")
+                for task_id in task_ids:
+                    await self.result_queue.put({
+                        'task_id': task_id,
+                        'task_type': task_type,
+                        'status': TaskStatus.FAILED,
+                        'error': f"Task batch timed out after {timeout} seconds"
+                    })
+            except Exception as e:
+                logging.error(f"Task batch {task_type} failed: {e}", exc_info=True)
+                for task_id in task_ids:
+                    await self.result_queue.put({
+                        'task_id': task_id,
+                        'task_type': task_type,
+                        'status': TaskStatus.FAILED,
+                        'error': str(e)
+                    })
+        except Exception as e:
+            logging.error(f"Error in task batch wrapper for {task_type}: {e}")
+        finally:
+            db.close()
 
     async def worker_loop(self):
-        logging.info("TaskWorker loop started")
+        logging.info("TaskWorker producer loop started")
         self._idle_start_time = None
         self._backoff_delay = 1.0
 
         while self.running:
             try:
-                # Clean up finished tasks
                 done_futures = [f for f in self.active_task_map.keys() if f.done()]
                 for f in done_futures:
                     del self.active_task_map[f]
@@ -333,7 +501,26 @@ class TaskWorker:
                     await asyncio.sleep(0.1)
                     continue
 
-                dispatched_count = await self._fetch_and_dispatch_tasks(allowed_types)
+                current_qsizes = {
+                    'CPU': self.queue_manager.qsize('CPU'),
+                    'IO': self.queue_manager.qsize('IO'),
+                    'AI': self.queue_manager.qsize('AI')
+                }
+
+                tasks_by_type = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes)
+                dispatched_count = 0
+                
+                for task_type, task_list in tasks_by_type.items():
+                    task_factory = TaskStrategyFactory.get_strategy(task_type)
+                    if not task_factory:
+                        continue
+                    category = task_factory.task_category
+
+                    if category:
+                        # Using the priority of the first task in the batch for the queue
+                        priority = task_list[0].get('priority', 1)
+                        await self.queue_manager.put_batch(category, task_list, priority=priority)
+                        dispatched_count += len(task_list)
                 
                 if dispatched_count == 0:
                     if active_count == 0 and self._idle_start_time:
@@ -344,7 +531,6 @@ class TaskWorker:
                             import sys
                             sys.exit(0)
                             
-                    # Exponential backoff
                     await asyncio.sleep(self._backoff_delay)
                     self._backoff_delay = min(self._backoff_delay * 1.5, 10.0)
                 else:
@@ -355,67 +541,6 @@ class TaskWorker:
             except Exception as e:
                 logging.error(f"Unexpected error in worker loop: {e}")
                 await asyncio.sleep(1)
-
-    async def execute_task_wrapper(self, task_id: UUID, task_type: str):
-        db = SessionLocal()
-        try:
-            task = db.query(Task).filter(Task.id == task_id).first()
-            if not task:
-                return
-
-            try:
-                # Wait for task completion with a timeout
-                timeout = 120.0 if task_type in self.AI_TASKS else 300.0
-                result = await asyncio.wait_for(self.process_task(task, db), timeout=timeout)
-                
-                if result and 'status' in result and result['status'] == 'failed':
-                    # Enqueue failure result
-                    await self.result_queue.put({
-                        'task_id': task_id,
-                        'task_type': task_type,
-                        'status': TaskStatus.FAILED,
-                        'error': result['error']
-                    })
-                else:
-                    # Enqueue success result
-                    await self.result_queue.put({
-                        'task_id': task_id,
-                        'task_type': task_type,
-                        'status': TaskStatus.COMPLETED,
-                        'result': result
-                    })
-            except asyncio.TimeoutError:
-                logging.error(f"Task {task_id} timed out after {timeout} seconds")
-                await self.result_queue.put({
-                    'task_id': task_id,
-                    'task_type': task_type,
-                    'status': TaskStatus.FAILED,
-                    'error': f"Task timed out after {timeout} seconds"
-                })
-            except Exception as e:
-                logging.error(f"Task {task_id} failed: {e}", exc_info=True)
-                # Enqueue failure result
-                await self.result_queue.put({
-                    'task_id': task_id,
-                    'task_type': task_type,
-                    'status': TaskStatus.FAILED,
-                    'error': str(e)
-                })
-        except Exception as e:
-            logging.error(f"Error in task wrapper for {task_id}: {e}")
-        finally:
-            # We don't strictly need to reset token as the task is ending,
-            # but it's good practice if we were reusing the task (which we aren't).
-            # Also ContextVar is task-local so it won't leak.
-            db.close()
-
-    async def process_task(self, task: Task, db: Session):
-        strategy = TaskStrategyFactory.get_strategy(task.type)
-        if strategy:
-            return await strategy.process(self, task, db)
-        else:
-            return {'status': 'not_implemented', 'type': task.type}
-
     async def result_loop(self):
         logging.info("TaskWorker result loop started")
         pending_items = []
@@ -432,7 +557,6 @@ class TaskWorker:
                 should_flush = len(pending_items) >= 50 or ((now - last_flush).total_seconds() > 1 and pending_items)
                 if should_flush:
                     logging.info(f"Flushing {len(pending_items)} results")
-                    print(pending_items)
                     await self._flush_results(pending_items)
                     pending_items = []
                     last_flush = now

@@ -103,6 +103,77 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             logger.error(f"Visual Description task failed: {e}")
             raise e
 
+
+    async def process_batch(self, worker, tasks: List[Task], db: Session) -> List[Dict]:
+        results = []
+        generator_tasks = []
+        photo_tasks = []
+
+        for task in tasks:
+            if task.payload and 'photo_id' in task.payload:
+                photo_tasks.append(task)
+            else:
+                generator_tasks.append(task)
+
+        for task in generator_tasks:
+            try:
+                res = await self.process(worker, task, db)
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
+                    'result': res,
+                    'error': res.get('error') if res and isinstance(res, dict) else None
+                })
+            except Exception as e:
+                logger.error(f"Error processing generator task {task.id}: {e}")
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+
+        if not photo_tasks:
+            return results
+
+        import asyncio
+        
+        async def process_task_safe(task):
+            try:
+                photo_id = task.payload['photo_id']
+                photo = db.query(Photo).filter(Photo.id == photo_id).first()
+                if not photo:
+                    return {'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}}
+                
+                force = task.payload.get('force', False)
+                if not force:
+                    tasks_status = photo.processed_tasks or {}
+                    if tasks_status.get('visual_description'):
+                        return {'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}}
+                
+                settings = config_manager.get_user_config(task.owner_id, db).ai.llm_vl_settings
+                res = await self.process_single_photo(worker, photo, db, settings)
+                return {
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
+                    'result': res,
+                    'error': res.get('error') if res and isinstance(res, dict) else None
+                }
+            except Exception as e:
+                logger.error(f"Error processing visual description for task {task.id}: {e}")
+                return {
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed',
+                    'error': str(e)
+                }
+
+        batch_results = await asyncio.gather(*(process_task_safe(t) for t in photo_tasks))
+        results.extend(batch_results)
+
+        return results
     def encode_image(self, image_path):
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')

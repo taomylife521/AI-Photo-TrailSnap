@@ -60,10 +60,11 @@ def get_task_stats(db: Session = Depends(get_db)):
     """
     返回当前系统中 PROCESS_IMAGE 类型且状态为 FAILED 的任务数量。
     """
-    failed_count = db.query(Task).filter(
-        Task.type == TaskType.PROCESS_IMAGE,
-        Task.status == TaskStatus.FAILED
-    ).count()
+    failed_count = 0
+    # failed_count = db.query(Task).filter(
+    #     Task.type == TaskType.PROCESS_IMAGE,
+    #     Task.status == TaskStatus.FAILED
+    # ).count()
     return {"failed_process_tasks": failed_count}
 
 

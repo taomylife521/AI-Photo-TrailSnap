@@ -42,7 +42,7 @@ DEFAULT_SCAN_STATUS = {
 CATEGORY_MAP = {
     TaskType.SCAN_FOLDER: 'scanning',
     TaskType.PROCESS_BASIC: 'basic',
-    TaskType.PROCESS_IMAGE: 'scanning', # Legacy
+    # TaskType.PROCESS_IMAGE: 'scanning', # Legacy
     TaskType.GENERATE_THUMBNAIL: 'scanning',
     TaskType.REBUILD_THUMBNAILS: 'scanning',
 

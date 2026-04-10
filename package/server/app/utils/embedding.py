@@ -14,12 +14,12 @@ async def async_get_embedding(text: str, user_id: int, db: SessionLocal) -> list
     """
     try:
         async with aiohttp.ClientSession() as session:
-            url = f"{config_manager.get_user_config(user_id, db).ai.ai_api_url}/classification/embed/text"
-            payload = {'text': text}
+            url = f"{config_manager.get_user_config(user_id, db).ai.ai_api_url}/embedding/text"
+            payload = {'texts': [text]}
             async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    return data
+                    return data[0]
                 else:
                     logging.info(resp.status, await resp.text())
                     raise HTTPException(status_code=500, detail=f"AI Service error: {resp.status}")

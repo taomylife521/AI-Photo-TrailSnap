@@ -65,7 +65,6 @@ class ScanFolderStrategy(BaseTaskStrategy):
         worker.scan_status['message'] = "Scanning folders..."
         scan_roots = task.payload.get('scan_roots')
         user_id = task.payload.get('user_id')
-        logging.info(f"Scanning roots: {scan_roots}")
         user = None
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()

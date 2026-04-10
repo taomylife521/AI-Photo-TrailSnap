@@ -162,6 +162,213 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
             logger.error(f"Ticket task failed: {e}")
             raise e
 
+
+    async def process_batch(self, worker, tasks: List[Task], db: Session) -> List[Dict]:
+        results = []
+        generator_tasks = []
+        photo_tasks = []
+
+        for task in tasks:
+            if task.payload and 'photo_id' in task.payload:
+                photo_tasks.append(task)
+            else:
+                generator_tasks.append(task)
+
+        for task in generator_tasks:
+            try:
+                res = await self.process(worker, task, db)
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
+                    'result': res,
+                    'error': res.get('error') if res and isinstance(res, dict) else None
+                })
+            except Exception as e:
+                logger.error(f"Error processing generator task {task.id}: {e}")
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+
+        if not photo_tasks:
+            return results
+
+        tasks_by_owner = {}
+        for task in photo_tasks:
+            owner_id = task.owner_id
+            if owner_id not in tasks_by_owner:
+                tasks_by_owner[owner_id] = []
+            tasks_by_owner[owner_id].append(task)
+
+        import base64
+        from datetime import datetime
+        for owner_id, owner_tasks in tasks_by_owner.items():
+            try:
+                photo_ids = [t.payload['photo_id'] for t in owner_tasks]
+                photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
+                photo_map = {str(p.id): p for p in photos}
+                
+                valid_tasks = []
+                b64_images = []
+                valid_photos = []
+                
+                for task in owner_tasks:
+                    photo_id = str(task.payload['photo_id'])
+                    photo = photo_map.get(photo_id)
+                    force = task.payload.get('force', False)
+                    
+                    if not photo:
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
+                        continue
+                        
+                    if not force:
+                        tasks_status = photo.processed_tasks or {}
+                        if tasks_status.get('tickets'):
+                            results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
+                            continue
+                            
+                    target_path = storage.get_preview_path(photo.owner_id, photo.id)
+                    if not os.path.exists(target_path):
+                        target_path = photo.file_path
+                        
+                    if not target_path or not os.path.exists(target_path):
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': 'file not found'})
+                        continue
+                        
+                    try:
+                        with open(target_path, 'rb') as f_img:
+                            b64_data = base64.b64encode(f_img.read()).decode('utf-8')
+                        b64_images.append(b64_data)
+                        valid_tasks.append(task)
+                        valid_photos.append(photo)
+                    except Exception as e:
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': f'read file error: {e}'})
+
+                if not valid_tasks:
+                    continue
+
+                api_url = f"{config_manager.get_user_config(owner_id, db).ai.ai_api_url}/tickets/predict"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(api_url, json={"images": b64_images}) as response:
+                        if response.status == 200:
+                            result_data = await response.json()
+                            ai_results = result_data.get('results', [])
+                            
+                            for idx, task in enumerate(valid_tasks):
+                                photo = valid_photos[idx]
+                                res_item = ai_results[idx] if idx < len(ai_results) else {}
+                                tickets_data = res_item.get('tickets', [])
+                                
+                                crud_train_tickets.delete_train_ticket_by_photo_id(db, photo.id)
+                                crud_flight_tickets.delete_flight_ticket_by_photo_id(db, photo.id)
+                                
+                                added_count = 0
+                                if tickets_data:
+                                    for t_info in tickets_data:
+                                        try:
+                                            dt_str = t_info.get('datetime')
+                                            dt = None
+                                            formats = [
+                                                "%Y年%m月%d日 %H:%M",
+                                                "%Y年%m月%d日%H:%M",
+                                                "%Y-%m-%d %H:%M",
+                                                "%Y/%m/%d %H:%M",
+                                                "%m月%d日 %H:%M",
+                                            ]
+                                            for fmt in formats:
+                                                try:
+                                                    dt = datetime.strptime(dt_str, fmt)
+                                                    break
+                                                except ValueError:
+                                                    continue
+                                                    
+                                            if dt and dt.year == 1900 and photo.photo_time:
+                                                dt = dt.replace(year=photo.photo_time.year)
+                                                
+                                            if not dt:
+                                                continue
+                                                
+                                            price_val = 0.0
+                                            price_str = str(t_info.get('price', '0')).replace('元', '').replace('￥', '').strip()
+                                            try:
+                                                price_val = float(price_str)
+                                            except:
+                                                pass
+
+                                            ticket_type = t_info.get('type', 'train')
+
+                                            if ticket_type == 'flight':
+                                                if not t_info.get('flight_code'):
+                                                    continue
+                                                new_ticket = FlightTicketCreate(
+                                                    flight_code=t_info['flight_code'],
+                                                    departure_city=t_info.get('departure_city', '未知'),
+                                                    arrival_city=t_info.get('arrival_city', '未知'),
+                                                    date_time=dt,
+                                                    price=price_val,
+                                                    name=t_info.get('name') or '未知',
+                                                    total_mileage=0,
+                                                    total_running_time=0,
+                                                    comments=f"自动识别自图片: {photo.filename}",
+                                                    photo_id=str(photo.id)
+                                                )
+                                                ticket = crud_flight_tickets.create_flight_ticket(db, new_ticket, owner_id=photo.owner_id)
+                                                if ticket:
+                                                    added_count += 1
+                                            else:
+                                                if not t_info.get('train_code') or not t_info.get('departure_station') or not t_info.get('arrival_station'):
+                                                    continue
+                                                new_ticket = TrainTicketCreate(
+                                                    train_code=t_info['train_code'],
+                                                    departure_station=t_info['departure_station'],
+                                                    arrival_station=t_info['arrival_station'],
+                                                    date_time=dt,
+                                                    price=price_val,
+                                                    name=t_info.get('name') or '未知',
+                                                    seat_type=t_info.get('seat_type', '未知'),
+                                                    total_mileage=0,
+                                                    total_running_time=0,
+                                                    stop_stations=[],
+                                                    comments=f"自动识别自图片: {photo.filename}",
+                                                    photo_id=str(photo.id)
+                                                )
+                                                res = await calculate_ticket_mileage_and_time(new_ticket)
+                                                new_ticket.total_mileage = res['total_mileage']
+                                                new_ticket.total_running_time = res['total_time']
+                                                new_ticket.stop_stations = res['stop_stations']
+                                                ticket = crud_train_tickets.create_train_ticket(db, new_ticket, owner_id=photo.owner_id)
+                                                if ticket:
+                                                    added_count += 1
+                                        except Exception as e:
+                                            logger.warning(f"Failed to parse ticket data in batch: {e}")
+                                            
+                                tasks_status = dict(photo.processed_tasks or {})
+                                tasks_status['tickets'] = True
+                                photo.processed_tasks = tasks_status
+                                db.add(photo)
+                                db.commit()
+                                
+                                results.append({
+                                    'task_id': task.id,
+                                    'task_type': task.type,
+                                    'status': 'completed',
+                                    'result': {'status': 'success', 'tickets_added': added_count}
+                                })
+                        else:
+                            err_msg = f"AI Service error: {response.status}"
+                            for task in valid_tasks:
+                                results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
+                                
+            except Exception as e:
+                logger.error(f"Error processing batch for owner {owner_id}: {e}")
+                for task in owner_tasks:
+                    if not any(r['task_id'] == task.id for r in results):
+                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
+
+        return results
     async def process_single_photo(self, worker, photo: Photo, db: Session) -> Dict[str, Any]:
         try:
             target_path = storage.get_preview_path(photo.owner_id, photo.id)

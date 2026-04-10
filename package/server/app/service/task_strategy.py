@@ -25,6 +25,33 @@ class BaseTaskStrategy(ABC):
         """
         pass
 
+    async def process_batch(self, worker, tasks: List[Task], db: Session) -> List[Dict]:
+        """
+        Process a batch of tasks. By default, it processes them sequentially
+        using the single-task process method. Subclasses should override this
+        to implement true batch processing.
+        """
+        results = []
+        for task in tasks:
+            try:
+                res = await self.process(worker, task, db)
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
+                    'result': res,
+                    'error': res.get('error') if res and isinstance(res, dict) else None
+                })
+            except Exception as e:
+                logging.error(f"Error processing task {task.id}: {e}", exc_info=True)
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+        return results
+
     async def handle_completion(self, worker, items: List[Dict], db: Session) -> None:
         """
         Callback triggered when a batch of tasks of this type has completed.
