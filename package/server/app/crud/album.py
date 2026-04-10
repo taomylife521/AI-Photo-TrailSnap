@@ -166,13 +166,17 @@ def trigger_conditional_albums_update(db: Session, user_id: UUID, photo_ids: Lis
                     db.commit()
     else:
         # Fallback to full async scan if no photo_ids provided
-        from app.service.tasks.album import scan_album_task
-        album_ids = [album.id for album in albums]
-        def _run_scans(ids):
-            for aid in ids:
-                scan_album_task(aid)
-                
-        threading.Thread(target=_run_scans, args=(album_ids,)).start()
+        from app.db.models.task import TaskType
+        from app.service.task_worker import TaskWorker
+        
+        for album in albums:
+            TaskWorker.get_instance().add_task(
+                db, 
+                TaskType.SCAN_ALBUM, 
+                payload={'album_id': str(album.id)}, 
+                priority=1, 
+                owner_id=user_id
+            )
 
 def get_album(db: Session, album_id: UUID, user_id: UUID = None):
     query = db.query(Album).options(joinedload(Album.cover)).filter(Album.id == album_id)

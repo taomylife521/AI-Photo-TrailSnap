@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from uuid import UUID
 
 from app.schemas.face import FaceIdentitySchema, RemovePhotosRequest, SetCoverRequest, MergeRequest, FaceIdentityCreate, AddPhotosToIdentityRequest
-from app.service.tasks.face import process_single_photo
 from app.db.models.photo import Photo
 from app.db.models.face import Face
 from app.db.models.user import User
@@ -87,7 +86,7 @@ async def add_photos_to_identity(
             try:
                 # process_single_photo 是异步的，会更新数据库
                 # 传入 None 作为 task_manager，因为这里不需要创建新任务
-                await process_single_photo(None, photo, db)
+                # await process_single_photo(None, photo, db)
                 
                 # 重新查询人脸
                 faces = db.query(Face).filter(Face.photo_id == photo_id, Face.is_deleted == False).all()

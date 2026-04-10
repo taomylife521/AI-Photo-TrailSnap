@@ -17,9 +17,10 @@ class ImageClassificationService:
 
     def _register_downloads(self):
         def check_yolo_model():
-            return False
             path = os.path.join(settings.MODEL_PATH, "photo-cls")
-            return os.path.exists(path) and len(os.listdir(path)) > 0
+            from modelscope.hub.snapshot_download import snapshot_download
+            logging.info(f"Downloading YOLO model SiYuan044/photo-cls to {path}...")
+            return snapshot_download('SiYuan044/photo-cls', local_dir=path, revision='v0.1.1')
 
         def download_yolo_model():
             path = os.path.join(settings.MODEL_PATH, "photo-cls")

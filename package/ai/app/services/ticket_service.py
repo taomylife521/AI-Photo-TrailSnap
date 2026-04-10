@@ -21,10 +21,10 @@ def load_modelscope_model():
         model_name = ai_config_manager.get_model_selection("ticket_recognition")
         if not model_name:
             model_name = "rpxaaa/ticket_recognition"
-            
+
         logging.info(f"Downloading/Verifying Ticket Recognition model ({model_name})...")
         model_dir = os.path.join(settings.MODEL_PATH, 'ticket_recognition')
-        
+
         # Download model using snapshot_download
         path = snapshot_download(model_name, local_dir=model_dir)
         return path
@@ -74,14 +74,14 @@ class TicketService:
 
     def _register_downloads(self):
         def check_model():
-            return False
+            return download_model()
             model_path = os.path.join(settings.MODEL_PATH, 'ticket_recognition', 'best.pt')
             return os.path.exists(model_path)
 
         def download_model():
             return load_modelscope_model()
 
-        model_downloader.register_model("tickets_yolo", check_model, download_model)
+        # model_downloader.register_model("tickets_yolo", check_model, download_model)
 
     def detect(self, image_bytes: bytes):
         """

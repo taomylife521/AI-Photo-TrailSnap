@@ -28,6 +28,7 @@ class TaskType(str, enum.Enum):
     SIMILAR_PHOTO_CLUSTERING = "SIMILAR_PHOTO_CLUSTERING"
     FIND_DUPLICATE_PHOTOS = "FIND_DUPLICATE_PHOTOS"
     IMAGE_EMBEDDING = "IMAGE_EMBEDDING"
+    SCAN_ALBUM = "SCAN_ALBUM"
 
 class Task(Base):
     __tablename__ = "tasks"

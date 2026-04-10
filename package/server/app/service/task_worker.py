@@ -19,8 +19,8 @@ from app.core.config_manager import config_manager
 from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
-# Import handlers
-from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar, duplicate, image_embedding
+from app.service.task_strategy import TaskStrategyFactory
+from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar, duplicate, image_embedding, album
 
 CPU_TASKS = {
     TaskType.GENERATE_THUMBNAIL,
@@ -40,6 +40,7 @@ IO_TASKS = {
     TaskType.RECOGNIZE_TICKET,
     TaskType.FIND_DUPLICATE_PHOTOS,
     TaskType.IMAGE_EMBEDDING,
+    TaskType.SCAN_ALBUM,
 }
 
 AI_TASKS = {
@@ -324,18 +325,35 @@ class TaskWorker:
                     if paused_types:
                         query = query.filter(Task.type.notin_(paused_types))
 
-                    task = query.order_by(Task.priority.desc(), Task.created_at.asc()).first()
+                    # Calculate batch size to reduce DB IO
+                    batch_size = 10
+                    if self.fast_mode:
+                        max_cpu = os.cpu_count() or 4
+                        max_io = 30
+                        max_ai = 2
+                        batch_size = max(1, (max_cpu + max_io + max_ai) - active_count)
+                    else:
+                        max_concurrency = system_config.config.task.max_concurrent_tasks
+                        batch_size = max(1, max_concurrency - active_count)
+                    
+                    # Ensure we don't fetch too many at once to avoid memory spike
+                    batch_size = min(batch_size, 20)
 
-                    if task:
-                        # Lock task
-                        task.status = TaskStatus.PROCESSING
+                    tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(batch_size).all()
+
+                    if tasks:
+                        # Lock tasks
+                        for task in tasks:
+                            task.status = TaskStatus.PROCESSING
+                            # Update last active time
+                            self.last_active_time[task.type] = datetime.now()
                         db.commit()
-                        self.scan_status['current_task'] = f"{task.type} - {task.id}"
-                        # Update last active time
-                        self.last_active_time[task.type] = datetime.now()
-                        # Launch async wrapper
-                        future = asyncio.create_task(self.execute_task_wrapper(task.id, task.type))
-                        self.active_task_map[future] = task.type
+                        
+                        for task in tasks:
+                            self.scan_status['current_task'] = f"{task.type} - {task.id}"
+                            # Launch async wrapper
+                            future = asyncio.create_task(self.execute_task_wrapper(task.id, task.type))
+                            self.active_task_map[future] = task.type
                     else:
                         if active_count == 0:
                             self.scan_status['running'] = False
@@ -370,28 +388,29 @@ class TaskWorker:
 
     async def execute_task_wrapper(self, task_id: UUID, task_type: str):
         db = SessionLocal()
-        token = None
         try:
             task = db.query(Task).filter(Task.id == task_id).first()
             if not task:
                 return
-            
-            # Set User Context for this task execution
-            if task.owner_id:
-                try:
-                    user_config = config_manager.get_user_config(task.owner_id, db)
-                except Exception as e:
-                    logging.error(f"Failed to set user context for task {task_id}: {e}")
 
             try:
                 result = await self.process_task(task, db)
-                # Enqueue success result
-                await self.result_queue.put({
-                    'task_id': task_id,
-                    'task_type': task_type,
-                    'status': TaskStatus.COMPLETED,
-                    'result': result
-                })
+                if result and 'status' in result and result['status'] == 'failed':
+                    # Enqueue failure result
+                    await self.result_queue.put({
+                        'task_id': task_id,
+                        'task_type': task_type,
+                        'status': TaskStatus.FAILED,
+                        'error': result['error']
+                    })
+                else:
+                    # Enqueue success result
+                    await self.result_queue.put({
+                        'task_id': task_id,
+                        'task_type': task_type,
+                        'status': TaskStatus.COMPLETED,
+                        'result': result
+                    })
             except Exception as e:
                 logging.error(f"Task {task_id} failed: {e}", exc_info=True)
                 # Enqueue failure result
@@ -410,34 +429,9 @@ class TaskWorker:
             db.close()
 
     async def process_task(self, task: Task, db: Session):
-        if task.type == TaskType.SCAN_FOLDER:
-            return await scan.handle_scan_folder(self, task, db)
-        elif task.type == TaskType.PROCESS_BASIC:
-            return await basic.handle_process_basic(self, task, db)
-        elif task.type == TaskType.GENERATE_THUMBNAIL:
-            return await thumbnail.handle_generate_thumbnail(self, task, db)
-        elif task.type == TaskType.REBUILD_THUMBNAILS:
-            return await thumbnail.handle_rebuild_thumbnails(self, task, db)
-        elif task.type == TaskType.REBUILD_METADATA:
-            return await metadata.handle_rebuild_metadata(self, task, db)
-        elif task.type == TaskType.EXTRACT_METADATA:
-            return await metadata.handle_extract_metadata(self, task, db)
-        elif task.type == TaskType.RECOGNIZE_FACE:
-            return await face.handle_recognize_face(self, task, db)
-        elif task.type == TaskType.RECOGNIZE_TICKET:
-            return await tickets.handle_ticket_task(self, task, db)
-        elif task.type == TaskType.OCR:
-            return await ocr.handle_ocr_task(self, task, db)
-        elif task.type == TaskType.CLASSIFY_IMAGE:
-            return await classification.handle_classify_image(self, task, db)
-        elif task.type == TaskType.VISUAL_DESCRIPTION:
-            return await visual_description.handle_visual_description_task(self, task, db)
-        elif task.type == TaskType.SIMILAR_PHOTO_CLUSTERING:
-            return await similar.handle_similar_task(self, task, db)
-        elif task.type == TaskType.FIND_DUPLICATE_PHOTOS:
-            return await duplicate.handle_duplicate_task(self, task, db)
-        elif task.type == TaskType.IMAGE_EMBEDDING:
-            return await image_embedding.handle_image_embedding(self, task, db)
+        strategy = TaskStrategyFactory.get_strategy(task.type)
+        if strategy:
+            return await strategy.process(self, task, db)
         else:
             return {'status': 'not_implemented', 'type': task.type}
 
@@ -457,7 +451,7 @@ class TaskWorker:
                 should_flush = len(pending_items) >= 50 or ((now - last_flush).total_seconds() > 1 and pending_items)
                 if should_flush:
                     logging.info(f"Flushing {len(pending_items)} results")
-                    self._flush_results(pending_items)
+                    await self._flush_results(pending_items)
                     pending_items = []
                     last_flush = now
                     # Update status in DB
@@ -512,112 +506,22 @@ class TaskWorker:
         finally:
             db.close()
 
-    def _flush_results(self, items: List[Dict]):
+    async def _flush_results(self, items: List[Dict]):
         db = SessionLocal()
         try:
-            # 1. Prepare batch photo inserts
-            photos_to_create = {} # user_id -> list of data
-            index_logs = []
-
-            # Map of temp photo_id to file_path for task chaining
-            processed_photos = {} # photo_id -> {path: file_path, owner_id: user_id}
-
+            # Group items by task_type
+            items_by_type = {}
             for item in items:
-                task_type = item['task_type']
-                status = item['status']
+                t_type = item['task_type']
+                if t_type not in items_by_type:
+                    items_by_type[t_type] = []
+                items_by_type[t_type].append(item)
 
-                # Handle PROCESS_BASIC (and legacy PROCESS_IMAGE if needed)
-                if status == TaskStatus.COMPLETED and (task_type == TaskType.PROCESS_BASIC or task_type == TaskType.PROCESS_IMAGE):
-                    res = item['result']
-                    if 'photo_create_data' in res:
-                        data = res['photo_create_data']
-                        user_id = data.get('user_id')
-                        if user_id not in photos_to_create:
-                            photos_to_create[user_id] = []
-                        photos_to_create[user_id].append(data)
-                        index_logs.append(IndexLog(action='added', file_path=data['file_path'], photo_id=data['photo_id'], owner_id=user_id))
-                        # Store for chaining
-                        processed_photos[str(data['photo_id'])] = {'path': data['file_path'], 'owner_id': user_id}
-                        # Update stats
-                        self.scan_status['added'] += 1
-                        self.scan_status['processed_files'] += 1
-                elif status == TaskStatus.COMPLETED and task_type == TaskType.CLASSIFY_IMAGE:
-                    if 'classified' not in self.scan_status:
-                        self.scan_status['classified'] = 0
-                    self.scan_status['classified'] += 1
-
-            # Batch insert photos
-            if photos_to_create:
-                for uid, photos in photos_to_create.items():
-                    app.crud.photo.batch_create_photos(db, photos, user_id=uid)
-                db.add_all(index_logs)
-
-                # Now chain subsequent tasks for newly created photos
-                for photo_id, info in processed_photos.items():
-                    file_path = info['path']
-                    owner_id = info['owner_id']
-
-                    # 1. Metadata Task (High Priority)
-                    db.add(Task(
-                        type=TaskType.EXTRACT_METADATA,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES[TaskType.EXTRACT_METADATA],
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-                    # 2. Face Recognition Task (Low Priority)
-                    db.add(Task(
-                        type=TaskType.RECOGNIZE_FACE,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES[TaskType.RECOGNIZE_FACE],
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-                    # 3. OCR Task (Low Priority)
-                    db.add(Task(
-                        type=TaskType.OCR,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES[TaskType.OCR],
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-                    # 4. Classification Task (Low Priority)
-                    db.add(Task(
-                        type=TaskType.CLASSIFY_IMAGE,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES[TaskType.CLASSIFY_IMAGE],
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-                    # 5. Ticket Recognition Task (Low Priority)
-                    db.add(Task(
-                        type=TaskType.RECOGNIZE_TICKET,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_TICKET, 2),
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-                    # 6. Visual Description Task (Low Priority)
-                    db.add(Task(
-                        type=TaskType.VISUAL_DESCRIPTION,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES.get(TaskType.VISUAL_DESCRIPTION, 2),
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-                    # 7. Embedding Generation Task (Low Priority)
-                    db.add(Task(
-                        type=TaskType.IMAGE_EMBEDDING,
-                        payload={'file_path': file_path, 'photo_id': photo_id},
-                        priority=DEFAULT_PRIORITIES.get(TaskType.IMAGE_EMBEDDING, 2),
-                        status=TaskStatus.PENDING,
-                        owner_id=owner_id
-                    ))
-
-            # Mark tasks as completed/failed in DB?
-            # Actually, execute_task_wrapper doesn't update Task status in DB, it only puts result in queue.
-            # And _flush_results here only handles success for chaining.
-            # We MUST update task status in DB.
+            # Call handle_completion for each strategy
+            for t_type, type_items in items_by_type.items():
+                strategy = TaskStrategyFactory.get_strategy(t_type)
+                if strategy:
+                    await strategy.handle_completion(self, type_items, db)
 
             task_ids_completed = []
             task_ids_failed = []
@@ -640,8 +544,6 @@ class TaskWorker:
 
             if task_ids_failed:
                 # Update failed tasks
-                # Bulk update might be hard if we want to save error message
-                # For simplicity, iterate
                 for item in items:
                     if item['status'] == TaskStatus.FAILED:
                          t = db.query(Task).filter(Task.id == item['task_id']).first()

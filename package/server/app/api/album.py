@@ -12,7 +12,9 @@ from app.dependencies import get_db
 from app.crud import album as crud
 from app.schemas import album as schemas
 from app.core.config_manager import config_manager
-from app.service.tasks.album import scan_album_task
+from app.service.tasks.album import ScanAlbumStrategy
+from app.db.models.task import Task, TaskType, TaskStatus
+from app.service.task_worker import TaskWorker
 from app.api.deps import get_current_user
 from app.db.models.user import User
 from app.api.media import upload_photo_generic
@@ -32,7 +34,7 @@ async def create_album(album: schemas.AlbumCreate, background_tasks: BackgroundT
     
     # Trigger async scan for conditional/smart albums
     if db_album.type in ['conditional', 'smart']:
-        background_tasks.add_task(scan_album_task, db_album.id)
+        TaskWorker.get_instance().add_task(db, TaskType.SCAN_ALBUM, payload={'album_id': str(db_album.id)}, priority=1, owner_id=current_user.id)
         
     return db_album
 
@@ -94,7 +96,7 @@ async def update_album(album_id: UUID, album: schemas.AlbumUpdate, background_ta
     
     # Trigger async scan for conditional/smart albums
     if db_album.type in ['conditional', 'smart']:
-        background_tasks.add_task(scan_album_task, db_album.id)
+        TaskWorker.get_instance().add_task(db, TaskType.SCAN_ALBUM, payload={'album_id': str(db_album.id)}, priority=1, owner_id=current_user.id)
         
     return db_album
 

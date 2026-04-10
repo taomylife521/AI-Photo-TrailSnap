@@ -1,3 +1,6 @@
+from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
+from app.db.models.task import TaskType
+from typing import List, Dict
 import math
 import asyncio
 import logging
@@ -138,43 +141,45 @@ async def sync_rebuild_metadata_cpu_job(file_path: str, file_id: UUID):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-async def handle_extract_metadata(task_manager, task: Task, db: Session):
-    """
-    Handle single file metadata extraction (Heavy task: Geolocation etc.)
-    """
-    photo_id_str = task.payload.get('photo_id')
-    if not photo_id_str:
-        return {'status': 'skipped', 'reason': 'missing photo_id'}
+@TaskStrategyFactory.register(TaskType.EXTRACT_METADATA)
+class ExtractMetadataStrategy(BaseTaskStrategy):
+    async def process(self, worker, task: Task, db: Session):
+        """
+        Handle single file metadata extraction (Heavy task: Geolocation etc.)
+        """
+        photo_id_str = task.payload.get('photo_id')
+        if not photo_id_str:
+            return {'status': 'skipped', 'reason': 'missing photo_id'}
 
-    # Check if photo still exists
-    try:
-        photo_id = UUID(photo_id_str)
-    except:
-        return {'status': 'failed', 'reason': 'invalid uuid'}
+        # Check if photo still exists
+        try:
+            photo_id = UUID(photo_id_str)
+        except:
+            return {'status': 'failed', 'reason': 'invalid uuid'}
 
-    photo = db.query(Photo).filter(Photo.id == photo_id).first()
-    if not photo:
-         return {'status': 'skipped', 'reason': 'photo not found'}
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        if not photo:
+             return {'status': 'skipped', 'reason': 'photo not found'}
 
-    file_path = task.payload.get('file_path')
-    if not file_path:
-        file_path = photo.file_path
+        file_path = task.payload.get('file_path')
+        if not file_path:
+            file_path = photo.file_path
 
-    # loop = asyncio.get_running_loop()
-    # res = await loop.run_in_executor(
-    #     task_manager.thread_pool,
-    #     rebuild_metadata_cpu_job,
-    #     file_path,
-    #     photo_id
-    # )
-    # res = rebuild_metadata_cpu_job(file_path,photo_id)
-    res = await sync_rebuild_metadata_cpu_job(file_path, photo_id)
-    if res['success']:
-        meta = res['meta']
-        update_photo_metadata_from_extract(db, photo, meta)
-        return {'status': 'success'}
-    else:
-        raise Exception(res.get('error'))
+        # loop = asyncio.get_running_loop()
+        # res = await loop.run_in_executor(
+        #     worker.thread_pool,
+        #     rebuild_metadata_cpu_job,
+        #     file_path,
+        #     photo_id
+        # )
+        # res = rebuild_metadata_cpu_job(file_path,photo_id)
+        res = await sync_rebuild_metadata_cpu_job(file_path, photo_id)
+        if res['success']:
+            meta = res['meta']
+            update_photo_metadata_from_extract(db, photo, meta)
+            return {'status': 'success'}
+        else:
+            raise Exception(res.get('error'))
 
 def update_photo_metadata_from_extract(db: Session, photo: Photo, meta: dict):
     # Update DB
@@ -250,49 +255,51 @@ def update_photo_metadata_from_extract(db: Session, photo: Photo, meta: dict):
         from app.crud.album import trigger_conditional_albums_update
         trigger_conditional_albums_update(db, photo.owner_id, [photo.id])
 
-async def handle_rebuild_metadata(task_manager, task: Task, db: Session):
-    scope = task.payload.get('scope', 'all')
-    force = task.payload.get('force', False)
+@TaskStrategyFactory.register(TaskType.REBUILD_METADATA)
+class RebuildMetadataStrategy(BaseTaskStrategy):
+    async def process(self, worker, task: Task, db: Session):
+        scope = task.payload.get('scope', 'all')
+        force = task.payload.get('force', False)
 
-    # Generator Mode: Create EXTRACT_METADATA tasks for each photo
-    batch_size = 1000
-    offset = 0
-    generated_count = 0
+        # Generator Mode: Create EXTRACT_METADATA tasks for each photo
+        batch_size = 1000
+        offset = 0
+        generated_count = 0
 
-    while True:
-        batch = db.query(Photo).offset(offset).limit(batch_size).all()
-        if not batch:
-            break
+        while True:
+            batch = db.query(Photo).offset(offset).limit(batch_size).all()
+            if not batch:
+                break
 
-        tasks_to_create = []
-        for p in batch:
-            should_process = False
-            if force:
-                should_process = True
-            else:
-                tasks_status = p.processed_tasks or {}
-                if not tasks_status.get('metadata'):
+            tasks_to_create = []
+            for p in batch:
+                should_process = False
+                if force:
                     should_process = True
+                else:
+                    tasks_status = p.processed_tasks or {}
+                    if not tasks_status.get('metadata'):
+                        should_process = True
 
-            if should_process:
-                tasks_to_create.append({
-                    'type': TaskType.EXTRACT_METADATA,
-                    'payload': {'photo_id': str(p.id), 'file_path': p.file_path}, # Pass file_path for optimization
-                    'priority': 5,
-                    'owner_id': p.owner_id
-                })
+                if should_process:
+                    tasks_to_create.append({
+                        'type': TaskType.EXTRACT_METADATA,
+                        'payload': {'photo_id': str(p.id), 'file_path': p.file_path}, # Pass file_path for optimization
+                        'priority': 5,
+                        'owner_id': p.owner_id
+                    })
 
-        if tasks_to_create:
-            task_manager.add_tasks(db, tasks_to_create)
-            generated_count += len(tasks_to_create)
+            if tasks_to_create:
+                worker.add_tasks(db, tasks_to_create)
+                generated_count += len(tasks_to_create)
 
-        offset += batch_size
+            offset += batch_size
 
-    return {
-        'processed': 0,
-        'generated_tasks': generated_count,
-        'message': f'Generated {generated_count} metadata extraction tasks'
-    }
+        return {
+            'processed': 0,
+            'generated_tasks': generated_count,
+            'message': f'Generated {generated_count} metadata extraction tasks'
+        }
 
 def release_resources():
     import reverse_geocoder as rg
