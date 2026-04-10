@@ -1,6 +1,6 @@
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
 from app.db.models.task import TaskType
-from typing import List, Dict
+from typing import List, Dict, Any
 import asyncio
 import logging
 import os
@@ -35,7 +35,7 @@ def process_basic_cpu_job(file_path: str, file_id: UUID, storage_root: str, user
     try:
         # Initialize storage root cache in this process
         storage.update_storage_root_cache(user_id, storage_root)
-
+        # print(file_path)
         # Open image once if possible to reduce IO
         image_obj = None
         ext = os.path.splitext(file_path)[1].lower()
@@ -95,83 +95,138 @@ def process_basic_cpu_job(file_path: str, file_id: UUID, storage_root: str, user
             "error": str(e)
         }
 
+def process_basic_cpu_batch_job(tasks_data: List[Dict]) -> List[Dict]:
+    """
+    CPU-intensive task running in a separate process/thread to process a batch of tasks.
+    Avoids frequent thread pool switching overhead.
+    """
+    results = []
+    for data in tasks_data:
+        file_path = data['file_path']
+        file_id = data['file_id']
+        storage_root = data['storage_root']
+        user_id = data['user_id']
+        
+        res = process_basic_cpu_job(file_path, file_id, storage_root, user_id)
+        res['task_id'] = data['task_id']
+        results.append(res)
+    return results
+
 @TaskStrategyFactory.register(TaskType.PROCESS_BASIC)
 class BasicTaskStrategy(BaseTaskStrategy):
     @property
     def task_category(self) -> str:
         return 'CPU'
 
-    async def process(self, worker, task: Task, db: Session):
-        file_path = task.payload.get('file_path')
-        live_photo_video_path = task.payload.get('live_photo_video_path')
-        is_live_photo = task.payload.get('is_live_photo', False)
-        user_id = task.payload.get('user_id')
-        # Use task owner_id as fallback if user_id not in payload
-        if not user_id and task.owner_id:
-            user_id = str(task.owner_id)
-        
-        if not file_path or not os.path.exists(file_path):
-            return {'status': 'skipped', 'reason': 'file not found'}
+    async def process(self, worker, task: Task, db: Session) -> Any:
+        pass
 
-        photo_id = uuid4()
-        storage_root = storage._get_storage_root(user_id, db)
+    async def process_batch(self, worker, tasks: List[Task], db: Session) -> List[Dict]:
+        results = []
+        batch_jobs_data = []
+        
+        for task in tasks:
+            file_path = task.payload.get('file_path')
+            live_photo_video_path = task.payload.get('live_photo_video_path')
+            is_live_photo = task.payload.get('is_live_photo', False)
+            user_id = task.payload.get('user_id')
+            if not user_id and task.owner_id:
+                user_id = str(task.owner_id)
+            
+            if not file_path or not os.path.exists(file_path):
+                results.append({
+                    'task_id': task.id,
+                    'task_type': task.type,
+                    'status': 'completed',
+                    'result': {'status': 'skipped', 'reason': 'file not found'}
+                })
+                continue
+                
+            photo_id = uuid4()
+            storage_root = storage._get_storage_root(user_id, db)
+            
+            batch_jobs_data.append({
+                'task_id': task.id,
+                'task_type': task.type,
+                'file_path': file_path,
+                'file_id': photo_id,
+                'storage_root': storage_root,
+                'user_id': user_id,
+                'live_photo_video_path': live_photo_video_path,
+                'is_live_photo': is_live_photo
+            })
+            
+        if not batch_jobs_data:
+            return results
 
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
+        batch_results = await loop.run_in_executor(
             worker.thread_pool,
-            process_basic_cpu_job,
-            file_path,
-            photo_id,
-            storage_root,
-            user_id
-        )
-        # result = process_basic_cpu_job(file_path, photo_id, storage_root)
-        if not result['success']:
-            raise Exception(result.get('error', 'Unknown error'))
-
-        # Check resolution filter
-        filter_config = config_manager.get_user_config(user_id, db).filter
-        if filter_config.enable:
-            if filter_config.min_width > 0 and result['width'] < filter_config.min_width:
-                 return {'status': 'skipped', 'reason': 'filtered_by_width'}
-            if filter_config.min_height > 0 and result['height'] < filter_config.min_height:
-                 return {'status': 'skipped', 'reason': 'filtered_by_height'}
-
-        # Construct PhotoCreate data for bulk insert in TaskManager
-        meta = result['meta']
-        ext = os.path.splitext(result['file_name'])[1]
-        file_type = FileType.image
-        if ext.lower() in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
-            file_type = FileType.video
-        if is_live_photo or result.get('is_motion_photo'):
-            file_type = FileType.live_photo
-        # We need to return raw data, not schemas, because bulk_create_photos expects dicts or similar?
-        # Actually album_crud.batch_create_photos expects schemas.PhotoCreate
-        photo_create = photo_schemas.PhotoCreate(
-            file_type=file_type,
-            size=result['size'],
-            width=result['width'],
-            height=result['height'],
-            duration=result['duration'],
-            filename=result['file_name'],
-            photo_time=meta["photo_time"],
-            md5=result.get('md5_hash')
+            process_basic_cpu_batch_job,
+            batch_jobs_data
         )
 
-        metadata_create = PhotoMetadataCreate(
-            exif_info=meta["exif_info"],
-            # Basic task doesn't have location details yet
-        )
+        for data, res in zip(batch_jobs_data, batch_results):
+            if not res['success']:
+                results.append({
+                    'task_id': data['task_id'],
+                    'task_type': data['task_type'],
+                    'status': 'failed',
+                    'error': res.get('error', 'Unknown error')
+                })
+                continue
+                
+            # Check resolution filter
+            user_id = data['user_id']
+            filter_config = config_manager.get_user_config(user_id, db).filter
+            if filter_config.enable:
+                if filter_config.min_width > 0 and res['width'] < filter_config.min_width:
+                     results.append({'task_id': data['task_id'], 'task_type': data['task_type'], 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'filtered_by_width'}})
+                     continue
+                if filter_config.min_height > 0 and res['height'] < filter_config.min_height:
+                     results.append({'task_id': data['task_id'], 'task_type': data['task_type'], 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'filtered_by_height'}})
+                     continue
 
-        return {
-            'photo_create_data': {
-                'photo': photo_create,
-                'metadata': metadata_create,
-                'photo_id': photo_id,
-                'file_path': file_path,
-                'user_id': user_id
-            }
-        }
+            # Construct PhotoCreate data
+            meta = res['meta']
+            ext = os.path.splitext(res['file_name'])[1]
+            file_type = FileType.image
+            if ext.lower() in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
+                file_type = FileType.video
+            if data['is_live_photo'] or res.get('is_motion_photo'):
+                file_type = FileType.live_photo
+                
+            photo_create = photo_schemas.PhotoCreate(
+                file_type=file_type,
+                size=res['size'],
+                width=res['width'],
+                height=res['height'],
+                duration=res['duration'],
+                filename=res['file_name'],
+                photo_time=meta["photo_time"],
+                md5=res.get('md5_hash')
+            )
+
+            metadata_create = PhotoMetadataCreate(
+                exif_info=meta["exif_info"]
+            )
+
+            results.append({
+                'task_id': data['task_id'],
+                'task_type': data['task_type'],
+                'status': 'completed',
+                'result': {
+                    'photo_create_data': {
+                        'photo': photo_create,
+                        'metadata': metadata_create,
+                        'photo_id': data['file_id'],
+                        'file_path': data['file_path'],
+                        'user_id': user_id
+                    }
+                }
+            })
+
+        return results
 
     async def handle_completion(self, worker, items: List[Dict], db: Session) -> None:
         photos_to_create = {} # user_id -> list of data
@@ -194,10 +249,11 @@ class BasicTaskStrategy(BaseTaskStrategy):
                     worker.scan_status['processed_files'] += 1
 
         if photos_to_create:
+            # print(photos_to_create)
             for uid, photos in photos_to_create.items():
                 app.crud.photo.batch_create_photos(db, photos, user_id=uid)
             db.add_all(index_logs)
-
+            # return
             for photo_id, info in processed_photos.items():
                 file_path = info['path']
                 owner_id = info['owner_id']
@@ -207,13 +263,13 @@ class BasicTaskStrategy(BaseTaskStrategy):
                 # 2. Face Recognition Task
                 db.add(Task(type=TaskType.RECOGNIZE_FACE, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES[TaskType.RECOGNIZE_FACE], status=TaskStatus.PENDING, owner_id=owner_id))
                 # 3. OCR Task
-                # db.add(Task(type=TaskType.OCR, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES[TaskType.OCR], status=TaskStatus.PENDING, owner_id=owner_id))
+                db.add(Task(type=TaskType.OCR, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES[TaskType.OCR], status=TaskStatus.PENDING, owner_id=owner_id))
                 # 4. Classification Task
                 db.add(Task(type=TaskType.CLASSIFY_IMAGE, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES[TaskType.CLASSIFY_IMAGE], status=TaskStatus.PENDING, owner_id=owner_id))
                 # 5. Ticket Recognition Task
-                # db.add(Task(type=TaskType.RECOGNIZE_TICKET, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_TICKET, 2), status=TaskStatus.PENDING, owner_id=owner_id))
+                db.add(Task(type=TaskType.RECOGNIZE_TICKET, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_TICKET, 2), status=TaskStatus.PENDING, owner_id=owner_id))
                 # 6. Visual Description Task
-                # db.add(Task(type=TaskType.VISUAL_DESCRIPTION, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES.get(TaskType.VISUAL_DESCRIPTION, 2), status=TaskStatus.PENDING, owner_id=owner_id))
+                db.add(Task(type=TaskType.VISUAL_DESCRIPTION, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES.get(TaskType.VISUAL_DESCRIPTION, 2), status=TaskStatus.PENDING, owner_id=owner_id))
                 # 7. Embedding Generation Task
                 db.add(Task(type=TaskType.IMAGE_EMBEDDING, payload={'file_path': file_path, 'photo_id': photo_id}, priority=DEFAULT_PRIORITIES.get(TaskType.IMAGE_EMBEDDING, 2), status=TaskStatus.PENDING, owner_id=owner_id))
 

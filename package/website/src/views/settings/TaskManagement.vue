@@ -147,7 +147,7 @@ const handleFastModeChange = async (val: boolean) => {
         ElMessage.success(val ? '快速模式已开启' : '快速模式已关闭')
     } catch (e) {
         ElMessage.error('设置失败')
-        fastMode.value = !val // Revert
+        fastMode.value = !val
     }
 }
 

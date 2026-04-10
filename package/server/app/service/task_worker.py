@@ -325,19 +325,25 @@ class TaskWorker:
                 for task in tasks:
                     cat = TaskStrategyFactory.get_strategy(task.type).task_category
                     if not cat: continue
-                    
-                    # Stop grouping for this category if we have enough
+
                     if task.type not in tasks_by_type:
                         tasks_by_type[task.type] = []
-                    
-                    # We can limit the number of items fetched per category here if we want strict limits
-                    # but simple fetching and updating is fine.
+
                     task.status = TaskStatus.PROCESSING
                     self.last_active_time[task.type] = datetime.now()
                     tasks_by_type[task.type].append({'id': task.id, 'type': task.type, 'priority': task.priority})
                 db.commit()
+                
+            # Split tasks into smaller batches of max 8 items
+            split_tasks_by_type = {}
+            for task_type, task_list in tasks_by_type.items():
+                split_tasks_by_type[task_type] = []
+                # Split task_list into chunks of 8
+                for i in range(0, len(task_list), 8):
+                    chunk = task_list[i:i + 8]
+                    split_tasks_by_type[task_type].append(chunk)
 
-            return tasks_by_type
+            return split_tasks_by_type
         except Exception as e:
             logging.error(f"Error fetching tasks: {e}")
             return {}
@@ -510,17 +516,18 @@ class TaskWorker:
                 tasks_by_type = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes)
                 dispatched_count = 0
                 
-                for task_type, task_list in tasks_by_type.items():
+                for task_type, chunked_lists in tasks_by_type.items():
                     task_factory = TaskStrategyFactory.get_strategy(task_type)
                     if not task_factory:
                         continue
                     category = task_factory.task_category
 
                     if category:
-                        # Using the priority of the first task in the batch for the queue
-                        priority = task_list[0].get('priority', 1)
-                        await self.queue_manager.put_batch(category, task_list, priority=priority)
-                        dispatched_count += len(task_list)
+                        for chunk in chunked_lists:
+                            # Using the priority of the first task in the batch for the queue
+                            priority = chunk[0].get('priority', 1)
+                            await self.queue_manager.put_batch(category, chunk, priority=priority)
+                            dispatched_count += len(chunk)
                 
                 if dispatched_count == 0:
                     if active_count == 0 and self._idle_start_time:
