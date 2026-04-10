@@ -160,6 +160,9 @@ const categoryMap: Record<string, string[]> = {
     'tickets': ['RECOGNIZE_TICKET'],
     'ai': ['VISUAL_DESCRIPTION'],
     'basic': ['PROCESS_BASIC', 'PROCESS_IMAGE'],
+    'duplicate': ['DUPLICATE_IMAGE'],
+    'similar': ['SIMILAR_IMAGE'],
+    'embedding': ['IMAGE_EMBEDDING'],
 }
 
 const handleCategoryCommand = async (category: string, command: string) => {

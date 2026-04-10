@@ -49,7 +49,7 @@ const props = defineProps({
 
 const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
-const latestYear = computed(() => props.data.chart_data[0].year);
+const latestYear = computed(() => props.data.chart_data?.[0]?.year || 0);
 const latestYearData = computed(() => props.data.chart_data.find(item => item.year === latestYear.value));
 
 const initChart = () => {

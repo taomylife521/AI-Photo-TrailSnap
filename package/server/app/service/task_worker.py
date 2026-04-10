@@ -16,7 +16,7 @@ from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
 from app.service.task_strategy import TaskStrategyFactory
-from app.service.tasks import thumbnail, metadata
+from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, image_embedding, visual_description, basic, duplicate, similar, tickets
 
 class TaskWorker:
     """
@@ -432,6 +432,7 @@ class TaskWorker:
                 should_flush = len(pending_items) >= 50 or ((now - last_flush).total_seconds() > 1 and pending_items)
                 if should_flush:
                     logging.info(f"Flushing {len(pending_items)} results")
+                    print(pending_items)
                     await self._flush_results(pending_items)
                     pending_items = []
                     last_flush = now
