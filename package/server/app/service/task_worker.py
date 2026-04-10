@@ -9,43 +9,14 @@ from uuid import UUID
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-import app.crud.photo
 from app.db.session import SessionLocal
 from app.db.models.task import Task, TaskType, TaskStatus
-from app.db.models.index_log import IndexLog
 from app.db.models.system import SystemState
-from app.crud import album as album_crud
-from app.core.config_manager import config_manager
 from app.core.system_config import system_config
 from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
 
 from app.service.task_strategy import TaskStrategyFactory
-from app.service.tasks import thumbnail, metadata, scan, face, ocr, classification, tickets, visual_description, basic, similar, duplicate, image_embedding, album
-
-CPU_TASKS = {
-    TaskType.GENERATE_THUMBNAIL,
-    TaskType.REBUILD_THUMBNAILS,
-    TaskType.PROCESS_BASIC,
-    TaskType.SIMILAR_PHOTO_CLUSTERING,
-}
-
-IO_TASKS = {
-    TaskType.PROCESS_IMAGE,
-    TaskType.EXTRACT_METADATA,
-    TaskType.REBUILD_METADATA,
-    TaskType.SCAN_FOLDER,
-    TaskType.RECOGNIZE_FACE,
-    TaskType.OCR,
-    TaskType.CLASSIFY_IMAGE,
-    TaskType.RECOGNIZE_TICKET,
-    TaskType.FIND_DUPLICATE_PHOTOS,
-    TaskType.IMAGE_EMBEDDING,
-    TaskType.SCAN_ALBUM,
-}
-
-AI_TASKS = {
-    TaskType.VISUAL_DESCRIPTION,
-}
+from app.service.tasks import thumbnail, metadata
 
 class TaskWorker:
     """
@@ -57,6 +28,19 @@ class TaskWorker:
     4. Updating system status
     """
     _instance = None
+
+    @property
+    def CPU_TASKS(self):
+        return TaskStrategyFactory.get_tasks_by_category('CPU')
+
+    @property
+    def IO_TASKS(self):
+        return TaskStrategyFactory.get_tasks_by_category('IO')
+
+    @property
+    def AI_TASKS(self):
+        return TaskStrategyFactory.get_tasks_by_category('AI')
+
     def __init__(self):
         self.running = False
         self.worker_task = None
@@ -165,221 +149,207 @@ class TaskWorker:
             logging.info("Shutting down thread pool to release resources")
             self.thread_pool.shutdown(wait=False)
             self.thread_pool = None
-        thumbnail.release_resources()
-        metadata.release_resources()
-        ocr.release_resources()
-        scan.release_resources()
-        face.release_resources()
+        TaskStrategyFactory.release_all_resources()
 
     def check_task_for_release(self):
         # Check for Module Resources
+        idle_types = []
         for task_type in TaskType:
             if task_type not in self.last_active_time:
                 continue
 
             last_run = self.last_active_time[task_type]
-            if (datetime.now() - last_run).total_seconds() > 30:
-                # Release module specific resources
-                if task_type == TaskType.PROCESS_BASIC:
-                    thumbnail.release_resources()
-                elif task_type == TaskType.EXTRACT_METADATA:
-                    metadata.release_resources()
-                elif task_type == TaskType.OCR:
-                    if hasattr(ocr, 'release_resources'): ocr.release_resources()
-                elif task_type == TaskType.RECOGNIZE_FACE:
-                    if hasattr(face, 'release_resources'): face.release_resources()
-                elif task_type == TaskType.CLASSIFY_IMAGE:
-                    if hasattr(classification, 'release_resources'): classification.release_resources()
-                del self.last_active_time[task_type]
+            if (datetime.now() - last_run).total_seconds() > 300:
+                idle_types.append(task_type)
+                
+        if idle_types:
+            TaskStrategyFactory.release_idle_resources(idle_types)
+            for t in idle_types:
+                del self.last_active_time[t]
 
+
+
+    def _sync_system_state_if_needed(self):
+        now = datetime.now()
+        if not hasattr(self, '_last_sync'):
+            self._last_sync = datetime.min
+        if (now - self._last_sync).total_seconds() > 5:
+            self._save_system_state('scan_status', self.scan_status)
+            paused_list = self._load_system_state('paused_categories', [])
+            self.paused_categories = set(paused_list)
+            self.fast_mode = self._load_system_state('fast_mode', False)
+            self._last_sync = now
+
+    def _manage_pool_lifecycle(self):
+        active_count = len(self.active_task_map)
+        
+        # Check for CPU Pool
+        active_cpu_count = sum(1 for t in self.active_task_map.values() if t in self.CPU_TASKS)
+        if active_cpu_count == 0 and self.process_pool:
+            last_cpu_run = max([self.last_active_time.get(t, datetime.min) for t in self.CPU_TASKS], default=datetime.min)
+            if (datetime.now() - last_cpu_run).total_seconds() > 300:
+                self.process_pool.shutdown(wait=False)
+                self.process_pool = None
+
+        # Check for IO Pool
+        active_io_count = sum(1 for t in self.active_task_map.values() if t in self.IO_TASKS)
+        if active_io_count == 0 and self.thread_pool:
+            last_io_run = max([self.last_active_time.get(t, datetime.min) for t in self.IO_TASKS], default=datetime.min)
+            if (datetime.now() - last_io_run).total_seconds() > 300:
+                self.thread_pool.shutdown(wait=False)
+                self.thread_pool = None
+
+        self.check_task_for_release()
+
+        # Ensure pools exist
+        if active_count > 0:
+            if active_cpu_count > 0 and self.process_pool is None:
+                logging.info(f"Restarting process pool")
+                self.process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=os.cpu_count())
+            if self.thread_pool is None and active_io_count > 0:
+                max_workers = system_config.config.task.max_concurrent_tasks
+                logging.info(f"Restarting thread pool")
+                self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers * 2)
+
+    def _calculate_allowed_task_types(self) -> List[str]:
+        allowed_types = []
+        active_count = len(self.active_task_map)
+        
+        if self.fast_mode:
+            active_cpu = sum(1 for t in self.active_task_map.values() if t in self.CPU_TASKS)
+            active_io = sum(1 for t in self.active_task_map.values() if t in self.IO_TASKS)
+            active_ai = sum(1 for t in self.active_task_map.values() if t in self.AI_TASKS)
+
+            max_cpu = os.cpu_count() or 4
+            max_io = 30
+            max_ai = 2
+
+            if active_cpu < max_cpu:
+                allowed_types.extend(self.CPU_TASKS)
+            if active_io < max_io:
+                allowed_types.extend(self.IO_TASKS)
+            if active_ai < max_ai:
+                allowed_types.extend(self.AI_TASKS)
+
+            other_types = [t for t in TaskType if t not in self.CPU_TASKS and t not in self.IO_TASKS and t not in self.AI_TASKS]
+            if active_cpu + active_io + active_ai < max_cpu + max_io + max_ai:
+                allowed_types.extend(other_types)
+        else:
+            max_concurrency = system_config.config.task.max_concurrent_tasks
+            active_ai = sum(1 for t in self.active_task_map.values() if t in self.AI_TASKS)
+            max_ai = 2
+
+            if active_count < max_concurrency:
+                allowed_types = [t for t in TaskType if t not in self.AI_TASKS]
+                if active_ai < max_ai:
+                    allowed_types.extend(self.AI_TASKS)
+                    
+        return allowed_types
+
+    def _fetch_and_dispatch_tasks_sync(self, allowed_types: List[str]) -> List[dict]:
+        db = SessionLocal()
+        dispatched_tasks = []
+        try:
+            paused_types = []
+            for type_enum, cat in self.category_map.items():
+                if cat in self.paused_categories:
+                    paused_types.append(type_enum)
+
+            query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
+            query = query.filter(Task.type.in_(allowed_types))
+
+            if paused_types:
+                query = query.filter(Task.type.notin_(paused_types))
+
+            batch_size = 10
+            active_count = len(self.active_task_map)
+            if self.fast_mode:
+                max_cpu = os.cpu_count() or 4
+                max_io = 30
+                max_ai = 2
+                batch_size = max(1, (max_cpu + max_io + max_ai) - active_count)
+            else:
+                max_concurrency = system_config.config.task.max_concurrent_tasks
+                batch_size = max(1, max_concurrency - active_count)
+            
+            batch_size = min(batch_size, 20)
+
+            tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(batch_size).all()
+
+            if tasks:
+                for task in tasks:
+                    task.status = TaskStatus.PROCESSING
+                    self.last_active_time[task.type] = datetime.now()
+                    dispatched_tasks.append({'id': task.id, 'type': task.type})
+                    self.scan_status['current_task'] = f"{task.type} - {task.id}"
+                db.commit()
+                
+            return dispatched_tasks
+        except Exception as e:
+            logging.error(f"Error fetching tasks: {e}")
+            return []
+        finally:
+            db.close()
+
+    async def _fetch_and_dispatch_tasks(self, allowed_types: List[str]) -> int:
+        # Run DB operation in thread pool to avoid blocking asyncio event loop
+        tasks = await asyncio.to_thread(self._fetch_and_dispatch_tasks_sync, allowed_types)
+        
+        for task_info in tasks:
+            future = asyncio.create_task(self.execute_task_wrapper(task_info['id'], task_info['type']))
+            self.active_task_map[future] = task_info['type']
+            
+        return len(tasks)
 
     async def worker_loop(self):
         logging.info("TaskWorker loop started")
-        # active_tasks set is replaced by self.active_task_map keys
-        idle_start_time = None
-
-        last_sync = datetime.now()
+        self._idle_start_time = None
+        self._backoff_delay = 1.0
 
         while self.running:
             try:
-                # Sync status periodically (every 5s)
-                now = datetime.now()
-                if (now - last_sync).total_seconds() > 5:
-                    # Reload config if changed
-                    # config_manager.reload()
-                    
-                    self._save_system_state('scan_status', self.scan_status)
-                    # Refresh paused categories
-                    paused_list = self._load_system_state('paused_categories', [])
-                    self.paused_categories = set(paused_list)
-                    # Refresh fast_mode
-                    self.fast_mode = self._load_system_state('fast_mode', False)
-                    last_sync = now
-
                 # Clean up finished tasks
                 done_futures = [f for f in self.active_task_map.keys() if f.done()]
                 for f in done_futures:
                     del self.active_task_map[f]
 
+                self._sync_system_state_if_needed()
+                self._manage_pool_lifecycle()
+                
                 active_count = len(self.active_task_map)
-
-                # Update status
                 if active_count > 0:
                     self.scan_status['running'] = True
-                    idle_start_time = None
-
-                # Manage Pool Lifecycle (Resource Release)
-                # Check for CPU Pool
-                active_cpu_count = sum(1 for t in self.active_task_map.values() if t in CPU_TASKS)
-                if active_cpu_count == 0 and self.process_pool:
-                    # Check if all CPU tasks have been idle for > 30s
-                    # If any CPU task has run recently, keep pool
-                    last_cpu_run = max([self.last_active_time.get(t, datetime.min) for t in CPU_TASKS], default=datetime.min)
-                    if (datetime.now() - last_cpu_run).total_seconds() > 30:
-                        # logging.info("Shutting down process pool (CPU) due to inactivity")
-                        self.process_pool.shutdown(wait=False)
-                        self.process_pool = None
-
-                # Check for IO Pool
-                active_io_count = sum(1 for t in self.active_task_map.values() if t in IO_TASKS)
-                if active_io_count == 0 and self.thread_pool:
-                     # Check if all IO tasks have been idle for > 30s
-                    last_io_run = max([self.last_active_time.get(t, datetime.min) for t in IO_TASKS], default=datetime.min)
-                    if (datetime.now() - last_io_run).total_seconds() > 30:
-                        # logging.info("Shutting down thread pool (IO) due to inactivity")
-                        self.thread_pool.shutdown(wait=False)
-                        self.thread_pool = None
-
-                self.check_task_for_release()
-
-                if active_count == 0:
-                    if idle_start_time is None:
-                        idle_start_time = datetime.now()
+                    self._idle_start_time = None
+                    self._backoff_delay = 1.0
+                else:
+                    if self._idle_start_time is None:
+                        self._idle_start_time = datetime.now()
                         self.scan_status['running'] = False
                         self.scan_status['message'] = "Idle"
                         self._save_system_state('scan_status', self.scan_status)
-                else:
-                    # Ensure pools exist (re-create if needed)
-                    if active_cpu_count > 0:
-                        if self.process_pool is None:
-                            logging.info(f"Restarting process pool")
-                            self.process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=os.cpu_count())
-                    if self.thread_pool is None and active_io_count > 0:
-                        max_workers = system_config.config.task.max_concurrent_tasks
-                        logging.info(f"Restarting thread pool")
-                        self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers * 2)
 
-                # Scheduling Logic
-                allowed_types = []
-
-                if self.fast_mode:
-                    # Fast Mode: Smart Scheduling
-                    active_cpu = sum(1 for t in self.active_task_map.values() if t in CPU_TASKS)
-                    active_io = sum(1 for t in self.active_task_map.values() if t in IO_TASKS)
-                    active_ai = sum(1 for t in self.active_task_map.values() if t in AI_TASKS)
-
-                    max_cpu = os.cpu_count() or 4
-                    max_io = 30 # Allow up to 10 concurrent IO tasks
-                    max_ai = 2  # Max concurrent AI tasks
-
-                    if active_cpu < max_cpu:
-                        allowed_types.extend(CPU_TASKS)
-                    if active_io < max_io:
-                        allowed_types.extend(IO_TASKS)
-                    if active_ai < max_ai:
-                        allowed_types.extend(AI_TASKS)
-
-                    # Also include any other types not in CPU/IO/AI sets
-                    other_types = [t for t in TaskType if t not in CPU_TASKS and t not in IO_TASKS and t not in AI_TASKS]
-                    if active_cpu + active_io + active_ai < max_cpu + max_io + max_ai:
-                        allowed_types.extend(other_types)
-                else:
-                    # Normal Mode: Strict Concurrency Limit
-                    max_concurrency = system_config.config.task.max_concurrent_tasks
-                    active_ai = sum(1 for t in self.active_task_map.values() if t in AI_TASKS)
-                    max_ai = 2
-
-                    if active_count < max_concurrency:
-                        allowed_types = [t for t in TaskType if t not in AI_TASKS] # All types except AI
-                        if active_ai < max_ai:
-                            allowed_types.extend(AI_TASKS)
-
+                allowed_types = self._calculate_allowed_task_types()
                 if not allowed_types:
                     await asyncio.sleep(0.1)
                     continue
 
-                db = SessionLocal()
-                try:
-                    # Determine paused types
-                    paused_types = []
-                    for type_enum, cat in self.category_map.items():
-                        if cat in self.paused_categories:
-                            paused_types.append(type_enum)
+                dispatched_count = await self._fetch_and_dispatch_tasks(allowed_types)
+                
+                if dispatched_count == 0:
+                    if active_count == 0 and self._idle_start_time:
+                        idle_duration = (datetime.now() - self._idle_start_time).total_seconds()
+                        if idle_duration > 300: # 5 minutes
+                            logging.info("Worker idle for 5 minutes, exiting to release resources...")
+                            self.running = False
+                            import sys
+                            sys.exit(0)
+                            
+                    # Exponential backoff
+                    await asyncio.sleep(self._backoff_delay)
+                    self._backoff_delay = min(self._backoff_delay * 1.5, 10.0)
+                else:
+                    self._backoff_delay = 1.0
 
-                    # Poll for tasks
-                    query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
-                    
-                    # Filter by allowed types
-                    query = query.filter(Task.type.in_(allowed_types))
-
-                    if paused_types:
-                        query = query.filter(Task.type.notin_(paused_types))
-
-                    # Calculate batch size to reduce DB IO
-                    batch_size = 10
-                    if self.fast_mode:
-                        max_cpu = os.cpu_count() or 4
-                        max_io = 30
-                        max_ai = 2
-                        batch_size = max(1, (max_cpu + max_io + max_ai) - active_count)
-                    else:
-                        max_concurrency = system_config.config.task.max_concurrent_tasks
-                        batch_size = max(1, max_concurrency - active_count)
-                    
-                    # Ensure we don't fetch too many at once to avoid memory spike
-                    batch_size = min(batch_size, 20)
-
-                    tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(batch_size).all()
-
-                    if tasks:
-                        # Lock tasks
-                        for task in tasks:
-                            task.status = TaskStatus.PROCESSING
-                            # Update last active time
-                            self.last_active_time[task.type] = datetime.now()
-                        db.commit()
-                        
-                        for task in tasks:
-                            self.scan_status['current_task'] = f"{task.type} - {task.id}"
-                            # Launch async wrapper
-                            future = asyncio.create_task(self.execute_task_wrapper(task.id, task.type))
-                            self.active_task_map[future] = task.type
-                    else:
-                        if active_count == 0:
-                            self.scan_status['running'] = False
-                            self.scan_status['message'] = "Idle"
-                            if idle_start_time:
-                                idle_duration = (datetime.now() - idle_start_time).total_seconds()
-                                if idle_duration > 300: # 5 minutes
-                                    logging.info("Worker idle for 5 minutes, exiting to release resources...")
-                                    self.running = False
-                                    import sys
-                                    sys.exit(0)
-                                elif idle_duration > 60:
-                                    await asyncio.sleep(5)
-                                elif idle_duration > 10:
-                                    await asyncio.sleep(2)
-                                else:
-                                    await asyncio.sleep(1)
-                            else:
-                                await asyncio.sleep(1)
-                        else:
-                            await asyncio.sleep(1)
-                except Exception as e:
-                    logging.error(f"Error in worker loop: {e}")
-                    await asyncio.sleep(5)
-                finally:
-                    db.close()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -394,7 +364,10 @@ class TaskWorker:
                 return
 
             try:
-                result = await self.process_task(task, db)
+                # Wait for task completion with a timeout
+                timeout = 120.0 if task_type in self.AI_TASKS else 300.0
+                result = await asyncio.wait_for(self.process_task(task, db), timeout=timeout)
+                
                 if result and 'status' in result and result['status'] == 'failed':
                     # Enqueue failure result
                     await self.result_queue.put({
@@ -411,6 +384,14 @@ class TaskWorker:
                         'status': TaskStatus.COMPLETED,
                         'result': result
                     })
+            except asyncio.TimeoutError:
+                logging.error(f"Task {task_id} timed out after {timeout} seconds")
+                await self.result_queue.put({
+                    'task_id': task_id,
+                    'task_type': task_type,
+                    'status': TaskStatus.FAILED,
+                    'error': f"Task timed out after {timeout} seconds"
+                })
             except Exception as e:
                 logging.error(f"Task {task_id} failed: {e}", exc_info=True)
                 # Enqueue failure result
@@ -544,12 +525,16 @@ class TaskWorker:
 
             if task_ids_failed:
                 # Update failed tasks
+                failed_mappings = []
                 for item in items:
                     if item['status'] == TaskStatus.FAILED:
-                         t = db.query(Task).filter(Task.id == item['task_id']).first()
-                         if t:
-                             t.status = TaskStatus.FAILED
-                             t.error = item.get('error')
+                         failed_mappings.append({
+                             'id': item['task_id'],
+                             'status': TaskStatus.FAILED,
+                             'error': item.get('error')
+                         })
+                if failed_mappings:
+                    db.bulk_update_mappings(Task, failed_mappings)
             db.commit()
         except Exception as e:
             logging.error(f"Failed to flush results: {e}", exc_info=True)

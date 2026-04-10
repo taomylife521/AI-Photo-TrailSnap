@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 @TaskStrategyFactory.register(TaskType.SCAN_ALBUM)
 class ScanAlbumStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session) -> Dict[str, Any]:
         """
         Background task to scan photos matching album conditions and update album_photos table.

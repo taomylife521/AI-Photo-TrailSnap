@@ -20,6 +20,10 @@ def rebuild_thumbnail_cpu_job(user_id: str, file_path: str, file_id: UUID, stora
 
 @TaskStrategyFactory.register(TaskType.GENERATE_THUMBNAIL)
 class GenerateThumbnailStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'CPU'
+
     async def process(self, worker, task: Task, db: Session):
         """Single item thumbnail generation"""
         photo_id_str = task.payload.get('photo_id')
@@ -63,6 +67,10 @@ class GenerateThumbnailStrategy(BaseTaskStrategy):
 
 @TaskStrategyFactory.register(TaskType.REBUILD_THUMBNAILS)
 class RebuildThumbnailsStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'CPU'
+
     async def process(self, worker, task: Task, db: Session):
         scope = task.payload.get('scope', 'all')
         force = task.payload.get('force', False)

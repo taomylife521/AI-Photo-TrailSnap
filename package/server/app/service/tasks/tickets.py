@@ -96,6 +96,10 @@ async def calculate_ticket_mileage_and_time(ticket: TrainTicketCreate) -> Dict[s
 
 @TaskStrategyFactory.register(TaskType.RECOGNIZE_TICKET)
 class RecognizeTicketStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session) -> Dict[str, Any]:
         try:
             force = task.payload.get('force', False)

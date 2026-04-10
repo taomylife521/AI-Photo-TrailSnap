@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 @TaskStrategyFactory.register(TaskType.CLASSIFY_IMAGE)
 class ClassifyImageStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session) -> Dict[str, Any]:
         try:
             force = task.payload.get('force', False)

@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 @TaskStrategyFactory.register(TaskType.OCR)
 class OcrStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session) -> Dict[str, Any]:
         """
         Handle OCR task

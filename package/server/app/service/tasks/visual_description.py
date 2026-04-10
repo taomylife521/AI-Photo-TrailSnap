@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 @TaskStrategyFactory.register(TaskType.VISUAL_DESCRIPTION)
 class VisualDescriptionStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'AI'
+
     async def process(self, worker, task: Task, db: Session) -> Dict[str, Any]:
         """
         Handle Visual Description task

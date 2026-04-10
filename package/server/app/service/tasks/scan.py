@@ -57,6 +57,10 @@ def scan_directory_recursive(path: str, exts: Set[str], filter_settings: Optiona
 
 @TaskStrategyFactory.register(TaskType.SCAN_FOLDER)
 class ScanFolderStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session):
         worker.scan_status['message'] = "Scanning folders..."
         scan_roots = task.payload.get('scan_roots')

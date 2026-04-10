@@ -11,6 +11,10 @@ from app.utils.hash import calculate_file_md5_async
 
 @TaskStrategyFactory.register(TaskType.FIND_DUPLICATE_PHOTOS)
 class FindDuplicatePhotosStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session):
         """
         Handle finding duplicate photos task by calculating MD5 for photos that don't have one.

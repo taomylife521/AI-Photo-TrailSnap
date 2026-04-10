@@ -10,6 +10,13 @@ class BaseTaskStrategy(ABC):
     Each specific task type should implement its own strategy inheriting from this class.
     """
 
+    @property
+    def task_category(self) -> str:
+        """
+        Return the category of the task: 'CPU', 'IO', or 'AI'.
+        """
+        return 'IO'
+
     @abstractmethod
     async def process(self, worker, task: Task, db: Session) -> Any:
         """
@@ -55,6 +62,26 @@ class TaskStrategyFactory:
         Retrieve the strategy instance for a given task type.
         """
         return cls._strategies.get(task_type)
+
+    @classmethod
+    def get_tasks_by_category(cls, category: str) -> List[TaskType]:
+        """
+        Retrieve a list of task types belonging to the specified category.
+        """
+        return [task_type for task_type, strategy in cls._strategies.items() if strategy.task_category == category]
+
+    @classmethod
+    def release_idle_resources(cls, idle_task_types: List[TaskType]):
+        """
+        Release resources for the specified idle task types.
+        """
+        for task_type in idle_task_types:
+            strategy = cls.get_strategy(task_type)
+            if strategy:
+                try:
+                    strategy.release_resources()
+                except Exception as e:
+                    logging.error(f"Error releasing resources for {task_type}: {e}")
 
     @classmethod
     def release_all_resources(cls):

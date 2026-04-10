@@ -143,6 +143,10 @@ async def sync_rebuild_metadata_cpu_job(file_path: str, file_id: UUID):
 
 @TaskStrategyFactory.register(TaskType.EXTRACT_METADATA)
 class ExtractMetadataStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session):
         """
         Handle single file metadata extraction (Heavy task: Geolocation etc.)
@@ -257,6 +261,10 @@ def update_photo_metadata_from_extract(db: Session, photo: Photo, meta: dict):
 
 @TaskStrategyFactory.register(TaskType.REBUILD_METADATA)
 class RebuildMetadataStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'IO'
+
     async def process(self, worker, task: Task, db: Session):
         scope = task.payload.get('scope', 'all')
         force = task.payload.get('force', False)

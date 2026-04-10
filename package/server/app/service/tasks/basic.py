@@ -97,6 +97,10 @@ def process_basic_cpu_job(file_path: str, file_id: UUID, storage_root: str, user
 
 @TaskStrategyFactory.register(TaskType.PROCESS_BASIC)
 class BasicTaskStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'CPU'
+
     async def process(self, worker, task: Task, db: Session):
         file_path = task.payload.get('file_path')
         live_photo_video_path = task.payload.get('live_photo_video_path')

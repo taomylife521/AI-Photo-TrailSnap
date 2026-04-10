@@ -20,6 +20,10 @@ import numpy as np
 
 @TaskStrategyFactory.register(TaskType.SIMILAR_PHOTO_CLUSTERING)
 class SimilarPhotoClusteringStrategy(BaseTaskStrategy):
+    @property
+    def task_category(self) -> str:
+        return 'CPU'
+
     async def process(self, worker, task: Task, db: Session):
         """
         Handle similar photo clustering task
