@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+import traceback
 from typing import List, Dict, Any, Type
 from sqlalchemy.orm import Session
 from app.db.models.task import Task, TaskType
@@ -48,7 +49,7 @@ class BaseTaskStrategy(ABC):
                     'task_id': task.id,
                     'task_type': task.type,
                     'status': 'failed',
-                    'error': str(e)
+                    'error': f'{str(e)}\n{traceback.format_exc()}'
                 })
         return results
 

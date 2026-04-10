@@ -25,16 +25,59 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
     def task_category(self) -> str:
         return 'AI'
 
+    def create_client(self, settings):
+        if not settings.analysis_connection_id or not settings.analysis_model_name:
+            logger.error(
+                "Visual Model not configured, please check settings. connection_id: %s, model_name: %s",
+                settings.analysis_connection_id, settings.analysis_model_name
+            )
+            raise ValueError("Visual Model not configured, please check settings in Basic Settings.")
+
+        connection = next((c for c in settings.connections if c.id == settings.analysis_connection_id), None)
+        if not connection:
+            logger.error("Visual Model connection not found: %s", settings.analysis_connection_id)
+            raise ValueError(f"Visual Model connection not found: {settings.analysis_connection_id}")
+
+        if not connection.enable:
+            logger.error("Visual Model connection is disabled: %s", settings.analysis_connection_id)
+            raise ValueError(f"Visual Model connection is disabled: {settings.analysis_connection_id}")
+
+        if not connection.api_key:
+            logger.error("Visual Model connection has no api_key: %s", settings.analysis_connection_id)
+            raise ValueError(f"Visual Model connection has no api_key: {settings.analysis_connection_id}")
+
+        # 2. Call OpenAI API
+        client = AsyncOpenAI(
+            api_key=connection.api_key,
+            base_url=connection.api_base if connection.api_base else None,
+            timeout=60,
+        )
+        return client
+
     async def process(self, worker, task: Task, db: Session) -> Dict[str, Any]:
         """
         Handle Visual Description task
         """
         try:
             # Check configuration
-            settings = config_manager.get_user_config(task.owner_id, db).ai.llm_vl_settings
-            if not settings.base_url or not settings.api_key or not settings.model_name:
-                logger.error("Visual Model not configured, please check settings. base_url: %s, api_key: %s, model_name: %s", settings.base_url, settings.api_key, settings.model_name)
+            settings = config_manager.get_user_config(task.owner_id, db).ai
+
+            if not settings.analysis_connection_id or not settings.analysis_model_name:
+                logger.error("Visual Model not configured, please check settings. connection_id: %s, model_name: %s", settings.analysis_connection_id, settings.analysis_model_name)
                 raise ValueError("Visual Model not configured, please check settings in Basic Settings.")
+
+            connection = next((c for c in settings.connections if c.id == settings.analysis_connection_id), None)
+            if not connection:
+                logger.error("Visual Model connection not found: %s", settings.analysis_connection_id)
+                raise ValueError(f"Visual Model connection not found: {settings.analysis_connection_id}")
+
+            if not connection.enable:
+                logger.error("Visual Model connection is disabled: %s", settings.analysis_connection_id)
+                raise ValueError(f"Visual Model connection is disabled: {settings.analysis_connection_id}")
+
+            if not connection.api_key:
+                logger.error("Visual Model connection has no api_key: %s", settings.analysis_connection_id)
+                raise ValueError(f"Visual Model connection has no api_key: {settings.analysis_connection_id}")
 
             force = task.payload.get('force', False)
 
@@ -103,77 +146,6 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             logger.error(f"Visual Description task failed: {e}")
             raise e
 
-
-    async def process_batch(self, worker, tasks: List[Task], db: Session) -> List[Dict]:
-        results = []
-        generator_tasks = []
-        photo_tasks = []
-
-        for task in tasks:
-            if task.payload and 'photo_id' in task.payload:
-                photo_tasks.append(task)
-            else:
-                generator_tasks.append(task)
-
-        for task in generator_tasks:
-            try:
-                res = await self.process(worker, task, db)
-                results.append({
-                    'task_id': task.id,
-                    'task_type': task.type,
-                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
-                    'result': res,
-                    'error': res.get('error') if res and isinstance(res, dict) else None
-                })
-            except Exception as e:
-                logger.error(f"Error processing generator task {task.id}: {e}")
-                results.append({
-                    'task_id': task.id,
-                    'task_type': task.type,
-                    'status': 'failed',
-                    'error': str(e)
-                })
-
-        if not photo_tasks:
-            return results
-
-        import asyncio
-        
-        async def process_task_safe(task):
-            try:
-                photo_id = task.payload['photo_id']
-                photo = db.query(Photo).filter(Photo.id == photo_id).first()
-                if not photo:
-                    return {'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}}
-                
-                force = task.payload.get('force', False)
-                if not force:
-                    tasks_status = photo.processed_tasks or {}
-                    if tasks_status.get('visual_description'):
-                        return {'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}}
-                
-                settings = config_manager.get_user_config(task.owner_id, db).ai.llm_vl_settings
-                res = await self.process_single_photo(worker, photo, db, settings)
-                return {
-                    'task_id': task.id,
-                    'task_type': task.type,
-                    'status': 'failed' if res and isinstance(res, dict) and res.get('status') == 'failed' else 'completed',
-                    'result': res,
-                    'error': res.get('error') if res and isinstance(res, dict) else None
-                }
-            except Exception as e:
-                logger.error(f"Error processing visual description for task {task.id}: {e}")
-                return {
-                    'task_id': task.id,
-                    'task_type': task.type,
-                    'status': 'failed',
-                    'error': str(e)
-                }
-
-        batch_results = await asyncio.gather(*(process_task_safe(t) for t in photo_tasks))
-        results.extend(batch_results)
-
-        return results
     def encode_image(self, image_path):
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
@@ -182,16 +154,10 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
         try:
             if photo.image_type == ImageType.SCREENSHOT:
                 return {'status': 'skipped', 'reason': 'screenshot not supported'}
-            # Get user config for prompts
             user_config = config_manager.get_user_config(photo.owner_id, db)
-            if not user_config.ai.llm_vl_settings.base_url or not user_config.ai.llm_vl_settings.api_key or not user_config.ai.llm_vl_settings.model_name:
-                logger.error(
-                    "Visual Model not configured, please check settings. base_url: %s, api_key: %s, model_name: %s",
-                    user_config.ai.llm_vl_settings.base_url, user_config.ai.llm_vl_settings.api_key, user_config.ai.llm_vl_settings.model_name
-                )
-                raise ValueError("Visual Model not configured, please check settings in Basic Settings.")
-            # 1. Resolve file path
-            # Use preview path for smaller size and faster processing, or original if preview missing
+            settings = user_config.ai
+            client =self.create_client(settings)
+ 
             target_path = storage.get_preview_path(photo.owner_id, photo.id)
             if not os.path.exists(target_path):
                 target_path = photo.file_path
@@ -205,17 +171,10 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             metadata = db.query(PhotoMetadata).filter(PhotoMetadata.photo_id == photo.id).first()
             if metadata:
                 image_info += f"照片位置：{metadata.address}\n"
-        
-            # 2. Call OpenAI API
-            client = AsyncOpenAI(
-                api_key=settings.api_key,
-                base_url=settings.base_url,
-                timeout=120,
-            )
 
             # Step A: Evaluation
             eval_response = await client.chat.completions.create(
-                model=settings.model_name,
+                model=settings.analysis_model_name,
                 messages=[
                     {"role": "system", "content": eval_prompt},
                     {

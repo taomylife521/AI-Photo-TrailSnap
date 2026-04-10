@@ -192,7 +192,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                                 for res in predictions:
                                     tag_name = res['label']
                                     confidence = res['confidence'] - 0.01
-                                    if confidence < 0.65:
+                                    if confidence < 0.75:
                                         break
                                     tag = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name).first()
                                     if not tag:
@@ -270,7 +270,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                             # if tag_name == 'others':
                             #     break
                             confidence = res['confidence'] - 0.01
-                            if confidence < 0.65:
+                            if confidence < 0.75:
                                 break
                             tag = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name).first()
                             if not tag:

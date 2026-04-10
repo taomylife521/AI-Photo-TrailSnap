@@ -1,3 +1,6 @@
+import logging
+import traceback
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.services.face_service import face_service
 from typing import List, Dict, Any
@@ -43,8 +46,11 @@ async def face_recognition(request: FaceRecognitionRequest):
                 "face_count": len(results),
                 "faces": results
             })
+        print(len(batch_results))
         return {"results": batch_results}
     except ValueError as ve:
+        logging.error(traceback.format_exc())
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

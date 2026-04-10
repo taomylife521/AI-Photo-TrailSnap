@@ -163,7 +163,9 @@ class FaceRecognitionService:
 
         if img is None:
             raise ValueError("Invalid image data")
-
+        height, width , _ = img.shape
+        if width == 0 or height == 0:
+            raise ValueError("Image is empty")
         # Perform face analysis
         faces = app.get(img)
 
@@ -174,9 +176,10 @@ class FaceRecognitionService:
             # face.kps is 5 keypoints (eyes, nose, mouth corners)
             # face.embedding is 512-d feature vector
             # face.det_score is detection confidence
-
+            # bbox改成百分比坐标
+            bbox = face.bbox / np.array([width, height, width, height])
             face_data = {
-                "bbox": face.bbox.tolist(),
+                "bbox": bbox.tolist(),
                 "kps": face.kps.tolist(),
                 "det_score": float(face.det_score),
                 "embedding": face.embedding.tolist(), # Convert numpy array to list for JSON serialization

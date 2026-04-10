@@ -14,19 +14,34 @@ class ImageClassificationService:
     def __init__(self):
         self._register_models()
         self._register_downloads()
+        self.version = 'v0.1.2'
 
     def _register_downloads(self):
         def check_yolo_model():
-            path = os.path.join(settings.MODEL_PATH, "photo-cls")
-            from modelscope.hub.snapshot_download import snapshot_download
-            logging.info(f"Downloading YOLO model SiYuan044/photo-cls to {path}...")
-            return snapshot_download('SiYuan044/photo-cls', local_dir=path, revision='v0.1.1')
+            try:
+                path = os.path.join(settings.MODEL_PATH, "photo-cls")
+                if not os.path.exists(path):
+                    return False
+                # Check if the model file exists
+                model_path = os.path.join(path, "photo-cls-general.pt")
+                if not os.path.exists(model_path):
+                    return False
+                version_file = os.path.join(path, ".mv")
+                if not os.path.exists(version_file):
+                    return False
+                with open(version_file, 'r') as f:
+                    version = f.read().strip().split(',')[0].split(':')[1]
+                if version != self.version:
+                    return False
+                return True
+            except:
+                return False
 
         def download_yolo_model():
             path = os.path.join(settings.MODEL_PATH, "photo-cls")
             from modelscope.hub.snapshot_download import snapshot_download
             logging.info(f"Downloading YOLO model SiYuan044/photo-cls to {path}...")
-            return snapshot_download('SiYuan044/photo-cls', local_dir=path, revision='v0.1.1')
+            return snapshot_download('SiYuan044/photo-cls', local_dir=path, revision=self.version)
 
         model_downloader.register_model("yolo_photo_cls", check_yolo_model, download_yolo_model)
 
@@ -60,46 +75,54 @@ class ImageClassificationService:
 
     async def classify_yolo(self, images_base64: List[str]) -> List[dict]:
         """
-        Classify multiple base64 images using the YOLO model.
-        Returns a list of prediction results.
+        真正的 YOLO 批量分类推理（支持多张并行加速）
         """
         if not model_downloader.is_ready("yolo_photo_cls"):
             raise Exception("YOLO model is not ready yet. Please try again later.")
-            
+
         yolo_model = model_manager.get_model("yolo_photo_cls")
-        
         results = []
-        for b64 in images_base64:
+        valid_images = []
+        valid_indices = []
+
+        # 1. 先把所有 base64 解码成 PIL Image（保留顺序）
+        for idx, b64 in enumerate(images_base64):
             try:
-                # Handle base64 header if present
                 if ',' in b64:
                     b64 = b64.split(',')[1]
                 image_data = base64.b64decode(b64)
                 image = Image.open(io.BytesIO(image_data)).convert("RGB")
-                
-                # Run YOLO prediction
-                preds = yolo_model(image)
-                
-                # Parse results
-                img_result = []
-                for pred in preds:
-                    if hasattr(pred, 'probs') and pred.probs is not None:
-                        probs = pred.probs
-                        # YOLO classification typically gives top1 and top5
-                        top5_indices = probs.top5
-                        top5_conf = probs.top5conf
-                        
-                        for idx, conf in zip(top5_indices, top5_conf):
-                            class_name = yolo_model.names[idx]
-                            img_result.append({
-                                "label": class_name,
-                                "confidence": float(conf)
-                            })
-                results.append({"status": "success", "predictions": img_result})
+                valid_images.append(image)
+                valid_indices.append(idx)
+                results.append({"status": "success", "predictions": []})
             except Exception as e:
-                logging.error(f"Error classifying image with YOLO: {e}\n{traceback.format_exc()}")
+                logging.error(f"Image decode error: {e}")
                 results.append({"status": "error", "error": str(e)})
-                
-        return results
 
+        # 2. 没有有效图片直接返回
+        if not valid_images:
+            return results
+
+        # 3. ✅ 真正批量推理（一次送入所有图片）
+        preds_batch = yolo_model(valid_images)
+
+        # 4. 解析批量结果并放回原顺序
+        for res_idx, pred in enumerate(preds_batch):
+            idx = valid_indices[res_idx]
+            img_result = []
+
+            if hasattr(pred, 'probs') and pred.probs is not None:
+                top5_indices = pred.probs.top5
+                top5_conf = pred.probs.top5conf
+
+                for cls_idx, conf in zip(top5_indices, top5_conf):
+                    class_name = yolo_model.names[cls_idx]
+                    img_result.append({
+                        "label": class_name,
+                        "confidence": float(conf)
+                    })
+
+            results[idx]["predictions"] = img_result
+
+        return results
 image_classification_service = ImageClassificationService()

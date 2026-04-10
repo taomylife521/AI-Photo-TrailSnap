@@ -140,30 +140,30 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
                 valid_tasks = []
                 b64_images = []
                 valid_photos = []
-                
+
                 for task in owner_tasks:
                     photo_id = str(task.payload['photo_id'])
                     photo = photo_map.get(photo_id)
                     force = task.payload.get('force', False)
-                    
+
                     if not photo:
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
                         continue
-                        
+
                     if not force:
                         tasks_status = photo.processed_tasks or {}
                         if tasks_status.get('face'):
                             results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
                             continue
-                            
+
                     target_path = storage.get_preview_path(photo.owner_id, photo.id)
                     if not os.path.exists(target_path):
                         target_path = photo.file_path
-                        
+
                     if not target_path or not os.path.exists(target_path):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': 'file not found'})
                         continue
-                        
+
                     try:
                         with open(target_path, 'rb') as f_img:
                             b64_data = base64.b64encode(f_img.read()).decode('utf-8')
@@ -183,33 +183,23 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
                         if resp.status == 200:
                             result_data = await resp.json()
                             ai_results = result_data.get('results', [])
-                            
+
                             cluster_service = FaceClusterService(db, owner_id)
                             threshold = config_manager.get_user_config(owner_id, db).ai.face_recognition_threshold
-                            
+
                             for idx, task in enumerate(valid_tasks):
                                 photo = valid_photos[idx]
                                 faces_data = ai_results[idx].get('faces', []) if idx < len(ai_results) else []
-                                
-                                width, height, _ = storage.get_image_dimensions(photo.file_path)
                                 crud_face.delete_faces_by_photo(db, photo.id)
-                                
+
                                 count = 0
                                 has_unassigned = False
-                                
+
                                 for face_data in faces_data:
                                     if face_data.get('det_score') < threshold:
                                         continue
-                                        
+
                                     bbox = face_data.get('bbox')
-                                    if bbox and len(bbox) == 4 and width and height and width > 0 and height > 0:
-                                        bbox = [
-                                            min(max(bbox[0] / width, 0.0), 1.0),
-                                            min(max(bbox[1] / height, 0.0), 1.0),
-                                            min(max(bbox[2] / width, 0.0), 1.0),
-                                            min(max(bbox[3] / height, 0.0), 1.0)
-                                        ]
-                                        
                                     face = Face(
                                         photo_id=photo.id,
                                         face_feature=face_data.get('embedding'),
@@ -219,7 +209,6 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
                                     )
                                     db.add(face)
                                     db.flush()
-                                    
                                     count += 1
                                     if face.face_feature:
                                         try:
@@ -228,7 +217,6 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
                                                 has_unassigned = True
                                         except Exception as ce:
                                             logger.error(f"Clustering failed for face {face.id}: {ce}")
-                                            
                                 if has_unassigned:
                                     db.commit()
                                     try:
@@ -300,14 +288,6 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
 
                             # Normalize face_rect (bbox) to 0-1 relative coordinates
                             bbox = face_data.get('bbox')
-                            if bbox and len(bbox) == 4 and width and height and width > 0 and height > 0:
-                                bbox = [
-                                    min(max(bbox[0] / width, 0.0), 1.0),
-                                    min(max(bbox[1] / height, 0.0), 1.0),
-                                    min(max(bbox[2] / width, 0.0), 1.0),
-                                    min(max(bbox[3] / height, 0.0), 1.0)
-                                ]
-
                             face = Face(
                                 photo_id=photo.id,
                                 face_feature=face_data.get('embedding'),

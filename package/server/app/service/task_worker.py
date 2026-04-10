@@ -335,12 +335,14 @@ class TaskWorker:
                 db.commit()
                 
             # Split tasks into smaller batches of max 8 items
+            
             split_tasks_by_type = {}
             for task_type, task_list in tasks_by_type.items():
                 split_tasks_by_type[task_type] = []
+                chunk_size = 2 if task_type == TaskType.VISUAL_DESCRIPTION else 8
                 # Split task_list into chunks of 8
-                for i in range(0, len(task_list), 8):
-                    chunk = task_list[i:i + 8]
+                for i in range(0, len(task_list), chunk_size):
+                    chunk = task_list[i:i + chunk_size]
                     split_tasks_by_type[task_type].append(chunk)
 
             return split_tasks_by_type
@@ -384,19 +386,7 @@ class TaskWorker:
 
                 async def wrapper(b):
                     try:
-                        # if category == 'CPU':
-                        #     # Use ThreadPoolExecutor to prevent blocking the main async event loop with heavy sync tasks
-                        #     # like thumbnail generation or OpenCV operations.
-                        #     # The helper `_run_sync_wrapper` creates a new event loop in that thread.
-                        #     loop = asyncio.get_running_loop()
-                        #     future = asyncio.create_task(
-                        #         loop.run_in_executor(self.thread_pool, self._run_sync_wrapper, b, category)
-                        #     )
-                        # else:
-                            # For IO/AI tasks, they are already async-friendly (using aiohttp, etc.)
-                            # so they can run directly in the main event loop.
                         future = asyncio.create_task(self.execute_batch_task_wrapper(b, category))
-                            
                         self.active_task_map[future] = b[0]['type']
                         await future
                     except Exception as e:
@@ -419,15 +409,6 @@ class TaskWorker:
                     pass
                 await asyncio.sleep(1)
 
-    def _run_sync_wrapper(self, task_infos: List[Dict], category: str):
-        """Helper to run the async wrapper in a new event loop inside a thread."""
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.execute_batch_task_wrapper(task_infos, category))
-        finally:
-            loop.close()
-
     async def execute_batch_task_wrapper(self, task_infos: List[Dict], category: str):
         if not task_infos:
             return
@@ -446,7 +427,7 @@ class TaskWorker:
                 if not strategy:
                     raise ValueError(f"Strategy not found for task type: {task_type}")
 
-                timeout = 120.0 if strategy.task_category == 'AI' else 300.0
+                timeout = 300.0 if strategy.task_category == 'AI' else 300.0
 
                 results = await asyncio.wait_for(strategy.process_batch(self, tasks, db), timeout=timeout)
                 
