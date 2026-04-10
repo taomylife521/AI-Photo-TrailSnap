@@ -74,14 +74,13 @@ class TicketService:
 
     def _register_downloads(self):
         def check_model():
-            return download_model()
             model_path = os.path.join(settings.MODEL_PATH, 'ticket_recognition', 'best.pt')
             return os.path.exists(model_path)
 
         def download_model():
             return load_modelscope_model()
 
-        # model_downloader.register_model("tickets_yolo", check_model, download_model)
+        model_downloader.register_model("tickets_yolo", check_model, download_model)
 
     def detect(self, image_bytes: bytes):
         """
