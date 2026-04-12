@@ -7,8 +7,7 @@ import json
 import base64
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-from openai import AsyncOpenAI
-from sqlalchemy.testing.suite.test_reflection import metadata
+from langchain_openai import ChatOpenAI
 
 from app.db.models import PhotoMetadata
 from app.db.models.task import Task, TaskType
@@ -47,8 +46,9 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             raise ValueError(f"Visual Model connection has no api_key: {settings.analysis_connection_id}")
 
         # 2. Call OpenAI API
-        client = AsyncOpenAI(
+        client = ChatOpenAI(
             api_key=connection.api_key,
+            model= settings.analysis_model_name,
             base_url=connection.api_base if connection.api_base else None,
             timeout=60,
         )
@@ -173,9 +173,7 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
                 image_info += f"照片位置：{metadata.address}\n"
 
             # Step A: Evaluation
-            eval_response = await client.chat.completions.create(
-                model=settings.analysis_model_name,
-                messages=[
+            eval_response = client.invoke([
                     {"role": "system", "content": eval_prompt},
                     {
                         "role": "user",
@@ -189,13 +187,10 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
                             },
                         ],
                     }
-                ],
-                temperature=0.7,
-                top_p=0.8,
-                presence_penalty=1.5
+                ]
             )
 
-            eval_content = eval_response.choices[0].message.content.strip().strip('`').strip().strip('json')
+            eval_content = eval_response.content.strip().strip('`').strip().strip('json')
             print(eval_content)
             # Clean up code blocks if present
             if eval_content.startswith("```"):

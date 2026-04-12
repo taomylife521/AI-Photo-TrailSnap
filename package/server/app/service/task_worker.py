@@ -363,7 +363,7 @@ class TaskWorker:
         elif category == 'IO':
             max_concurrency = 10
         elif category == 'AI':
-            max_concurrency = 2
+            max_concurrency = 1
 
         semaphore = asyncio.Semaphore(max_concurrency)
 
