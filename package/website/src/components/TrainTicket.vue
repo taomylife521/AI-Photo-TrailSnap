@@ -265,7 +265,7 @@ const dateTimeObj = computed(() => {
     year: dt.slice(0, 4),
     month: dt.slice(5, 7),
     day: dt.slice(8, 10),
-    time: dt.slice(11)
+    time: dt.slice(11, 16)
   }
 })
 
