@@ -12,17 +12,29 @@ from app.services.model_manager import model_manager
 
 class ImageClassificationService:
     def __init__(self):
+        self._category_model_map = self._discover_category_models()
         self._register_models()
         self._register_downloads()
         self.version = 'v0.1.2'
 
+    def _discover_category_models(self) -> Dict[str, str]:
+        path = os.path.join(settings.MODEL_PATH, "photo-cls")
+        if not os.path.exists(path):
+            return {}
+        category_map = {}
+        for f in os.listdir(path):
+            if f.startswith("photo-cls-") and f.endswith(".pt") and f != "photo-cls-general.pt":
+                category = f.replace("photo-cls-", "").replace(".pt", "")
+                category_map[category] = f
+        return category_map
+
     def _register_downloads(self):
-        def check_yolo_model():
+
+        def check_general_model():
             try:
                 path = os.path.join(settings.MODEL_PATH, "photo-cls")
                 if not os.path.exists(path):
                     return False
-                # Check if the model file exists
                 model_path = os.path.join(path, "photo-cls-general.pt")
                 if not os.path.exists(model_path):
                     return False
@@ -37,33 +49,63 @@ class ImageClassificationService:
             except:
                 return False
 
-        def download_yolo_model():
+        def download_general_model():
             path = os.path.join(settings.MODEL_PATH, "photo-cls")
             from modelscope.hub.snapshot_download import snapshot_download
             logging.info(f"Downloading YOLO model SiYuan044/photo-cls to {path}...")
             return snapshot_download('SiYuan044/photo-cls', local_dir=path, revision=self.version)
 
-        model_downloader.register_model("yolo_photo_cls", check_yolo_model, download_yolo_model)
+        model_downloader.register_model("yolo_photo_cls_general", check_general_model, download_general_model)
 
-    def _load_yolo_model(self):
+        for category, model_file in self._category_model_map.items():
+            model_key = f"yolo_photo_cls_{category}"
+
+            def make_check(model_file=model_file):
+                def check():
+                    try:
+                        path = os.path.join(settings.MODEL_PATH, "photo-cls")
+                        model_path = os.path.join(path, model_file)
+                        return os.path.exists(model_path)
+                    except:
+                        return False
+                return check
+
+            def make_download(model_file=model_file):
+                def download():
+                    return os.path.join(settings.MODEL_PATH, "photo-cls", model_file)
+                return download
+
+            model_downloader.register_model(model_key, make_check(), make_download())
+
+    def _load_general_model(self):
         path = os.path.join(settings.MODEL_PATH, "photo-cls")
-        # Try to find a .pt file
         model_path = os.path.join(path, "photo-cls-general.pt")
         if not os.path.exists(model_path):
-            pt_files = [f for f in os.listdir(path) if f.endswith('.pt')]
+            pt_files = [f for f in os.listdir(path) if f.endswith('.pt') and 'general' in f]
             if pt_files:
                 model_path = os.path.join(path, pt_files[0])
             else:
-                raise FileNotFoundError(f"No .pt file found in {path}")
+                raise FileNotFoundError(f"No general model found in {path}")
         from ultralytics import YOLO
-        logging.info(f"Loading YOLO model from {model_path}")
+        logging.info(f"Loading YOLO general model from {model_path}")
+        return YOLO(model_path)
+
+    def _load_category_model(self, category: str):
+        model_file = self._category_model_map.get(category)
+        if not model_file:
+            return None
+        path = os.path.join(settings.MODEL_PATH, "photo-cls")
+        model_path = os.path.join(path, model_file)
+        if not os.path.exists(model_path):
+            return None
+        from ultralytics import YOLO
+        logging.info(f"Loading YOLO {category} model from {model_path}")
         return YOLO(model_path)
 
     def _release_model(self, wrapper):
-        """Release resources associated with the model"""
         model_name = getattr(wrapper, 'model_name', 'unknown')
         logging.info(f"Releasing resources for {model_name}")
-        
+
         if hasattr(wrapper, 'model'):
             del wrapper.model
         import torch
@@ -71,21 +113,52 @@ class ImageClassificationService:
             torch.cuda.empty_cache()
 
     def _register_models(self):
-        model_manager.register_model("yolo_photo_cls", self._load_yolo_model, self._release_model)
+        model_manager.register_model("yolo_photo_cls_general", self._load_general_model, self._release_model)
+        for category in self._category_model_map.keys():
+            model_manager.register_model(f"yolo_photo_cls_{category}", lambda c=category: self._load_category_model(c), self._release_model)
+
+    def _get_top_prediction(self, pred, model):
+        if hasattr(pred, 'probs') and pred.probs is not None:
+            top5_indices = pred.probs.top5
+            top5_conf = pred.probs.top5conf
+            if len(top5_indices) > 0:
+                cls_idx = top5_indices[0]
+                conf = top5_conf[0]
+                return model.names[cls_idx], float(conf)
+        return None, None
+
+    def _normalize_label(self, label: Optional[str], confidence: float) -> str:
+        if label is None or confidence < 0.8:
+            return "others"
+        return label
+
+    def _classify_single(self, image: Image.Image):
+        general_model = model_manager.get_model("yolo_photo_cls_general")
+        general_pred = general_model(image)[0]
+        big_category, confidence = self._get_top_prediction(general_pred, general_model)
+        big_category = self._normalize_label(big_category, confidence)
+
+        if big_category == "others":
+            return {"label": "others", "confidence": confidence}
+
+        small_model_key = f"yolo_photo_cls_{big_category}"
+        if big_category in self._category_model_map and model_downloader.is_ready(small_model_key):
+            small_model = model_manager.get_model(small_model_key)
+            small_pred = small_model(image)[0]
+            final_label, final_conf = self._get_top_prediction(small_pred, small_model)
+            final_label = self._normalize_label(final_label, final_conf)
+            return {"label": final_label, "confidence": final_conf}
+
+        return {"label": big_category, "confidence": confidence}
 
     async def classify_yolo(self, images_base64: List[str]) -> List[dict]:
-        """
-        真正的 YOLO 批量分类推理（支持多张并行加速）
-        """
-        if not model_downloader.is_ready("yolo_photo_cls"):
-            raise Exception("YOLO model is not ready yet. Please try again later.")
+        if not model_downloader.is_ready("yolo_photo_cls_general"):
+            raise Exception("General model is not ready yet. Please try again later.")
 
-        yolo_model = model_manager.get_model("yolo_photo_cls")
         results = []
         valid_images = []
         valid_indices = []
 
-        # 1. 先把所有 base64 解码成 PIL Image（保留顺序）
         for idx, b64 in enumerate(images_base64):
             try:
                 if ',' in b64:
@@ -99,30 +172,46 @@ class ImageClassificationService:
                 logging.error(f"Image decode error: {e}")
                 results.append({"status": "error", "error": str(e)})
 
-        # 2. 没有有效图片直接返回
         if not valid_images:
             return results
 
-        # 3. ✅ 真正批量推理（一次送入所有图片）
-        preds_batch = yolo_model(valid_images)
+        general_model = model_manager.get_model("yolo_photo_cls_general")
+        preds_batch = general_model(valid_images)
 
-        # 4. 解析批量结果并放回原顺序
+        category_groups: Dict[str, List[int]] = {}
+        final_results: Dict[int, dict] = {}
+
         for res_idx, pred in enumerate(preds_batch):
             idx = valid_indices[res_idx]
-            img_result = []
+            big_category, confidence = self._get_top_prediction(pred, general_model)
+            normalized_label = self._normalize_label(big_category, confidence)
 
-            if hasattr(pred, 'probs') and pred.probs is not None:
-                top5_indices = pred.probs.top5
-                top5_conf = pred.probs.top5conf
+            if normalized_label == "others":
+                final_results[idx] = {"label": "others", "confidence": confidence}
+            else:
+                if normalized_label not in category_groups:
+                    category_groups[normalized_label] = []
+                category_groups[normalized_label].append((idx, res_idx))
 
-                for cls_idx, conf in zip(top5_indices, top5_conf):
-                    class_name = yolo_model.names[cls_idx]
-                    img_result.append({
-                        "label": class_name,
-                        "confidence": float(conf)
-                    })
+        for category, indices in category_groups.items():
+            small_model_key = f"yolo_photo_cls_{category}"
+            if category in self._category_model_map and model_downloader.is_ready(small_model_key):
+                small_model = model_manager.get_model(small_model_key)
+                group_images = [valid_images[i[1]] for i in indices]
+                small_preds = small_model(group_images)
 
-            results[idx]["predictions"] = img_result
+                for i, small_pred in enumerate(small_preds):
+                    idx = indices[i][0]
+                    final_label, final_conf = self._get_top_prediction(small_pred, small_model)
+                    final_label = self._normalize_label(final_label, final_conf)
+                    final_results[idx] = {"label": final_label, "confidence": final_conf}
+            else:
+                for i in indices:
+                    idx = i[0]
+                    final_results[idx] = {"label": category, "confidence": 1.0}
+
+        for idx, result in final_results.items():
+            results[idx]["predictions"] = [result]
 
         return results
 image_classification_service = ImageClassificationService()
