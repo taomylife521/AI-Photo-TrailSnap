@@ -201,7 +201,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                                         break
                                     if tag_name in ['火车票', '机票', '电影票', '火车票截图']:
                                         photos_to_ticket.append(photo)
-                                        break
+
                                     selected_tag = (photo, tag_name, confidence)
                                     all_tag_names.add(tag_name)
                                     break

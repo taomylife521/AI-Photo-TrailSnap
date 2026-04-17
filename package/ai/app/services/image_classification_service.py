@@ -11,11 +11,39 @@ from app.services.model_downloader import model_downloader
 from app.services.model_manager import model_manager
 
 class ImageClassificationService:
+    _LABEL_TO_CHINESE: Dict[str, str] = {
+        "animal": "动物",
+        "dog": "狗",
+        "cat": "猫",
+        "bird": "鸟",
+        "person": "人物",
+        "children": "儿童",
+        "people": "人物",
+        "selfie": "自拍",
+        "scenery": "风景",
+        "architecture": "建筑",
+        "sunset": "日落",
+        "night": "夜景",
+        "moon": "月亮",
+        "document": "文档",
+        "id_card": "卡证",
+        "train_ticket": "火车票",
+        "train_ticket_screenshot": "火车票截图",
+        "flight_ticket_screenshot": "机票截图",
+        "movie_ticket": "电影票",
+        "movie_ticket_screenshot": "电影票截图",
+        "food": "食物",
+        "car": "汽车",
+    }
+
     def __init__(self):
         self._category_model_map = self._discover_category_models()
         self._register_models()
         self._register_downloads()
         self.version = 'v0.1.3'
+
+    def _translate_label(self, label: str) -> str:
+        return self._LABEL_TO_CHINESE.get(label, label)
 
     def _discover_category_models(self) -> Dict[str, str]:
         path = os.path.join(settings.MODEL_PATH, "photo-cls")
@@ -204,13 +232,14 @@ class ImageClassificationService:
                     idx = indices[i][0]
                     final_label, final_conf = self._get_top_prediction(small_pred, small_model)
                     final_label = self._normalize_label(final_label, final_conf)
-                    final_results[idx] = {"label": final_label, "confidence": final_conf}
+                    final_results[idx] = {"label": self._translate_label(final_label), "confidence": final_conf}
             else:
                 for i in indices:
                     idx = i[0]
-                    final_results[idx] = {"label": category, "confidence": 1.0}
+                    final_results[idx] = {"label": self._translate_label(category), "confidence": 1.0}
 
         for idx, result in final_results.items():
+            result["label"] = self._translate_label(result["label"])
             results[idx]["predictions"] = [result]
 
         return results
