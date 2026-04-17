@@ -214,4 +214,5 @@ class ImageClassificationService:
             results[idx]["predictions"] = [result]
 
         return results
+
 image_classification_service = ImageClassificationService()
