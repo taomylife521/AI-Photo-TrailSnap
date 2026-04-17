@@ -1,5 +1,6 @@
+from app.service.task_manager import DEFAULT_PRIORITIES
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
-from app.db.models.task import TaskType
+from app.db.models.task import TaskType, TaskStatus
 from typing import List, Dict
 import logging
 import os
@@ -17,6 +18,8 @@ from app.crud import tag as crud_tag
 from app.service import storage
 
 logger = logging.getLogger(__name__)
+
+_tag_cache: Dict[str, PhotoTag] = {}
 
 @TaskStrategyFactory.register(TaskType.CLASSIFY_IMAGE)
 class ClassifyImageStrategy(BaseTaskStrategy):
@@ -134,34 +137,34 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                 photo_ids = [t.payload['photo_id'] for t in owner_tasks]
                 photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
                 photo_map = {str(p.id): p for p in photos}
-                
+
                 valid_tasks = []
                 b64_images = []
                 valid_photos = []
-                
+
                 for task in owner_tasks:
                     photo_id = str(task.payload['photo_id'])
                     photo = photo_map.get(photo_id)
                     force = task.payload.get('force', False)
-                    
+
                     if not photo:
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
                         continue
-                        
+
                     if not force:
                         tasks_status = photo.processed_tasks or {}
                         if tasks_status.get('classification'):
                             results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
                             continue
-                            
+
                     target_path = storage.get_preview_path(photo.owner_id, photo.id)
                     if not os.path.exists(target_path):
                         target_path = photo.file_path
-                        
+
                     if not target_path or not os.path.exists(target_path):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': 'file not found'})
                         continue
-                        
+
                     try:
                         with open(target_path, 'rb') as f_img:
                             b64_data = base64.b64encode(f_img.read()).decode('utf-8')
@@ -181,54 +184,117 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                         if resp.status == 200:
                             result_data = await resp.json()
                             ai_results = result_data.get('results', [])
-                            
+                            photos_to_ticket = []
+
+                            all_tag_names = set()
+                            photo_tag_data = []
                             for idx, task in enumerate(valid_tasks):
                                 photo = valid_photos[idx]
                                 res_item = ai_results[idx] if idx < len(ai_results) else {}
                                 predictions = res_item.get('predictions', []) if res_item.get('status') == 'success' else []
-                                
-                                crud_tag.remove_tags_from_photo(db, photo.id, ai_generated=True)
-                                
+
+                                selected_tag = None
                                 for res in predictions:
                                     tag_name = res['label']
                                     confidence = res['confidence'] - 0.01
-                                    if confidence < 0.75:
+                                    if confidence < 0.75 or tag_name == 'others':
                                         break
-                                    tag = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name).first()
-                                    if not tag:
-                                        tag = PhotoTag(tag_name=tag_name, type='yolo')
-                                        db.add(tag)
-                                        db.flush()
-                                        
-                                    rel = db.query(PhotoTagRelation).filter(
-                                        PhotoTagRelation.photo_id == photo.id,
-                                        PhotoTagRelation.tag_id == tag.id
-                                    ).first()
-                                    
-                                    if not rel:
-                                        rel = PhotoTagRelation(photo_id=photo.id, tag_id=tag.id, confidence=confidence)
-                                        db.add(rel)
-                                    else:
-                                        rel.confidence = confidence
+                                    if tag_name in ['火车票', '机票', '电影票', '火车票截图']:
+                                        photos_to_ticket.append(photo)
+                                        break
+                                    selected_tag = (photo, tag_name, confidence)
+                                    all_tag_names.add(tag_name)
                                     break
-                                    
-                                tasks_status = dict(photo.processed_tasks or {})
-                                tasks_status['classification'] = True
-                                photo.processed_tasks = tasks_status
-                                db.add(photo)
-                                db.commit()
-                                
-                                results.append({
-                                    'task_id': task.id,
-                                    'task_type': task.type,
-                                    'status': 'completed',
-                                    'result': {'status': 'success', 'tags_found': len(predictions)}
-                                })
+
+                                photo_tag_data.append((task, photo, selected_tag))
+
+                            if all_tag_names:
+                                existing_tags = db.query(PhotoTag).filter(
+                                    PhotoTag.tag_name.in_(all_tag_names)
+                                ).all()
+                                tag_map = {t.tag_name: t for t in existing_tags}
+
+                                tags_to_create = []
+                                for tag_name in all_tag_names:
+                                    if tag_name not in tag_map:
+                                        tags_to_create.append(PhotoTag(tag_name=tag_name, type='yolo'))
+                                if tags_to_create:
+                                    db.add_all(tags_to_create)
+                                    db.flush()
+                                    for tag in tags_to_create:
+                                        tag_map[tag.tag_name] = tag
+
+                                for task, photo, tag_data in photo_tag_data:
+                                    if tag_data:
+                                        _, tag_name, confidence = tag_data
+                                        tag = tag_map[tag_name]
+
+                                        crud_tag.remove_tags_from_photo(db, photo.id, ai_generated=True)
+
+                                        rel = db.query(PhotoTagRelation).filter(
+                                            PhotoTagRelation.photo_id == photo.id,
+                                            PhotoTagRelation.tag_id == tag.id
+                                        ).first()
+
+                                        if rel:
+                                            rel.confidence = confidence
+                                        else:
+                                            db.add(PhotoTagRelation(photo_id=photo.id, tag_id=tag.id, confidence=confidence))
+
+                                        tasks_status = dict(photo.processed_tasks or {})
+                                        tasks_status['classification'] = True
+                                        photo.processed_tasks = tasks_status
+                                        db.add(photo)
+
+                                        results.append({
+                                            'task_id': task.id,
+                                            'task_type': task.type,
+                                            'status': 'completed',
+                                            'result': {'status': 'success', 'tags_found': 1}
+                                        })
+                                    else:
+                                        tasks_status = dict(photo.processed_tasks or {})
+                                        tasks_status['classification'] = True
+                                        photo.processed_tasks = tasks_status
+                                        db.add(photo)
+                                        results.append({
+                                            'task_id': task.id,
+                                            'task_type': task.type,
+                                            'status': 'completed',
+                                            'result': {'status': 'success', 'tags_found': 0}
+                                        })
+
+                            else:
+                                for idx, task in enumerate(valid_tasks):
+                                    photo = valid_photos[idx]
+                                    tasks_status = dict(photo.processed_tasks or {})
+                                    tasks_status['classification'] = True
+                                    photo.processed_tasks = tasks_status
+                                    db.add(photo)
+                                    results.append({
+                                        'task_id': task.id,
+                                        'task_type': task.type,
+                                        'status': 'completed',
+                                        'result': {'status': 'success', 'tags_found': 0}
+                                    })
+                            new_tasks = []
+                            for photo in photos_to_ticket:
+                                new_tasks.append(
+                                    Task(
+                                        type=TaskType.RECOGNIZE_TICKET,
+                                        payload={'file_path': photo.file_path, 'photo_id': str(photo.id)},
+                                        priority=DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_TICKET, 2),
+                                        status=TaskStatus.PENDING,
+                                        owner_id=photo.owner_id
+                                    )
+                                )
+                            db.add_all(new_tasks)
+                            db.commit()
                         else:
                             err_msg = f"AI Service error: {resp.status}"
                             for task in valid_tasks:
                                 results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
-                                
+
             except Exception as e:
                 logger.error(f"Error processing batch for owner {owner_id}: {e}")
                 for task in owner_tasks:
@@ -236,6 +302,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
 
         return results
+
     async def process_single_photo(self, worker, photo: Photo, db: Session) -> Dict[str, Any]:
         try:
             target_path = storage.get_preview_path(photo.owner_id, photo.id)
@@ -267,16 +334,20 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                         # Save Tags
                         for res in predictions:
                             tag_name = res['label']
-                            # if tag_name == 'others':
-                            #     break
+                            if tag_name == 'others':
+                                break
                             confidence = res['confidence'] - 0.01
                             if confidence < 0.75:
                                 break
-                            tag = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name).first()
+                            global _tag_cache
+                            tag = _tag_cache.get(tag_name)
                             if not tag:
-                                tag = PhotoTag(tag_name=tag_name, type='yolo')
-                                db.add(tag)
-                                db.flush() # get id
+                                tag = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name).first()
+                                if not tag:
+                                    tag = PhotoTag(tag_name=tag_name, type='yolo')
+                                    db.add(tag)
+                                    db.flush()
+                                _tag_cache[tag_name] = tag
 
                             # Check relation
                             rel = db.query(PhotoTagRelation).filter(
@@ -317,4 +388,5 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                 worker.scan_status['classified'] += 1
 
     def release_resources(self) -> None:
-        pass
+        global _tag_cache
+        _tag_cache.clear()

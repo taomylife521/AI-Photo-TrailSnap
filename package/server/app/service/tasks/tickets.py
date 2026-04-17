@@ -229,15 +229,15 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                         if tasks_status.get('tickets'):
                             results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
                             continue
-                            
+
                     target_path = storage.get_preview_path(photo.owner_id, photo.id)
                     if not os.path.exists(target_path):
                         target_path = photo.file_path
-                        
+
                     if not target_path or not os.path.exists(target_path):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': 'file not found'})
                         continue
-                        
+
                     try:
                         with open(target_path, 'rb') as f_img:
                             b64_data = base64.b64encode(f_img.read()).decode('utf-8')
@@ -256,15 +256,15 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                         if response.status == 200:
                             result_data = await response.json()
                             ai_results = result_data.get('results', [])
-                            
+
                             for idx, task in enumerate(valid_tasks):
                                 photo = valid_photos[idx]
                                 res_item = ai_results[idx] if idx < len(ai_results) else {}
                                 tickets_data = res_item.get('tickets', [])
-                                
+
                                 crud_train_tickets.delete_train_ticket_by_photo_id(db, photo.id)
                                 crud_flight_tickets.delete_flight_ticket_by_photo_id(db, photo.id)
-                                
+
                                 added_count = 0
                                 if tickets_data:
                                     for t_info in tickets_data:
@@ -284,13 +284,13 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                                                     break
                                                 except ValueError:
                                                     continue
-                                                    
+
                                             if dt and dt.year == 1900 and photo.photo_time:
                                                 dt = dt.replace(year=photo.photo_time.year)
-                                                
+
                                             if not dt:
                                                 continue
-                                                
+
                                             price_val = 0.0
                                             price_str = str(t_info.get('price', '0')).replace('元', '').replace('￥', '').strip()
                                             try:
@@ -328,17 +328,20 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                                                     date_time=dt,
                                                     price=price_val,
                                                     name=t_info.get('name') or '未知',
-                                                    seat_type=t_info.get('seat_type', '未知'),
+                                                    carriage=t_info.get('carriage', ''),
+                                                    seat_num=t_info.get('seat_num', ''),
+                                                    berth_type=t_info.get('berth_type', ''),
+                                                    seat_type=t_info.get('seat_type', ''),
                                                     total_mileage=0,
                                                     total_running_time=0,
-                                                    stop_stations=[],
+                                                    stop_stations='[]',
                                                     comments=f"自动识别自图片: {photo.filename}",
                                                     photo_id=str(photo.id)
                                                 )
                                                 res = await calculate_ticket_mileage_and_time(new_ticket)
                                                 new_ticket.total_mileage = res['total_mileage']
                                                 new_ticket.total_running_time = res['total_time']
-                                                new_ticket.stop_stations = res['stop_stations']
+                                                new_ticket.stop_stations = json.dumps(res['stop_stations'])
                                                 ticket = crud_train_tickets.create_train_ticket(db, new_ticket, owner_id=photo.owner_id)
                                                 if ticket:
                                                     added_count += 1
@@ -473,7 +476,7 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                                             seat_type=t_info.get('seat_type', '未知'),
                                             total_mileage=0,
                                             total_running_time=0,
-                                            stop_stations=[],
+                                            stop_stations="[]",
                                             comments=f"自动识别自图片: {photo.filename}",
                                             photo_id=str(photo.id)
                                         )
@@ -481,7 +484,7 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                                         res = await calculate_ticket_mileage_and_time(new_ticket)
                                         new_ticket.total_mileage = res['total_mileage']
                                         new_ticket.total_running_time = res['total_time']
-                                        new_ticket.stop_stations = res['stop_stations']
+                                        new_ticket.stop_stations = json.dumps(res['stop_stations'])
 
                                         ticket = crud_train_tickets.create_train_ticket(db, new_ticket, owner_id=photo.owner_id)
                                         if not ticket:
