@@ -120,7 +120,7 @@
             <div v-else class="flex flex-wrap gap-2">
                 <span v-if="(!metadata.tags || metadata.tags.length === 0)" class="text-sm text-gray-400 italic">无标签</span>
                 <a  target="_blank" :href="`/album/classification/${encodeURIComponent(tag.tag_name)}`"  v-for="tag in metadata.tags" :key="tag.id" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2.5 py-1 rounded-full text-xs">
-                    {{ tag.tag_name }}
+                    {{ tag.tag_name+' '+tag.confidence.toFixed(2) }}
                 </a>
             </div>
         </div>

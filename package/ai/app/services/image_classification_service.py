@@ -15,7 +15,7 @@ class ImageClassificationService:
         self._category_model_map = self._discover_category_models()
         self._register_models()
         self._register_downloads()
-        self.version = 'v0.1.2'
+        self.version = 'v0.1.3'
 
     def _discover_category_models(self) -> Dict[str, str]:
         path = os.path.join(settings.MODEL_PATH, "photo-cls")
