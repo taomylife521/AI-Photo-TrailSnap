@@ -167,7 +167,6 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
         results = []
         generator_tasks = []
         photo_tasks = []
-
         for task in tasks:
             if task.payload and 'photo_id' in task.payload:
                 photo_tasks.append(task)
@@ -218,17 +217,10 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                 for task in owner_tasks:
                     photo_id = str(task.payload['photo_id'])
                     photo = photo_map.get(photo_id)
-                    force = task.payload.get('force', False)
-                    
+
                     if not photo:
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
                         continue
-                        
-                    if not force:
-                        tasks_status = photo.processed_tasks or {}
-                        if tasks_status.get('tickets'):
-                            results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
-                            continue
 
                     target_path = storage.get_preview_path(photo.owner_id, photo.id)
                     if not os.path.exists(target_path):
@@ -370,8 +362,8 @@ class RecognizeTicketStrategy(BaseTaskStrategy):
                 for task in owner_tasks:
                     if not any(r['task_id'] == task.id for r in results):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
-
         return results
+
     async def process_single_photo(self, worker, photo: Photo, db: Session) -> Dict[str, Any]:
         try:
             target_path = storage.get_preview_path(photo.owner_id, photo.id)

@@ -52,3 +52,6 @@ class Task(Base):
         Index('ix_tasks_status_priority_created', 'status', 'priority', 'created_at'),
         Index('ix_tasks_type_status', 'type', 'status'),
     )
+
+    def __str__(self):
+        return f"Task(id: {self.id}, type: {self.type}, status: {self.status}, priority: {self.priority})"

@@ -133,7 +133,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { storeToRefs } from 'pinia';
 import { useTicketStore } from '@/stores/ticketStore';
 
@@ -705,8 +705,8 @@ const toggleSelect = (id: number | string) => {
 const confirmDelete = async (id: number | string) => {
   const ticket = frontendTickets.value.find(t => t.id === id);
   if (!ticket) return;
-
-  if (confirm('确定要删除这张车票吗？删除后不可恢复')) {
+  // 使用弹窗组件确认删除，不要用原生弹窗
+  if (await ElMessageBox.confirm('确定要删除这张车票吗？删除后不可恢复')) {
     try {
       if (ticket.type === 'flight') {
          await ticketService.deleteFlightTicket(id as string);
@@ -725,7 +725,7 @@ const confirmDelete = async (id: number | string) => {
 
 const batchDelete = async () => {
   if (selectedTickets.value.length === 0) return;
-  if (confirm(`确定删除选中的 ${selectedTickets.value.length} 张车票吗？删除后不可恢复`)) {
+  if (await ElMessageBox.confirm(`确定删除选中的 ${selectedTickets.value.length} 张车票吗？删除后不可恢复`)) {
     try {
       const promises = selectedTickets.value.map(id => {
          const ticket = frontendTickets.value.find(t => t.id === id);

@@ -333,9 +333,9 @@ class TaskWorker:
                     self.last_active_time[task.type] = datetime.now()
                     tasks_by_type[task.type].append({'id': task.id, 'type': task.type, 'priority': task.priority})
                 db.commit()
-                
+
             # Split tasks into smaller batches of max 8 items
-            
+
             split_tasks_by_type = {}
             for task_type, task_list in tasks_by_type.items():
                 split_tasks_by_type[task_type] = []
@@ -344,7 +344,6 @@ class TaskWorker:
                 for i in range(0, len(task_list), chunk_size):
                     chunk = task_list[i:i + chunk_size]
                     split_tasks_by_type[task_type].append(chunk)
-
             return split_tasks_by_type
         except Exception as e:
             logging.error(f"Error fetching tasks: {e}")
@@ -412,7 +411,7 @@ class TaskWorker:
     async def execute_batch_task_wrapper(self, task_infos: List[Dict], category: str):
         if not task_infos:
             return
-            
+
         task_type = task_infos[0]['type']
         task_ids = [t['id'] for t in task_infos]
         db = SessionLocal()
@@ -430,18 +429,18 @@ class TaskWorker:
                 timeout = 300.0 if strategy.task_category == 'AI' else 300.0
 
                 results = await asyncio.wait_for(strategy.process_batch(self, tasks, db), timeout=timeout)
-                
+
                 for res in results:
                     await self.result_queue.put(res)
 
             except asyncio.TimeoutError:
-                logging.error(f"Task batch {task_type} timed out after {timeout} seconds")
+                logging.error(f"Task batch {task_type} timed out after {300} seconds")
                 for task_id in task_ids:
                     await self.result_queue.put({
                         'task_id': task_id,
                         'task_type': task_type,
                         'status': TaskStatus.FAILED,
-                        'error': f"Task batch timed out after {timeout} seconds"
+                        'error': f"Task batch timed out after {300} seconds"
                     })
             except Exception as e:
                 logging.error(f"Task batch {task_type} failed: {e}", exc_info=True)
@@ -506,7 +505,7 @@ class TaskWorker:
                     if category:
                         for chunk in chunked_lists:
                             # Using the priority of the first task in the batch for the queue
-                            priority = chunk[0].get('priority', 1)
+                            priority = DEFAULT_PRIORITIES.get(task_type,1)
                             await self.queue_manager.put_batch(category, chunk, priority=priority)
                             dispatched_count += len(chunk)
                 
@@ -529,6 +528,7 @@ class TaskWorker:
             except Exception as e:
                 logging.error(f"Unexpected error in worker loop: {e}")
                 await asyncio.sleep(1)
+
     async def result_loop(self):
         logging.info("TaskWorker result loop started")
         pending_items = []

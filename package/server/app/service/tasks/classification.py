@@ -53,7 +53,6 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                         tasks_status = p.processed_tasks or {}
                         if not tasks_status.get('classification'):
                             should_process = True
-
                     if should_process:
                         tasks_to_create.append({
                             'type': TaskType.CLASSIFY_IMAGE,
@@ -61,13 +60,10 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                             'priority': 3,
                             'owner_id': p.owner_id
                         })
-
                 if tasks_to_create:
                     worker.add_tasks(db, tasks_to_create)
                     generated_count += len(tasks_to_create)
-
                 offset += batch_size
-
             return {
                 'processed': 0,
                 'generated_tasks': generated_count,
@@ -129,7 +125,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
             photo_ids = [t.payload['photo_id'] for t in tasks]
             photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
             photo_map = {str(p.id): p for p in photos}
-            
+
             valid_tasks = []
             valid_photos = []
             b64_images = []
@@ -137,17 +133,10 @@ class ClassifyImageStrategy(BaseTaskStrategy):
             for task in tasks:
                 photo_id = str(task.payload['photo_id'])
                 photo = photo_map.get(photo_id)
-                force = task.payload.get('force', False)
 
                 if not photo:
                     results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
                     continue
-
-                if not force:
-                    tasks_status = photo.processed_tasks or {}
-                    if tasks_status.get('classification'):
-                        results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
-                        continue
 
                 target_path = storage.get_preview_path(photo.owner_id, photo.id)
                 if not target_path or not os.path.exists(target_path):
@@ -173,6 +162,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json={"images": b64_images}) as resp:
                     if resp.status == 200:
+                        crud_tag.remove_tags_from_photo(db, photo_ids, ai_generated=True)
                         result_data = await resp.json()
                         ai_results = result_data.get('results', [])
                         ai_batch_results = await self._process_ai_results(valid_tasks, valid_photos, ai_results, photo_ids, db)
@@ -206,9 +196,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
 
     async def _process_ai_results(self, valid_tasks: List[Task], valid_photos: List[Photo], ai_results: List[Dict], photo_ids: List[str], db: Session) -> List[Dict]:
         results = []
-        crud_tag.remove_tags_from_photo(db, photo_ids, ai_generated=True)
         photos_to_ticket = []
-        all_tag_names = set()
         photo_tag_data = []
 
         for idx, task in enumerate(valid_tasks):
@@ -216,7 +204,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
             res_item = ai_results[idx] if idx < len(ai_results) else {}
             predictions = res_item.get('predictions', []) if res_item.get('status') == 'success' else []
             selected_tag = None
-            
+
             for res in predictions:
                 tag_name = res['label']
                 confidence = res['confidence'] - 0.01
@@ -226,44 +214,28 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                     photos_to_ticket.append(photo)
 
                 selected_tag = (photo, tag_name, confidence)
-                all_tag_names.add(tag_name)
                 break
-
             photo_tag_data.append((task, photo, selected_tag))
 
         for task, photo, tag_data in photo_tag_data:
-            tags_found = 0
-            if not tag_data:
-                continue
-            _, tag_name, confidence = tag_data
-            tag_id = self.get_tag_id(db, tag_name, photo.owner_id)
-            db.add(PhotoTagRelation(photo_id=photo.id, tag_id=tag_id, confidence=confidence))
-            tags_found = 1
+            if tag_data:
+                _, tag_name, confidence = tag_data
+                tag_id = self.get_tag_id(db, tag_name, photo.owner_id)
+                db.add(PhotoTagRelation(photo_id=photo.id, tag_id=tag_id, confidence=confidence))
+                tags_found = 1
+            else:
+                tags_found = 0
 
             tasks_status = dict(photo.processed_tasks or {})
             tasks_status['classification'] = True
             photo.processed_tasks = tasks_status
             db.add(photo)
-
             results.append({
                 'task_id': task.id,
                 'task_type': task.type,
                 'status': 'completed',
                 'result': {'status': 'success', 'tags_found': tags_found}
             })
-        else:
-            for idx, task in enumerate(valid_tasks):
-                photo = valid_photos[idx]
-                tasks_status = dict(photo.processed_tasks or {})
-                tasks_status['classification'] = True
-                photo.processed_tasks = tasks_status
-                db.add(photo)
-                results.append({
-                    'task_id': task.id,
-                    'task_type': task.type,
-                    'status': 'completed',
-                    'result': {'status': 'success', 'tags_found': 0}
-                })
 
         new_tasks = []
         for photo in photos_to_ticket:
@@ -277,8 +249,8 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                 )
             )
         if new_tasks:
-            db.add_all(new_tasks)
-            
+            db.bulk_save_objects(new_tasks)
+
         db.commit()
         return results
 
