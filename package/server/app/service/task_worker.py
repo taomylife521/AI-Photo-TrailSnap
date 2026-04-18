@@ -298,7 +298,7 @@ class TaskWorker:
             # Max items in queue per category
             QUEUE_THRESHOLD = 50
             # How many items to fetch in one DB query per category
-            FETCH_BATCH_SIZE = 50
+            FETCH_BATCH_SIZE = 48
 
             # Filter allowed types based on current queue size
             types_to_fetch = []

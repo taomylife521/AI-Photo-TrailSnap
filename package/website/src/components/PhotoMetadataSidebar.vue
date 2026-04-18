@@ -70,23 +70,8 @@
                     <MapPin class="w-3.5 h-3.5" />
                     <span>地理位置</span>
                 </div>
-                <button
-                    v-if="!isEditing"
-                    @click="startEdit"
-                    class="text-primary-500 hover:text-primary-600 dark:bg-gray-800"
-                >
-                    编辑
-                </button>
             </div>
-            <div v-if="isEditing" class="space-y-2">
-                <input
-                    v-model="editForm.location"
-                    type="text"
-                    class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                    placeholder="输入位置..."
-                />
-            </div>
-            <p v-else class="text-sm text-gray-900 dark:text-gray-200">
+            <p class="text-sm text-gray-900 dark:text-gray-200">
                 {{
                     metadata.address || '无位置信息'
                 }}
@@ -100,6 +85,13 @@
                     <Tags class="w-3.5 h-3.5" />
                     <span>标签</span>
                 </div>
+                <button
+                    v-if="!isEditing"
+                    @click="startEdit"
+                    class="text-primary-500 hover:text-primary-600 dark:bg-gray-800"
+                >
+                    编辑
+                </button>
             </div>
 
             <div v-if="isEditing" class="space-y-2">

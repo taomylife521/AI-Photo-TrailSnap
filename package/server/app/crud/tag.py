@@ -6,7 +6,7 @@ from app.schemas import tag as schemas
 import uuid
 
 def get_tag_by_name(db: Session, tag_name: str, owner_id: Optional[UUID] = None):
-    query = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name, PhotoTag.is_deleted == False)
+    query = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name, PhotoTag.is_deleted != True)
     if owner_id:
         query = query.filter((PhotoTag.owner_id == owner_id) | (PhotoTag.owner_id == None))
     else:
@@ -85,15 +85,15 @@ def remove_tag_from_photo(db: Session, photo_id: UUID, tag_id: UUID):
         db.commit()
     return True
 
-def remove_tags_from_photo(db: Session, photo_id: UUID, ai_generated: bool = False):
+def remove_tags_from_photo(db: Session, photo_id: UUID | str | List[UUID] | List[str], ai_generated: bool = False):
     if ai_generated:
         db.query(PhotoTagRelation).filter(
-            PhotoTagRelation.photo_id == photo_id,
+            (PhotoTagRelation.photo_id.in_(photo_id) if isinstance(photo_id, list) else PhotoTagRelation.photo_id == photo_id),
             PhotoTagRelation.confidence < 1.0
         ).delete()
     else:
         db.query(PhotoTagRelation).filter(
-            PhotoTagRelation.photo_id == photo_id
+            (PhotoTagRelation.photo_id.in_(photo_id) if isinstance(photo_id, list) else PhotoTagRelation.photo_id == photo_id)
         ).delete()
     db.commit()
     return True
@@ -134,7 +134,7 @@ def get_tags_with_stats(db: Session, owner_id: UUID, skip: int = 0, limit: int =
     return result
 
 def get_photos_by_tag_name(db: Session, owner_id: UUID, tag_name: str, skip: int = 0, limit: int = 50):
-    tag = get_tag_by_name(db, tag_name)
+    tag = get_tag_by_name(db, tag_name, owner_id)
     if not tag:
         return []
 

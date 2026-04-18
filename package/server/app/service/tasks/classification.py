@@ -1,3 +1,5 @@
+import traceback
+
 from app.service.task_manager import DEFAULT_PRIORITIES
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
 from app.db.models.task import TaskType, TaskStatus
@@ -137,7 +139,6 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                 photo_ids = [t.payload['photo_id'] for t in owner_tasks]
                 photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
                 photo_map = {str(p.id): p for p in photos}
-
                 valid_tasks = []
                 b64_images = []
                 valid_photos = []
@@ -183,6 +184,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                     async with session.post(api_url, json={"images": b64_images}) as resp:
                         if resp.status == 200:
                             result_data = await resp.json()
+                            crud_tag.remove_tags_from_photo(db, photo_ids, ai_generated=True)
                             ai_results = result_data.get('results', [])
                             photos_to_ticket = []
 
@@ -192,7 +194,6 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                                 photo = valid_photos[idx]
                                 res_item = ai_results[idx] if idx < len(ai_results) else {}
                                 predictions = res_item.get('predictions', []) if res_item.get('status') == 'success' else []
-                                crud_tag.remove_tags_from_photo(db, photo.id, ai_generated=True)
                                 selected_tag = None
                                 for res in predictions:
                                     tag_name = res['label']
@@ -295,6 +296,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
 
             except Exception as e:
                 logger.error(f"Error processing batch for owner {owner_id}: {e}")
+                logger.error(traceback.format_exc())
                 for task in owner_tasks:
                     if not any(r['task_id'] == task.id for r in results):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})

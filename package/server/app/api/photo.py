@@ -434,7 +434,7 @@ def get_photo_metadata(photo_id: UUID, db: Session = Depends(get_db), current_us
     photo = app.crud.photo.get_photo(db, photo_id=photo_id)
     albums = crud_album.get_albums_by_photo_id(db, photo_id=photo_id)
     faces_identities = crud_face.get_identities_by_photo_id(db, photo_id=photo_id)
-    tags = crud_tag.get_photo_tags(db, photo_id=photo_id)
+    tags = crud_tag.get_photo_tags(db, photo_id=photo_id, owner_id=current_user.id)
 
     photo_metadata = PhotoMetadata.model_validate(db_metadata)
     photo_metadata.file_path = photo.file_path

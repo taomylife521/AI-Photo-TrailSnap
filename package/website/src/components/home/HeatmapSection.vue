@@ -95,10 +95,6 @@ const buildGrid = (heatmapData: {date: string, count: number}[]) => {
   if (selectedYear.value) {
     startDate = startOfYear(new Date(selectedYear.value, 0, 1));
     endDate = endOfYear(new Date(selectedYear.value, 0, 1));
-    // Cap end date to today if it's the current year
-    if (selectedYear.value === today.getFullYear()) {
-        endDate = today;
-    }
   } else {
     endDate = today;
     startDate = subDays(today, 364);
