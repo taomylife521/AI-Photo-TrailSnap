@@ -85,6 +85,7 @@ export default withMermaid(defineConfig({
                     { text: '0.3.0', link: '/docs/dev/prompt/0.3.0' },
                     { text: '0.3.1', link: '/docs/dev/prompt/0.3.1' },
                     { text: '0.3.2', link: '/docs/dev/prompt/0.3.2' },
+                    { text: '0.3.3', link: '/docs/dev/prompt/0.3.3' },
                     { text: '官网设计文档', link: '/docs/dev/prompt/official_website_design' }
                   ]
                 }

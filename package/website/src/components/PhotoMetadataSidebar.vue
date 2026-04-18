@@ -96,9 +96,9 @@
 
             <div v-if="isEditing" class="space-y-2">
                 <div class="flex flex-wrap gap-2 mb-2">
-                    <span v-for="(tag, idx) in editForm.tags" :key="idx" class="bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 px-2 py-1 rounded-md text-xs flex items-center gap-1">
+                    <span v-for="(tag, idx) in editForm.tags" :key="idx" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2.5 py-1 rounded-full text-xs">
                         {{ tag.tag_name }}
-                        <button @click="removeTag(idx, tag.id)" class="hover:text-red-500"><X class="w-3 h-3" /></button>
+                        <button @click="removeTag(idx, tag.id)" class="hover:text-red-500 dark:text-red-400 bg-transparent border-0 outline-none"><X class="w-3 h-3" /></button>
                     </span>
                 </div>
                 <input 
@@ -112,7 +112,7 @@
             <div v-else class="flex flex-wrap gap-2">
                 <span v-if="(!metadata.tags || metadata.tags.length === 0)" class="text-sm text-gray-400 italic">无标签</span>
                 <a  target="_blank" :href="`/album/classification/${encodeURIComponent(tag.tag_name)}`"  v-for="tag in metadata.tags" :key="tag.id" class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2.5 py-1 rounded-full text-xs">
-                    {{ tag.tag_name+' '+tag.confidence.toFixed(2) }}
+                    {{ tag.tag_name }}
                 </a>
             </div>
         </div>
