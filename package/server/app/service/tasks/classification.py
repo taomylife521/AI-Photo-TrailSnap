@@ -192,7 +192,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                                 photo = valid_photos[idx]
                                 res_item = ai_results[idx] if idx < len(ai_results) else {}
                                 predictions = res_item.get('predictions', []) if res_item.get('status') == 'success' else []
-
+                                crud_tag.remove_tags_from_photo(db, photo.id, ai_generated=True)
                                 selected_tag = None
                                 for res in predictions:
                                     tag_name = res['label']
@@ -228,8 +228,6 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                                     if tag_data:
                                         _, tag_name, confidence = tag_data
                                         tag = tag_map[tag_name]
-
-                                        crud_tag.remove_tags_from_photo(db, photo.id, ai_generated=True)
 
                                         rel = db.query(PhotoTagRelation).filter(
                                             PhotoTagRelation.photo_id == photo.id,

@@ -34,6 +34,8 @@ class ImageClassificationService:
         "movie_ticket_screenshot": "电影票截图",
         "food": "食物",
         "car": "汽车",
+        "plant": "植物",
+        "electronics": "电子产品",
     }
 
     def __init__(self):
