@@ -23,6 +23,13 @@ export const classificationService = {
     return data.data;
   },
 
+  async removePhotosFromTag(tagName: string, photoIds: string[]) {
+    const data = await request.post(`/api/tags/${encodeURIComponent(tagName)}/remove-photos`, {
+      photo_ids: photoIds
+    });
+    return data.data;
+  },
+
   async deleteTag(tagName: string) {
       await request.delete(`/api/tags/${tagName}`);
   },

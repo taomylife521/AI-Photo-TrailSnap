@@ -7,6 +7,7 @@
     :has-more="hasMore"
     :timeline-items="timeline"
     :timeline-stats="{ timeline }"
+    @confirm-delete="handleConfirmDelete"
     @back="router.back()"
     @load-more="loadMore"
   />
@@ -18,9 +19,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { locationService } from '@/api/location'
 import { albumService } from '@/api/album'
 import UnifiedPhotoPage from '@/components/UnifiedPhotoPage.vue'
-import { mapPhotoToImage } from '@/stores/photoStore'
+import { mapPhotoToImage, usePhotoStore } from '@/stores/photoStore'
 import { useLocationStore } from '@/stores/locationStore'
 import type { AlbumImage, Photo } from '@/types/album'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,6 +39,8 @@ const skip = ref(0)
 const limit = 100
 const hasMore = ref(true)
 const totalCount = ref(0) // Optional: if API returned total count, but currently it doesn't.
+const pendingRemoveIds = ref(new Set<string>())
+const photoStore = usePhotoStore()
 
 const title = computed(() => {
   if (name === 'map_selection') return route.query.title as string || '地图精选'
@@ -135,6 +139,26 @@ const loadMore = async () => {
     // Optional: show error toast
   } finally {
     loading.value = false
+  }
+}
+
+const handleConfirmDelete = async (ids: string[], callback: (success: boolean) => void) => {
+  try {
+    ids.forEach(id => pendingRemoveIds.value.add(id))
+
+    await photoStore.deletePhotos(ids)
+    // Remove from local list
+    photos.value = photos.value.filter(img => !ids.includes(img.id))
+    calculateTimelineStats(photos.value)
+    ElMessage.success('删除成功')
+
+    callback(true)
+
+  } catch (e) {
+    ElMessage.error('删除失败')
+    callback(false)
+  } finally {
+    ids.forEach(id => pendingRemoveIds.value.delete(id))
   }
 }
 

@@ -1,15 +1,27 @@
 <template>
   <UnifiedPhotoPage
     :title="title"
-    :subtitle="`${totalCount > 0 ? totalCount + ' 个项目' : (photos.length + (hasMore ? '+' : '')) + ' 个项目'}`"
+    :subtitle="`${(photos.length + (hasMore ? '+' : '')) + ' 个项目'}`"
     :loading="loading && photos.length === 0"
     :photos="photos"
     :has-more="hasMore"
     :timeline-items="timeline"
     :timeline-stats="{ timeline }"
+    @confirm-delete="handleConfirmDelete"
     @back="router.back()"
     @load-more="loadMore"
-  />
+    >
+    <template #batch-actions="{ selectedIds, clearSelection }">
+      <el-dropdown-item
+          @click="removePhotoFromTags(Array.from(selectedIds)); clearSelection()"
+      >
+          <div class="flex items-center gap-2">
+            <ImageMinus class="w-4 h-4" />
+            <span>从分类中移除</span>
+          </div>
+      </el-dropdown-item>
+    </template>
+  </UnifiedPhotoPage>
 </template>
 
 <script setup lang="ts">
@@ -17,20 +29,22 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { classificationService } from '@/api/classification'
 import UnifiedPhotoPage from '@/components/UnifiedPhotoPage.vue'
-import { mapPhotoToImage } from '@/stores/photoStore'
+import { mapPhotoToImage, usePhotoStore } from '@/stores/photoStore'
 import type { AlbumImage } from '@/types/album'
+import { ElMessage } from 'element-plus'
+import { ImageMinus } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const name = route.params.name as string
-
+const photoStore = usePhotoStore()
 const loading = ref(false)
 const photos = ref<AlbumImage[]>([])
 const timeline = ref<any[]>([])
 const skip = ref(0)
 const hasMore = ref(true)
 const totalCount = ref(0)
-
+const pendingRemoveIds = ref(new Set<string>())
 const title = computed(() => name)
 
 const calculateTimelineStats = (photos: AlbumImage[]) => {
@@ -59,7 +73,6 @@ const calculateTimelineStats = (photos: AlbumImage[]) => {
 const loadMore = async () => {
   if (loading.value || !hasMore.value) return
   loading.value = true
-  console.log('Loading more photos for tag:', name, 'skip:', skip.value)
   try {
     const limit = 500
     let hasNext = true
@@ -84,6 +97,39 @@ const loadMore = async () => {
     loading.value = false
   }
 }
+
+const handleConfirmDelete = async (ids: string[], callback: (success: boolean) => void) => {
+  try {
+    ids.forEach(id => pendingRemoveIds.value.add(id))
+
+    await photoStore.deletePhotos(ids)
+    // Remove from local list
+    photos.value = photos.value.filter(img => !ids.includes(img.id))
+    calculateTimelineStats(photos.value)
+    ElMessage.success('删除成功')
+
+    callback(true)
+
+  } catch (e) {
+    ElMessage.error('删除失败')
+    callback(false)
+  } finally {
+    ids.forEach(id => pendingRemoveIds.value.delete(id))
+  }
+}
+
+const removePhotoFromTags = async (ids: string[]) => {
+  try {
+    await classificationService.removePhotosFromTag(name, ids)
+    photos.value = photos.value.filter(img => !ids.includes(img.id))
+    calculateTimelineStats(photos.value)
+    ElMessage.success('从分类中移除成功')
+  } catch (e) {
+    ElMessage.error('从分类中移除失败')
+  }
+}
+
+
 
 onMounted(() => {
   loadMore()

@@ -148,3 +148,16 @@ def get_photos_by_tag_name(db: Session, owner_id: UUID, tag_name: str, skip: int
         .offset(skip).limit(limit).all()
 
     return photos
+
+def remove_photos_from_tag(db: Session, owner_id: UUID, tag_name: str, photo_ids: List[UUID]) -> int:
+    tag = get_tag_by_name(db, tag_name, owner_id)
+    if not tag:
+        return 0
+
+    count = db.query(PhotoTagRelation).filter(
+        PhotoTagRelation.tag_id == tag.id,
+        PhotoTagRelation.photo_id.in_(photo_ids)
+    ).delete(synchronize_session=False)
+    
+    db.commit()
+    return count
