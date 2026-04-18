@@ -39,52 +39,32 @@ DEFAULT_SCAN_STATUS = {
     'classified': 0
 }
 
-CATEGORY_MAP = {
-    TaskType.SCAN_FOLDER: 'scanning',
-    TaskType.PROCESS_BASIC: 'basic',
-    # TaskType.PROCESS_IMAGE: 'scanning', # Legacy
-    TaskType.GENERATE_THUMBNAIL: 'scanning',
-    TaskType.REBUILD_THUMBNAILS: 'scanning',
-
-    TaskType.EXTRACT_METADATA: 'metadata',
-    TaskType.REBUILD_METADATA: 'metadata',
-
-    TaskType.RECOGNIZE_FACE: 'face',
-    TaskType.RECOGNIZE_TICKET: 'tickets',
-    TaskType.CLASSIFY_IMAGE: 'classification',
-    TaskType.VISUAL_DESCRIPTION: 'ai',
-    TaskType.OCR: 'ocr',
-    TaskType.SIMILAR_PHOTO_CLUSTERING: 'similar',
-    TaskType.FIND_DUPLICATE_PHOTOS: 'duplicate',
-    TaskType.IMAGE_EMBEDDING: 'embedding',
-}
-
 CATEGORY_DESCRIPTION_MAP = {
-    'scanning': '用于扫描文件夹中的文件',
-    'basic': '用于基本文件处理',
-    'metadata': '用于提取文件元数据（GPS位置、拍摄参数等）',
-    'face': '用于识别图片中的人脸',
-    'tickets': '用于识别火车票、飞机票等',
-    'classification': '用于场景分类',
-    'ai': '用于生成图片的视觉描述',
-    'ocr': '用于识别图片中的文字',
-    'similar': '用于相似照片聚类',
-    'duplicate': '用于扫描重复照片',
-    'embedding': '用于生成图片的特征向量',
+    TaskType.SCAN_FOLDER: '用于扫描文件夹中的文件',
+    TaskType.PROCESS_BASIC: '用于基本文件处理',
+    TaskType.EXTRACT_METADATA: '用于提取文件元数据（GPS位置、拍摄参数等）',
+    TaskType.RECOGNIZE_FACE: '用于识别图片中的人脸',
+    TaskType.RECOGNIZE_TICKET: '用于识别火车票、飞机票等',
+    TaskType.CLASSIFY_IMAGE: '用于场景分类',
+    TaskType.VISUAL_DESCRIPTION: '用于生成图片的视觉描述',
+    TaskType.OCR: '用于识别图片中的文字',
+    TaskType.SIMILAR_PHOTO_CLUSTERING: '用于相似照片聚类',
+    TaskType.FIND_DUPLICATE_PHOTOS: '用于扫描重复照片',
+    TaskType.IMAGE_EMBEDDING: '用于生成图片的特征向量',
 }
 
 CATEGORY_NAME_MAP = {
-    'scanning': '扫描文件夹',
-    'basic': '基本处理',
-    'metadata': '元数据提取',
-    'face': '人脸识别',
-    'tickets': '车票识别',
-    'classification': '场景识别',
-    'ai': '大模型智能分析',
-    'ocr': '文字识别',
-    'similar': '相似照片清理',
-    'duplicate': '重复照片清理',
-    'embedding': '图片特征提取',
+    TaskType.SCAN_ALBUM: '扫描文件夹',
+    TaskType.PROCESS_BASIC: '基本处理',
+    TaskType.EXTRACT_METADATA: '元数据提取',
+    TaskType.RECOGNIZE_FACE: '人脸识别',
+    TaskType.RECOGNIZE_TICKET: '车票识别',
+    TaskType.CLASSIFY_IMAGE: '场景识别',
+    TaskType.VISUAL_DESCRIPTION: '大模型智能分析',
+    TaskType.OCR: '文字识别',
+    TaskType.SIMILAR_PHOTO_CLUSTERING: '相似照片清理',
+    TaskType.FIND_DUPLICATE_PHOTOS: '重复照片清理',
+    TaskType.IMAGE_EMBEDDING: '图片特征提取',
 }
 
 class TaskManager:
@@ -99,7 +79,6 @@ class TaskManager:
     
     def __init__(self):
         self.paused_categories: Set[str] = set()
-        self.category_map = CATEGORY_MAP
 
     @classmethod
     def get_instance(cls):
@@ -155,28 +134,18 @@ class TaskManager:
 
         stats = []
         # Define categories to show
-        categories = ['basic', 'metadata', 'face', 'classification', 'ocr', 'tickets', 'ai', 'embedding']
-
-        # Priority map for categories (higher is better)
-        cat_priority = {
-            'basic': DEFAULT_PRIORITIES.get(TaskType.PROCESS_BASIC, 0),
-            'metadata': DEFAULT_PRIORITIES.get(TaskType.EXTRACT_METADATA, 0),
-            'face': DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_FACE, 0),
-            'classification': DEFAULT_PRIORITIES.get(TaskType.CLASSIFY_IMAGE, 0),
-            'ocr': DEFAULT_PRIORITIES.get(TaskType.OCR, 0),
-            'tickets': DEFAULT_PRIORITIES.get(TaskType.RECOGNIZE_TICKET, 0),
-            'ai': DEFAULT_PRIORITIES.get(TaskType.VISUAL_DESCRIPTION, 0),
-            'similar': DEFAULT_PRIORITIES.get(TaskType.SIMILAR_PHOTO_CLUSTERING, 0),
-            'duplicate': DEFAULT_PRIORITIES.get(TaskType.FIND_DUPLICATE_PHOTOS, 0),
-            'embedding': DEFAULT_PRIORITIES.get(TaskType.IMAGE_EMBEDDING, 0),
-        }
+        categories = [
+            TaskType.PROCESS_BASIC,TaskType.EXTRACT_METADATA,
+            TaskType.RECOGNIZE_FACE,TaskType.RECOGNIZE_TICKET,
+            TaskType.CLASSIFY_IMAGE,TaskType.VISUAL_DESCRIPTION,
+            TaskType.OCR,TaskType.IMAGE_EMBEDDING
+        ]
 
         for cat in categories:
             # Find types belonging to this category
-            types = [t for t, c in self.category_map.items() if c == cat]
             pending = db.query(Task).filter(
                 Task.status.in_([TaskStatus.PENDING, TaskStatus.PROCESSING]),
-                Task.type.in_(types)
+                Task.type == cat
             ).count()
 
             # Completed is always 0 as we delete them
@@ -184,7 +153,7 @@ class TaskManager:
 
             failed = db.query(Task).filter(
                 Task.status == TaskStatus.FAILED,
-                Task.type.in_(types)
+                Task.type == cat
             ).count()
 
             stats.append({
@@ -194,7 +163,7 @@ class TaskManager:
                 'completed': completed,
                 'failed': failed,
                 'status': 'paused' if cat in self.paused_categories else 'active',
-                'priority': cat_priority.get(cat, 0),
+                'priority': DEFAULT_PRIORITIES.get(cat, 0),
                 'description': CATEGORY_DESCRIPTION_MAP.get(cat, '')
             })
 

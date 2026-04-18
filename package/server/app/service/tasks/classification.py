@@ -24,6 +24,21 @@ logger = logging.getLogger(__name__)
 
 _tag_cache: Dict[str, str] = {}
 
+
+def get_tag_id(db: Session, tag_name: str, owner_id: Optional[UUID] = None) -> str:
+    if tag_name in _tag_cache:
+        return _tag_cache[tag_name]
+    else:
+        tag = crud_tag.get_tag_by_name(db, tag_name, owner_id)
+        if not tag:
+            tag = PhotoTag(tag_name=tag_name, type='yolo')
+            db.add(tag)
+            db.commit()
+            db.refresh(tag)
+        _tag_cache[tag_name] = str(tag.id)
+        return str(tag.id)
+
+
 @TaskStrategyFactory.register(TaskType.CLASSIFY_IMAGE)
 class ClassifyImageStrategy(BaseTaskStrategy):
     @property
@@ -79,7 +94,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
         results = []
         generator_tasks = [t for t in tasks if not (t.payload and 'photo_id' in t.payload)]
         photo_tasks = [t for t in tasks if t.payload and 'photo_id' in t.payload]
-
+        # logger.info(f"tasks num: {len(photo_tasks)}")
         if generator_tasks:
             results.extend(await self._process_generator_tasks(worker, generator_tasks, db))
 
@@ -123,6 +138,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
         results = []
         try:
             photo_ids = [t.payload['photo_id'] for t in tasks]
+            crud_tag.remove_tags_from_photo(db, photo_ids, ai_generated=True)
             photos = db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
             photo_map = {str(p.id): p for p in photos}
 
@@ -157,12 +173,11 @@ class ClassifyImageStrategy(BaseTaskStrategy):
 
             if not valid_tasks:
                 return results
-
+            # logger.info(f"valid tasks num: {len(valid_tasks)}")
             api_url = f"{config_manager.get_user_config(owner_id, db).ai.ai_api_url}/classification/"
             async with aiohttp.ClientSession() as session:
                 async with session.post(api_url, json={"images": b64_images}) as resp:
                     if resp.status == 200:
-                        crud_tag.remove_tags_from_photo(db, photo_ids, ai_generated=True)
                         result_data = await resp.json()
                         ai_results = result_data.get('results', [])
                         ai_batch_results = await self._process_ai_results(valid_tasks, valid_photos, ai_results, photo_ids, db)
@@ -173,26 +188,13 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                             results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
 
         except Exception as e:
-            logger.error(f"Error processing batch for owner {owner_id}: {e}")
+            logger.error(f"Error in Classification processing batch for owner {owner_id}: {e}")
             logger.error(traceback.format_exc())
             for task in tasks:
                 if not any(r['task_id'] == task.id for r in results):
                     results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
 
         return results
-
-    def get_tag_id(self, db: Session, tag_name: str, owner_id: Optional[UUID] = None) -> str:
-        if tag_name in _tag_cache:
-            return _tag_cache[tag_name]
-        else:
-            tag = crud_tag.get_tag_by_name(db, tag_name, owner_id)
-            if not tag:
-                tag = PhotoTag(tag_name=tag_name, type='yolo')
-                db.add(tag)
-                db.commit()
-                db.refresh(tag)
-            _tag_cache[tag_name] = str(tag.id)
-            return str(tag.id)
 
     async def _process_ai_results(self, valid_tasks: List[Task], valid_photos: List[Photo], ai_results: List[Dict], photo_ids: List[str], db: Session) -> List[Dict]:
         results = []
@@ -212,7 +214,6 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                     break
                 if tag_name in ['火车票', '机票', '电影票', '火车票截图']:
                     photos_to_ticket.append(photo)
-
                 selected_tag = (photo, tag_name, confidence)
                 break
             photo_tag_data.append((task, photo, selected_tag))
@@ -220,7 +221,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
         for task, photo, tag_data in photo_tag_data:
             if tag_data:
                 _, tag_name, confidence = tag_data
-                tag_id = self.get_tag_id(db, tag_name, photo.owner_id)
+                tag_id = get_tag_id(db, tag_name, photo.owner_id)
                 db.add(PhotoTagRelation(photo_id=photo.id, tag_id=tag_id, confidence=confidence))
                 tags_found = 1
             else:

@@ -19,7 +19,6 @@ async def classify_images(request: YoloClassifyRequest):
     """
     if not request.images:
         raise HTTPException(status_code=400, detail="No images provided")
-        
     try:
         results = await image_classification_service.classify_yolo(request.images)
         return {"results": results}

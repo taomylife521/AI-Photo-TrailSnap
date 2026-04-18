@@ -13,7 +13,7 @@ from app.db.session import SessionLocal
 from app.db.models.task import Task, TaskType, TaskStatus
 from app.db.models.system import SystemState
 from app.core.system_config import system_config
-from app.service.task_manager import DEFAULT_SCAN_STATUS, CATEGORY_MAP, DEFAULT_PRIORITIES
+from app.service.task_manager import DEFAULT_SCAN_STATUS, DEFAULT_PRIORITIES
 
 from app.service.task_strategy import TaskStrategyFactory
 # Import tasks to register strategies
@@ -56,6 +56,16 @@ class TaskQueueManager:
         if category in self.queues:
             self.queues[category].task_done()
 
+
+def get_chunk_size(task_type):
+    chunk_size = 8
+    if task_type == TaskType.VISUAL_DESCRIPTION:
+        chunk_size = 2
+    elif task_type == TaskType.OCR:
+        chunk_size = 4
+    return chunk_size
+
+
 class TaskWorker:
     """
     Task Consumer / Worker (Runs in Background Process)
@@ -91,7 +101,6 @@ class TaskWorker:
         self.result_queue = asyncio.Queue()
         self.queue_manager = TaskQueueManager()
         self.scan_status = DEFAULT_SCAN_STATUS.copy()
-        self.category_map = CATEGORY_MAP.copy()
         
         # Will be initialized in _sync_system_state_if_needed
         self.paused_categories = set()
@@ -149,15 +158,6 @@ class TaskWorker:
 
         # Load fast_mode state
         self.fast_mode = self._load_system_state('fast_mode', False)
-
-        # Use config for max_workers
-        # For max_workers, we don't have a user context yet. 
-        # We can either use a default or pick the first admin user's config?
-        # Or just hardcode a reasonable default for system-wide setting.
-        # Since this is a system-level resource setting, it shouldn't really be per-user.
-        # But if it was in config.json, it was system-wide.
-        # Let's assume default 10 if not found, or maybe we can fetch from a "system" user if one exists?
-        # For now, let's use a safe default as we removed system config.
         max_workers = system_config.config.task.max_concurrent_tasks
         self.process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=os.cpu_count())
         self.thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers * 2) # More threads for IO
@@ -221,8 +221,6 @@ class TaskWorker:
             for t in idle_types:
                 del self.last_active_time[t]
 
-
-
     def _sync_system_state_if_needed(self):
         now = datetime.now()
         if not hasattr(self, '_last_sync'):
@@ -236,7 +234,6 @@ class TaskWorker:
 
     def _manage_pool_lifecycle(self):
         active_count = len(self.active_task_map)
-        
         # Check for CPU Pool
         active_cpu_count = sum(1 for t in self.active_task_map.values() if TaskStrategyFactory.get_strategy(t).task_category == 'CPU')
         if active_cpu_count == 0 and self.process_pool:
@@ -282,18 +279,14 @@ class TaskWorker:
             allowed_types.extend(other_types)
         else:
             allowed_types = [t for t in TaskType]
+        # Filter out paused categories
+        allowed_types = [t for t in allowed_types if t.value not in self.paused_categories]
         return allowed_types
-
 
     def _fetch_tasks_to_queues_sync(self, allowed_types: List[str], current_qsizes: Dict[str, int]) -> Dict[str, List[Dict]]:
         db = SessionLocal()
         tasks_by_type = {}
         try:
-            paused_types = []
-            for type_enum, cat in self.category_map.items():
-                if cat in self.paused_categories:
-                    paused_types.append(type_enum)
-
             # We will fetch up to max_batch_size per category if its queue is below threshold
             # Max items in queue per category
             QUEUE_THRESHOLD = 50
@@ -314,9 +307,6 @@ class TaskWorker:
 
             query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
             query = query.filter(Task.type.in_(types_to_fetch))
-
-            if paused_types:
-                query = query.filter(Task.type.notin_(paused_types))
 
             # Fetch tasks. We fetch a bit more to fill the queues up
             tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(FETCH_BATCH_SIZE * 3).all()
@@ -339,8 +329,7 @@ class TaskWorker:
             split_tasks_by_type = {}
             for task_type, task_list in tasks_by_type.items():
                 split_tasks_by_type[task_type] = []
-                chunk_size = 2 if task_type == TaskType.VISUAL_DESCRIPTION else 8
-                # Split task_list into chunks of 8
+                chunk_size = get_chunk_size(task_type)
                 for i in range(0, len(task_list), chunk_size):
                     chunk = task_list[i:i + chunk_size]
                     split_tasks_by_type[task_type].append(chunk)
@@ -415,32 +404,32 @@ class TaskWorker:
         task_type = task_infos[0]['type']
         task_ids = [t['id'] for t in task_infos]
         db = SessionLocal()
+        timeout = 300.0
         try:
             tasks = db.query(Task).filter(Task.id.in_(task_ids)).all()
             if not tasks:
                 return
-
+            if task_type in self.paused_categories:
+                for t in tasks:
+                    t.status = TaskStatus.PENDING
+                db.commit()
+                return
             try:
                 # Use strategy's category for timeout logic
                 strategy = TaskStrategyFactory.get_strategy(task_type)
                 if not strategy:
                     raise ValueError(f"Strategy not found for task type: {task_type}")
-
-                timeout = 300.0 if strategy.task_category == 'AI' else 300.0
-
                 results = await asyncio.wait_for(strategy.process_batch(self, tasks, db), timeout=timeout)
-
                 for res in results:
                     await self.result_queue.put(res)
-
             except asyncio.TimeoutError:
-                logging.error(f"Task batch {task_type} timed out after {300} seconds")
+                logging.error(f"Task batch {task_type} timed out after {timeout} seconds")
                 for task_id in task_ids:
                     await self.result_queue.put({
                         'task_id': task_id,
                         'task_type': task_type,
                         'status': TaskStatus.FAILED,
-                        'error': f"Task batch timed out after {300} seconds"
+                        'error': f"Task batch timed out after {timeout} seconds"
                     })
             except Exception as e:
                 logging.error(f"Task batch {task_type} failed: {e}", exc_info=True)

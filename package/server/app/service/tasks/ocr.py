@@ -190,7 +190,7 @@ class OcrStrategy(BaseTaskStrategy):
 
                 api_url = f"{config_manager.get_user_config(owner_id, db).ai.ai_api_url}/ocr/predict"
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(api_url, json={"images": b64_images}, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                    async with session.post(api_url, json={"images": b64_images}, timeout=aiohttp.ClientTimeout(total=120)) as resp:
                         if resp.status == 200:
                             result_data = await resp.json()
                             ai_results = result_data.get('ocrResults', [])
@@ -231,13 +231,12 @@ class OcrStrategy(BaseTaskStrategy):
                                         )
                                     )
                                     count += 1
-                                    
                                 tasks_status = dict(photo.processed_tasks or {})
                                 tasks_status['ocr'] = True
                                 photo.processed_tasks = tasks_status
                                 db.add(photo)
                                 db.commit()
-                                
+
                                 results.append({
                                     'task_id': task.id,
                                     'task_type': task.type,
@@ -248,9 +247,9 @@ class OcrStrategy(BaseTaskStrategy):
                             err_msg = f"AI Service error: {resp.status}"
                             for task in valid_tasks:
                                 results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
-                                
+
             except Exception as e:
-                logger.error(f"Error processing batch for owner {owner_id}: {e}")
+                logger.error(f"Error in OCR processing batch for owner {owner_id}: {e}")
                 for task in owner_tasks:
                     if not any(r['task_id'] == task.id for r in results):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})

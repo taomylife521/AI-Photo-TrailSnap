@@ -246,7 +246,7 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
                                 results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
                                 
             except Exception as e:
-                logger.error(f"Error processing batch for owner {owner_id}: {e}")
+                logger.error(f"Error in Face Recognition processing batch for owner {owner_id}: {e}")
                 for task in owner_tasks:
                     if not any(r['task_id'] == task.id for r in results):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
