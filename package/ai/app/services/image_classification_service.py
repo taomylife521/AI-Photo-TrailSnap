@@ -42,7 +42,7 @@ class ImageClassificationService:
         self._category_model_map = self._discover_category_models()
         self._register_models()
         self._register_downloads()
-        self.version = 'v0.1.3'
+        self.version = 'v0.1.4'
 
     def _translate_label(self, label: str) -> str:
         return self._LABEL_TO_CHINESE.get(label, label)

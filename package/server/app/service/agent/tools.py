@@ -183,7 +183,7 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
         limit: int = 50
     ) -> str:
         """
-        获取照片的分类标签信息，用于查看某一段时间的照片含有哪些标签，可以根据此工具进一步筛选照片。
+        获取照片的分类标签信息，用于查看某一段时间的照片含有哪些标签，可以查找照片的分类标签信息。
         Args:
             photo_ids: 照片 ID 的字符串列表（可选）
             start_date: 开始日期 (YYYY-MM-DD)（可选）
@@ -235,7 +235,7 @@ def get_agent_tools(user_id: str) -> List[StructuredTool]:
         limit: int = 50
     ) -> str:
         """
-        获取照片包含的人物/人脸标签信息（去重后的列表）。
+        获取照片包含的人物/人脸标签信息（去重后的列表），可以用来查找照片中的人物信息。
         Args:
             photo_ids: 照片 ID 的字符串列表（可选）
             start_date: 开始日期 (YYYY-MM-DD)（可选）

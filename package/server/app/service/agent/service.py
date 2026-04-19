@@ -64,10 +64,10 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
         # reasoning_effort='high',
 
         # use_responses_api=False,
-        reasoning={
-            "effort": "low",
-            "summary": "detailed",
-        }
+        # reasoning={
+        #     "effort": "low",
+        #     "summary": "detailed",
+        # }
     )
 
     # 加载工具列表
