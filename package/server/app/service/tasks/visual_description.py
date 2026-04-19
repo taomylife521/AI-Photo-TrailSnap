@@ -51,6 +51,10 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             model= settings.analysis_model_name,
             base_url=connection.api_base if connection.api_base else None,
             timeout=60,
+            extra_body={
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            reasoning_effort="none",
         )
         return client
 
