@@ -35,7 +35,7 @@
                  </div>
              </div>
              <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-2">正在扫描重复照片</h3>
-             <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">系统正在比对照片MD5值，请耐心等待...</p>
+             <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">系统正在比对照片MD5值，请耐心等待...<br>退出之后任务将在后台继续运行。</p>
              
              <!-- Progress Bar -->
              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">

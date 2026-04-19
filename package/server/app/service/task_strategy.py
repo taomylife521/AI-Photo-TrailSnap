@@ -18,6 +18,13 @@ class BaseTaskStrategy(ABC):
         """
         return 'IO'
 
+    @property
+    def timeout(self) -> int:
+        """
+        Return the timeout in seconds for this task type.
+        """
+        return 60 * 5  # 5 minutes timeout
+
     @abstractmethod
     async def process(self, worker, task: Task, db: Session) -> Any:
         """

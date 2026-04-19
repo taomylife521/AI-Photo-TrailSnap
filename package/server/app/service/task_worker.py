@@ -405,7 +405,6 @@ class TaskWorker:
         task_type = task_infos[0]['type']
         task_ids = [t['id'] for t in task_infos]
         db = SessionLocal()
-        timeout = 300.0
         try:
             tasks = crud_task.get_tasks_by_ids(db, task_ids)
             if not tasks:
@@ -420,17 +419,17 @@ class TaskWorker:
                 strategy = TaskStrategyFactory.get_strategy(task_type)
                 if not strategy:
                     raise ValueError(f"Strategy not found for task type: {task_type}")
-                results = await asyncio.wait_for(strategy.process_batch(self, tasks, db), timeout=timeout)
+                results = await asyncio.wait_for(strategy.process_batch(self, tasks, db), timeout=strategy.timeout)
                 for res in results:
                     await self.result_queue.put(res)
             except asyncio.TimeoutError:
-                logging.error(f"Task batch {task_type} timed out after {timeout} seconds")
+                logging.error(f"Task batch {task_type} timed out after {strategy.timeout} seconds")
                 for task_id in task_ids:
                     await self.result_queue.put({
                         'task_id': task_id,
                         'task_type': task_type,
                         'status': TaskStatus.FAILED,
-                        'error': f"Task batch timed out after {timeout} seconds"
+                        'error': f"Task batch timed out after {strategy.timeout} seconds"
                     })
             except Exception as e:
                 logging.error(f"Task batch {task_type} failed: {e}", exc_info=True)

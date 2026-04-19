@@ -15,6 +15,10 @@ class FindDuplicatePhotosStrategy(BaseTaskStrategy):
     def task_category(self) -> str:
         return 'IO'
 
+    @property
+    def timeout(self) -> int:
+        return 60 * 60  # 1 hour timeout
+
     async def process(self, worker, task: Task, db: Session):
         """
         Handle finding duplicate photos task by calculating MD5 for photos that don't have one.

@@ -24,6 +24,10 @@ class SimilarPhotoClusteringStrategy(BaseTaskStrategy):
     def task_category(self) -> str:
         return 'CPU'
 
+    @property
+    def timeout(self) -> int:
+        return 60 * 60  # 1 hour timeout
+
     async def process(self, worker, task: Task, db: Session):
         """
         Handle similar photo clustering task
