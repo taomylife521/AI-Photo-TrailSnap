@@ -61,7 +61,8 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
         timeout=60,
         temperature=0.7,
         streaming=True,
-        # reasoning_effort='none',
+        # reasoning_effort='high',
+
         # use_responses_api=False,
         reasoning={
             "effort": "low",
