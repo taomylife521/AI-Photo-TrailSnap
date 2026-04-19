@@ -1,9 +1,10 @@
 import logging
 from typing import Dict, Any, List
 from uuid import UUID
+
+from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
-from langgraph.prebuilt import create_react_agent
 from sqlalchemy.orm import Session
 
 from app.core.config_manager import config_manager
@@ -45,7 +46,7 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
     connection = next((c for c in ai_settings.connections if c.id == c_id), None)
     if not connection:
         raise ValueError(f"未找到指定的 AI 连接配置: {c_id}")
-        
+
     if not connection.enable:
         raise ValueError(f"选中的 AI 连接已禁用: {c_id}")
 
@@ -57,8 +58,15 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
         model=m_name,
         api_key=connection.api_key,
         base_url=connection.api_base if connection.api_base else None,
+        timeout=60,
         temperature=0.7,
-        streaming=True
+        streaming=True,
+        # reasoning_effort='none',
+        # use_responses_api=False,
+        reasoning={
+            "effort": "low",
+            "summary": "detailed",
+        }
     )
 
     # 加载工具列表
@@ -85,7 +93,7 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
 """
 
     # 并通过手动构建 prompt 状态传入
-    agent = create_react_agent(llm, tools)
+    agent = create_agent(llm, tools)
 
     return agent, system_prompt
 
@@ -115,12 +123,16 @@ def chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session,
         
         # 获取大模型的回复
         ai_message = response["messages"][-1].content
+        reasoning = response["messages"][-1].additional_kwargs.get("reasoning_content")
+        tool_calls = response["messages"][-1].tool_calls if hasattr(response["messages"][-1], "tool_calls") else None
 
         # Save AI message to DB
         create_message(db, AgentMessageCreate(
             session_id=UUID(session_id),
             role="assistant",
             content=ai_message,
+            reasoning=reasoning,
+            tool_calls=tool_calls
         ))
 
         return ai_message
@@ -156,23 +168,24 @@ def generate_session_title_task(user_id: str, session_id: str, user_input: str):
             connection = next((c for c in ai_settings.connections if c.id == c_id), None)
             if not connection or not connection.enable or not connection.api_key:
                 return None
-                
+
             llm = ChatOpenAI(
                 model=m_name,
                 api_key=connection.api_key,
                 base_url=connection.api_base if connection.api_base else None,
-                temperature=0.7
+                temperature=0.7,
+                reasoning_effort='none'
             )
-            
+
             prompt = f"请根据用户的第一个问题，生成一个非常简短的会话标题（不超过10个字）。只返回标题文本，不要包含任何标点符号或其他多余解释。\n用户问题：{user_input}"
             response = llm.invoke([HumanMessage(content=prompt)])
             title = response.content.strip()
-            
+
             if title.startswith('"') and title.endswith('"'):
                 title = title[1:-1]
             if title.startswith("'") and title.endswith("'"):
                 title = title[1:-1]
-                
+
             session = get_session(db, session_id)
             if session:
                 update_session(db, session, AgentSessionUpdate(title=title))
@@ -203,6 +216,8 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
         ))
 
         full_response = ""
+        full_reasoning = ""
+        tool_calls_list = []
         import json
         
         # Check if it's the first message (1 system prompt + 1 user message = 2)
@@ -215,17 +230,58 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
         
         # 使用 langgraph stream 模式
         for chunk, metadata in agent.stream({"messages": messages}, stream_mode="messages"):
-            if chunk.type and metadata.get("langgraph_node") == "agent":
-                content = chunk.content
-                if isinstance(content, str) and content:
-                    full_response += content
-                    # yield SSE data
-                    data = json.dumps({"content": content, "session_id": session_id})
-                    yield f"data: {data}\n\n"
+            print(chunk, metadata)
+            if chunk.type and (metadata.get("langgraph_node") == "agent" or metadata.get("langgraph_node") == "model"):
+                contents = chunk.content
+                if isinstance(contents, str):
+                    full_response += contents
+                    if contents:
+                        data = json.dumps({"content": contents, "session_id": session_id})
+                        yield f"data: {data}\n\n"
+                elif isinstance(contents, list):
+                    for content in contents:
+                        content_type = content.get('type')
+                        if content_type == 'text':
+                            text = content.get('text','')
+                            full_response += text
+                            # yield SSE data
+                            if text:
+                                data = json.dumps({"content": text, "session_id": session_id})
+                                yield f"data: {data}\n\n"
+                        elif content_type == 'reasoning':
+                            summaries = content.get('summary')
+                            for summary in summaries:
+                                text = summary.get("text", "")
+                                full_reasoning += text
+                                if text:
+                                    data = json.dumps({"reasoning": text, "session_id": session_id})
+                                    yield f"data: {data}\n\n"
+            
+            # 捕获工具调用
+            if metadata.get("langgraph_node") == "tools":
+                if hasattr(chunk, "name") and hasattr(chunk, "content") and hasattr(chunk, "tool_call_id"):
+                    # Record tool return
+                    for tc in tool_calls_list:
+                        if tc.get("tool_call_id") == chunk.tool_call_id:
+                            tc["tool_return"] = chunk.content
+                            tc["tool_status"] = "success" if not getattr(chunk, "status", "") == "error" else "error"
+            
+            if hasattr(chunk, "tool_calls") and chunk.tool_calls:
+                for tc in chunk.tool_calls:
+                    # check if already in list
+                    if not any(t.get("tool_call_id") == tc.get("id") for t in tool_calls_list):
+                        tool_calls_list.append({
+                            "tool_name": tc.get("name"),
+                            "tool_args": tc.get("args"),
+                            "tool_call_id": tc.get("id"),
+                            "tool_return": None,
+                            "tool_status": "pending"
+                        })
 
         if future_title:
             try:
                 new_title = future_title.result(timeout=10) # wait at most 10 seconds
+                print(new_title)
                 if new_title:
                     data = json.dumps({"title": new_title, "session_id": session_id})
                     yield f"data: {data}\n\n"
@@ -236,11 +292,13 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
                     executor.shutdown(wait=False)
 
         # Save AI message to DB
-        if full_response:
+        if full_response or full_reasoning or tool_calls_list:
             create_message(db, AgentMessageCreate(
                 session_id=UUID(session_id),
                 role="assistant",
                 content=full_response,
+                reasoning=full_reasoning if full_reasoning else None,
+                tool_calls=tool_calls_list if tool_calls_list else None
             ))
 
         # 结束标志

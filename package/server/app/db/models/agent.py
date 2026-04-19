@@ -27,5 +27,7 @@ class AgentMessage(Base):
     content = Column(Text, nullable=False)
     content_type = Column(String(50), default="text")
     content_ext = Column(JSON, nullable=True)
+    reasoning = Column(Text, nullable=True)
+    tool_calls = Column(JSON, nullable=True)
     token_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

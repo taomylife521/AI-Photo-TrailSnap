@@ -10,6 +10,8 @@ class AgentMessageBase(BaseModel):
     content: str = Field(..., description="Message content")
     content_type: str = Field(default="text", description="Content type (text/image/etc)")
     content_ext: Optional[Dict[str, Any]] = Field(default=None, description="Extended content data")
+    reasoning: Optional[str] = Field(default=None, description="Reasoning text")
+    tool_calls: Optional[List[Dict[str, Any]]] = Field(default=None, description="Tool calls list")
     token_count: int = Field(default=0, description="Number of tokens used")
 
 class AgentMessageCreate(AgentMessageBase):

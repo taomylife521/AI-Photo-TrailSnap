@@ -31,6 +31,8 @@ export interface AgentMessage {
   content: string;
   content_type: string;
   content_ext: any | null;
+  reasoning?: string | null;
+  tool_calls?: any | null;
   token_count: number;
   created_at: string;
 }
@@ -50,7 +52,7 @@ export const agentApi = {
       data
     );
   },
-  async chatStream(data: ChatRequest, onMessage: (content: string) => void, onSessionId?: (id: string) => void, onTitleUpdate?: (title: string) => void) {
+  async chatStream(data: ChatRequest, onMessage: (content: string) => void, onSessionId?: (id: string) => void, onTitleUpdate?: (title: string) => void, onReasoning?: (content: string) => void) {
     const userStore = (await import('@/stores/user')).useUserStore();
     const token = userStore.token;
     
@@ -106,6 +108,9 @@ export const agentApi = {
             const parsed = JSON.parse(dataStr);
             if (parsed.content) {
               onMessage(parsed.content);
+            }
+            if (parsed.reasoning && onReasoning) {
+              onReasoning(parsed.reasoning);
             }
             if (parsed.session_id && onSessionId) {
               onSessionId(parsed.session_id);

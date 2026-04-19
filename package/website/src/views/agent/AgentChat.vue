@@ -125,6 +125,18 @@
 
               <div class="flex flex-col gap-1 max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
                 <div class="message-bubble" :class="[msg.role, { 'opacity-60': isSelectionMode && !selectedMessages.includes(msg.id!) }]">
+                  <div v-if="msg.role === 'assistant' && msg.reasoning" class="reasoning-container mb-2 text-sm text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="flex items-center justify-between p-2 cursor-pointer select-none bg-slate-100/50 dark:bg-slate-800" @click="msg.isReasoningExpanded = !msg.isReasoningExpanded">
+                      <div class="flex items-center gap-2">
+                        <Brain class="w-4 h-4 text-slate-400" />
+                        <span class="font-medium">思考过程</span>
+                      </div>
+                      <ChevronDown class="w-4 h-4 text-slate-400 transition-transform" :class="{ 'rotate-180': msg.isReasoningExpanded }" />
+                    </div>
+                    <div v-show="msg.isReasoningExpanded" class="p-3 whitespace-pre-wrap break-words border-t border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs">
+                      {{ msg.reasoning }}
+                    </div>
+                  </div>
                   <div v-if="msg.isMarkdown" class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
                   <div v-else class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
                 </div>
@@ -228,7 +240,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Bot, User, X, Loader2, Send, Menu, Maximize2, Minimize2, Plus, Trash2, Pin, MessageSquare, ListChecks, Copy, MoreHorizontal, RefreshCw, Edit2 } from 'lucide-vue-next';
+import { Bot, User, X, Loader2, Send, Menu, Maximize2, Minimize2, Plus, Trash2, Pin, MessageSquare, ListChecks, Copy, MoreHorizontal, RefreshCw, Edit2, Brain, ChevronDown } from 'lucide-vue-next';
 import { agentApi, type AgentSession, type AgentMessage } from '@/api/agent';
 import { settingsApi } from '@/api/settings';
 import MarkdownIt from 'markdown-it';
@@ -309,6 +321,8 @@ interface MessageItem {
   role: 'user' | 'assistant';
   content: string;
   isMarkdown?: boolean;
+  reasoning?: string;
+  isReasoningExpanded?: boolean;
 }
 
 const activeDropdownIndex = ref<number | null>(null);
@@ -708,7 +722,9 @@ const loadMessages = async (sessionId: string, showLoading: boolean = true) => {
         id: m.id,
         role: m.role as 'user' | 'assistant',
         content: m.content,
-        isMarkdown: m.role === 'assistant'
+        isMarkdown: m.role === 'assistant',
+        reasoning: m.reasoning || undefined,
+        isReasoningExpanded: false
       }));
     }
     await scrollToBottom(true);
@@ -778,10 +794,13 @@ const sendMessage = async () => {
           // 首次收到响应，关闭加载状态并创建 AI 消息对象
           isLoading.value = false;
           aiMessageIndex = messages.value.length;
-          messages.value.push({ role: 'assistant', content: content, isMarkdown: true });
+          messages.value.push({ role: 'assistant', content: content, isMarkdown: true, reasoning: '', isReasoningExpanded: true });
         } else {
           // 追加内容
           messages.value[aiMessageIndex].content += content;
+          if (messages.value[aiMessageIndex].isReasoningExpanded && messages.value[aiMessageIndex].content.trim()) {
+            messages.value[aiMessageIndex].isReasoningExpanded = false;
+          }
         }
         scrollToBottom();
       },
@@ -805,6 +824,23 @@ const sendMessage = async () => {
         if (sessionInList) {
           sessionInList.title = title;
         }
+      },
+      (reasoningContent) => {
+        if (aiMessageIndex === -1) {
+          // 首次收到思考过程，关闭加载状态并创建 AI 消息对象
+          isLoading.value = false;
+          aiMessageIndex = messages.value.length;
+          messages.value.push({ role: 'assistant', content: '', isMarkdown: true, reasoning: reasoningContent, isReasoningExpanded: true });
+        } else {
+          // 追加思考内容
+          if (messages.value[aiMessageIndex].reasoning === undefined) {
+            messages.value[aiMessageIndex].reasoning = reasoningContent;
+            messages.value[aiMessageIndex].isReasoningExpanded = true;
+          } else {
+            messages.value[aiMessageIndex].reasoning += reasoningContent;
+          }
+        }
+        scrollToBottom();
       }
     );
 
