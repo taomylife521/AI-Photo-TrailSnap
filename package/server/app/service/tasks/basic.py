@@ -1,5 +1,5 @@
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
-from app.db.models.task import TaskType
+from app.db.models.task import TaskType, DEFAULT_PRIORITIES
 from typing import List, Dict, Any
 import asyncio
 import logging
@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 from app.db.models.task import Task, TaskStatus, TaskType
 from app.db.models.photo import FileType
 from app.db.models.index_log import IndexLog
-from app.service.task_manager import DEFAULT_PRIORITIES
 import app.crud.photo
 from app.schemas.metadata import PhotoMetadataCreate
 from app.service import storage

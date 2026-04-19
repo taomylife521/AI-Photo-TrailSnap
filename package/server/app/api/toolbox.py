@@ -9,6 +9,7 @@ from app.dependencies import get_db
 from app.db.models.photo import Photo
 from app.db.models.task import TaskType, TaskStatus, Task
 from app.service.task_manager import TaskManager
+from app.crud import task as crud_task
 from app.schemas.photo import PhotoDetail as PhotoSchema
 from pydantic import BaseModel
 
@@ -27,11 +28,10 @@ def scan_duplicate_photos(
     触发重复照片扫描任务。
     """
     # Check if there's already a pending or processing task
-    existing_task = db.query(Task).filter(
-        Task.owner_id == current_user.id,
-        Task.type == TaskType.FIND_DUPLICATE_PHOTOS,
-        Task.status.in_([TaskStatus.PENDING.value, TaskStatus.PROCESSING.value])
-    ).first()
+    existing_task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.FIND_DUPLICATE_PHOTOS, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value]
+    )
 
     if existing_task:
         return existing_task

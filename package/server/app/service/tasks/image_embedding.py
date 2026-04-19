@@ -144,21 +144,14 @@ class ImageEmbeddingStrategy(BaseTaskStrategy):
                     if not photo:
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'photo not found'}})
                         continue
-                        
-                    if not force:
-                        tasks_status = photo.processed_tasks or {}
-                        if tasks_status.get('image_embedding'):
-                            results.append({'task_id': task.id, 'task_type': task.type, 'status': 'completed', 'result': {'status': 'skipped', 'reason': 'already processed'}})
-                            continue
-                            
                     target_path = storage.get_preview_path(photo.owner_id, photo.id)
-                    if not os.path.exists(target_path):
+                    if not target_path or not os.path.exists(target_path):
                         target_path = photo.file_path
-                        
+
                     if not target_path or not os.path.exists(target_path):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': 'file not found'})
                         continue
-                        
+
                     try:
                         with open(target_path, 'rb') as f_img:
                             b64_data = base64.b64encode(f_img.read()).decode('utf-8')
@@ -208,7 +201,7 @@ class ImageEmbeddingStrategy(BaseTaskStrategy):
                                         'error': 'No embedding returned'
                                     })
                         else:
-                            err_msg = f"AI Service error: {resp.status}"
+                            err_msg = f"AI Service error: {resp.status} {await resp.text()}"
                             for task in valid_tasks:
                                 results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': err_msg})
                                 
@@ -219,6 +212,7 @@ class ImageEmbeddingStrategy(BaseTaskStrategy):
                         results.append({'task_id': task.id, 'task_type': task.type, 'status': 'failed', 'error': str(e)})
 
         return results
+
     async def process_single_photo(self, worker, photo: Photo, db: Session) -> Dict[str, Any]:
         try:
             target_path = storage.get_preview_path(photo.owner_id, photo.id)

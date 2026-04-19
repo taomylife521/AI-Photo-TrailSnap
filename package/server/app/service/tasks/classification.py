@@ -1,9 +1,8 @@
 import traceback
 from uuid import UUID
 
-from app.service.task_manager import DEFAULT_PRIORITIES
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
-from app.db.models.task import TaskType, TaskStatus
+from app.db.models.task import TaskType, TaskStatus, DEFAULT_PRIORITIES
 from typing import List, Dict, Optional
 import logging
 import os

@@ -315,7 +315,6 @@ const startPolling = () => {
         try {
             const updatedTask = await tasksApi.getTask(task.value.id);
             task.value = updatedTask;
-            
             if (updatedTask && updatedTask.status === 'completed') {
                 stopPolling();
                 await fetchGroups();
@@ -324,6 +323,9 @@ const startPolling = () => {
                 stopPolling();
             }
         } catch (err) {
+            stopPolling();
+            await fetchGroups();
+            ElMessage.error('扫描失败');
             console.error("Polling error", err);
         }
     }, 2000); // Poll every 2s

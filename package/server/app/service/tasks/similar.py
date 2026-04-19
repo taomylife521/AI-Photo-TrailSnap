@@ -183,7 +183,7 @@ class SimilarPhotoClusteringStrategy(BaseTaskStrategy):
                         cluster_id=cluster.cluster_id
                     )
                     db.add(pc)
-
+            db.commit()
             # Save result
             return {'status': 'completed', 'groups': len(all_groups)}
 

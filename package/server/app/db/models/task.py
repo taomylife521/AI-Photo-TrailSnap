@@ -30,6 +30,51 @@ class TaskType(str, enum.Enum):
     IMAGE_EMBEDDING = "IMAGE_EMBEDDING"
     SCAN_ALBUM = "SCAN_ALBUM"
 
+DEFAULT_PRIORITIES = {
+    TaskType.SCAN_FOLDER: 100,
+    TaskType.PROCESS_BASIC: 99,
+    TaskType.GENERATE_THUMBNAIL: 98,
+    TaskType.EXTRACT_METADATA: 97,
+    TaskType.REBUILD_METADATA: 96,
+    TaskType.REBUILD_THUMBNAILS: 95,
+    TaskType.RECOGNIZE_FACE: 10,
+    TaskType.CLASSIFY_IMAGE: 9,
+    TaskType.IMAGE_EMBEDDING: 8,
+    TaskType.OCR: 7,
+    TaskType.RECOGNIZE_TICKET:4,
+    TaskType.VISUAL_DESCRIPTION: 1,
+    TaskType.SIMILAR_PHOTO_CLUSTERING: 1000,
+    TaskType.FIND_DUPLICATE_PHOTOS: 1000,
+}
+
+CATEGORY_DESCRIPTION_MAP = {
+    TaskType.SCAN_FOLDER: '用于扫描文件夹中的文件',
+    TaskType.PROCESS_BASIC: '用于基本文件处理',
+    TaskType.EXTRACT_METADATA: '用于提取文件元数据（GPS位置、拍摄参数等）',
+    TaskType.RECOGNIZE_FACE: '用于识别图片中的人脸',
+    TaskType.RECOGNIZE_TICKET: '用于识别火车票、飞机票等',
+    TaskType.CLASSIFY_IMAGE: '用于场景分类',
+    TaskType.VISUAL_DESCRIPTION: '用于生成图片的视觉描述',
+    TaskType.OCR: '用于识别图片中的文字',
+    TaskType.SIMILAR_PHOTO_CLUSTERING: '用于相似照片聚类',
+    TaskType.FIND_DUPLICATE_PHOTOS: '用于扫描重复照片',
+    TaskType.IMAGE_EMBEDDING: '用于生成图片的特征向量',
+}
+
+CATEGORY_NAME_MAP = {
+    TaskType.SCAN_ALBUM: '扫描文件夹',
+    TaskType.PROCESS_BASIC: '基本处理',
+    TaskType.EXTRACT_METADATA: '元数据提取',
+    TaskType.RECOGNIZE_FACE: '人脸识别',
+    TaskType.RECOGNIZE_TICKET: '车票识别',
+    TaskType.CLASSIFY_IMAGE: '场景识别',
+    TaskType.VISUAL_DESCRIPTION: '大模型智能分析',
+    TaskType.OCR: '文字识别',
+    TaskType.SIMILAR_PHOTO_CLUSTERING: '相似照片清理',
+    TaskType.FIND_DUPLICATE_PHOTOS: '重复照片清理',
+    TaskType.IMAGE_EMBEDDING: '图片特征提取',
+}
+
 class Task(Base):
     __tablename__ = "tasks"
 
@@ -55,3 +100,4 @@ class Task(Base):
 
     def __str__(self):
         return f"Task(id: {self.id}, type: {self.type}, status: {self.status}, priority: {self.priority})"
+

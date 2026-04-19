@@ -151,20 +151,6 @@ const handleFastModeChange = async (val: boolean) => {
     }
 }
 
-const categoryMap: Record<string, string[]> = {
-    'scanning': ['SCAN_FOLDER', 'PROCESS_BASIC', 'PROCESS_IMAGE', 'GENERATE_THUMBNAIL', 'REBUILD_THUMBNAILS'],
-    'metadata': ['EXTRACT_METADATA', 'REBUILD_METADATA'],
-    'face': ['RECOGNIZE_FACE'],
-    'classification': ['CLASSIFY_IMAGE'],
-    'ocr': ['OCR'],
-    'tickets': ['RECOGNIZE_TICKET'],
-    'ai': ['VISUAL_DESCRIPTION'],
-    'basic': ['PROCESS_BASIC', 'PROCESS_IMAGE'],
-    'duplicate': ['DUPLICATE_IMAGE'],
-    'similar': ['SIMILAR_IMAGE'],
-    'embedding': ['IMAGE_EMBEDDING'],
-}
-
 const handleCategoryCommand = async (category: string, command: string) => {
     if (command === 'pause') {
         await pauseCategory(category)
@@ -182,7 +168,7 @@ const handleCategoryCommand = async (category: string, command: string) => {
 }
 
 const retryCategoryFailed = async (category: string) => {
-    const types = categoryMap[category]
+    const types = [category]
     if (!types) return
     try {
         const res = await tasksApi.retryAllFailedTasks(types)
@@ -208,7 +194,7 @@ const confirmDeleteFailed = (category: string) => {
 }
 
 const deleteCategoryFailed = async (category: string) => {
-    const types = categoryMap[category]
+    const types = [category]
     if (!types) return
     try {
         const res = await tasksApi.deleteFailedTasks(types)
@@ -234,7 +220,7 @@ const confirmScanMissing = (category: string) => {
 }
 
 const triggerScanMissing = async (category: string) => {
-    const types = categoryMap[category]
+    const types = [category]
     if (!types) return
     try {
         for (const type of types) {
@@ -263,7 +249,7 @@ const confirmCategoryRebuild = (category: string) => {
 }
 
 const forceRebuildCategory = async (category: string) => {
-    const types = categoryMap[category]
+    const types = [category]
     if (!types) return
     try {
         for (const type of types) {
@@ -287,8 +273,7 @@ const showFailedTasks = async (category: string) => {
     failedTasksList.value = []
     
     try {
-       const types = categoryMap[category]
-       console.log('types', types)
+       const types = [category]
        if (types) {
           failedTasksList.value = await tasksApi.listTasks('failed', types[0], 1000)
        }

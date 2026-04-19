@@ -1,0 +1,168 @@
+from typing import List, Dict, Optional, Any
+from uuid import UUID
+from datetime import datetime
+from sqlalchemy.orm import Session
+
+from app.db.models.task import Task, TaskStatus, TaskType, DEFAULT_PRIORITIES, CATEGORY_DESCRIPTION_MAP, \
+    CATEGORY_NAME_MAP
+
+DEFAULT_SCAN_STATUS = {
+    'running': False,
+    'progress': 0.0,
+    'added': 0,
+    'deleted': 0,
+    'errors': 0,
+    'current_task': None,
+    'message': 'Idle',
+    'total_files': 0,
+    'processed_files': 0,
+    'classified': 0
+}
+
+
+def list_tasks(db: Session, status: Optional[str] = None, type: Optional[str] = None, limit: int = 50) -> List[Task]:
+    query = db.query(Task).order_by(Task.created_at.desc())
+    if status:
+        query = query.filter(Task.status == status)
+    if type:
+        query = query.filter(Task.type == type)
+    return query.limit(limit).all()
+
+def get_task(db: Session, task_id: UUID) -> Optional[Task]:
+    return db.query(Task).filter(Task.id == task_id).first()
+
+def get_tasks_by_ids(db: Session, task_ids: List[UUID]) -> List[Task]:
+    return db.query(Task).filter(Task.id.in_(task_ids)).all()
+
+def count_tasks_by_status(db: Session, status: str) -> int:
+    return db.query(Task).filter(Task.status == status).count()
+
+def get_tasks_by_status(db: Session, status: str) -> List[Task]:
+    return db.query(Task).filter(Task.status == status).all()
+
+def delete_tasks_by_ids(db: Session, task_ids: List[UUID]) -> int:
+    return db.query(Task).filter(Task.id.in_(task_ids)).delete(synchronize_session=False)
+
+def get_task_by_id_and_owner(db: Session, task_id: UUID, owner_id: UUID) -> Optional[Task]:
+    return db.query(Task).filter(Task.id == task_id, Task.owner_id == owner_id).first()
+
+def get_latest_task_by_type_and_owner(db: Session, task_type: str, owner_id: UUID, statuses: List[str]) -> Optional[Task]:
+    return db.query(Task).filter(
+        Task.type == task_type,
+        Task.owner_id == owner_id,
+        Task.status.in_(statuses)
+    ).order_by(Task.created_at.desc()).first()
+
+def delete_task(db: Session, task: Task) -> None:
+    db.delete(task)
+    db.commit()
+    return db.query(Task).filter(
+        Task.status == TaskStatus.PENDING,
+        Task.type.in_(types_to_fetch)
+    ).order_by(Task.priority.desc(), Task.created_at.asc()).limit(limit).all()
+
+def get_grouped_status(db: Session, paused_categories: set) -> List[Dict[str, Any]]:
+    stats = []
+    categories = [
+        TaskType.PROCESS_BASIC, TaskType.EXTRACT_METADATA,
+        TaskType.RECOGNIZE_FACE, TaskType.RECOGNIZE_TICKET,
+        TaskType.CLASSIFY_IMAGE, TaskType.VISUAL_DESCRIPTION,
+        TaskType.OCR, TaskType.IMAGE_EMBEDDING
+    ]
+
+    for cat in categories:
+        pending = db.query(Task).filter(
+            Task.status.in_([TaskStatus.PENDING, TaskStatus.PROCESSING]),
+            Task.type == cat
+        ).count()
+
+        completed = 0
+
+        failed = db.query(Task).filter(
+            Task.status == TaskStatus.FAILED,
+            Task.type == cat
+        ).count()
+
+        stats.append({
+            'task_name': CATEGORY_NAME_MAP.get(cat, cat),
+            'category': cat,
+            'pending': pending,
+            'completed': completed,
+            'failed': failed,
+            'status': 'paused' if cat in paused_categories else 'active',
+            'priority': DEFAULT_PRIORITIES.get(cat, 0),
+            'description': CATEGORY_DESCRIPTION_MAP.get(cat, '')
+        })
+
+    stats.sort(key=lambda x: x['priority'], reverse=True)
+    return stats
+
+def add_task(db: Session, type: str, payload: dict, priority: int = 0, owner_id: Optional[UUID] = None) -> Task:
+    if priority == 0:
+        priority = DEFAULT_PRIORITIES.get(type, 0)
+
+    task = Task(type=type, payload=payload, priority=priority, status=TaskStatus.PENDING, owner_id=owner_id)
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
+
+def add_tasks(db: Session, tasks_data: List[Dict], owner_id: Optional[UUID] = None) -> None:
+    if not tasks_data:
+        return
+
+    tasks = []
+    for t_data in tasks_data:
+        priority = t_data.get('priority', 0)
+        if priority == 0:
+            priority = DEFAULT_PRIORITIES.get(t_data['type'], 0)
+
+        task_owner_id = t_data.get('owner_id', owner_id)
+
+        tasks.append(Task(
+            type=t_data['type'],
+            payload=t_data.get('payload', {}),
+            priority=priority,
+            status=TaskStatus.PENDING,
+            owner_id=task_owner_id
+        ))
+
+    db.bulk_save_objects(tasks)
+    db.commit()
+
+def cancel_task(db: Session, task: Task) -> Task:
+    task.status = TaskStatus.CANCELLED
+    db.commit()
+    db.refresh(task)
+    return task
+
+def retry_task(db: Session, task: Task) -> Task:
+    task.status = TaskStatus.PENDING
+    task.error = None
+    task.updated_at = datetime.now()
+    db.commit()
+    db.refresh(task)
+    return task
+
+def retry_all_failed_tasks(db: Session, types: Optional[List[str]] = None) -> int:
+    query = db.query(Task).filter(Task.status == TaskStatus.FAILED)
+    if types:
+        query = query.filter(Task.type.in_(types))
+
+    result = query.update({
+        Task.status: TaskStatus.PENDING,
+        Task.error: None,
+        Task.updated_at: datetime.now()
+    }, synchronize_session=False)
+    
+    db.commit()
+    return result
+
+def delete_failed_tasks(db: Session, types: Optional[List[str]] = None) -> int:
+    query = db.query(Task).filter(Task.status == TaskStatus.FAILED)
+    if types:
+        query = query.filter(Task.type.in_(types))
+
+    count = query.delete(synchronize_session=False)
+    db.commit()
+    return count

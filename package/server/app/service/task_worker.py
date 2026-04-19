@@ -10,10 +10,11 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
-from app.db.models.task import Task, TaskType, TaskStatus
+from app.db.models.task import Task, TaskType, TaskStatus, DEFAULT_PRIORITIES
 from app.db.models.system import SystemState
 from app.core.system_config import system_config
-from app.service.task_manager import DEFAULT_SCAN_STATUS, DEFAULT_PRIORITIES
+from app.crud.task import DEFAULT_SCAN_STATUS
+from app.crud import task as crud_task
 
 from app.service.task_strategy import TaskStrategyFactory
 # Import tasks to register strategies
@@ -406,7 +407,7 @@ class TaskWorker:
         db = SessionLocal()
         timeout = 300.0
         try:
-            tasks = db.query(Task).filter(Task.id.in_(task_ids)).all()
+            tasks = crud_task.get_tasks_by_ids(db, task_ids)
             if not tasks:
                 return
             if task_type in self.paused_categories:
@@ -550,8 +551,8 @@ class TaskWorker:
         db = SessionLocal()
         try:
             # 1. 统计未完成任务（PENDING + PROCESSING）
-            pending_tasks = db.query(Task).filter(Task.status == TaskStatus.PENDING).count()
-            processing_tasks = db.query(Task).filter(Task.status == TaskStatus.PROCESSING).count()
+            pending_tasks = crud_task.count_tasks_by_status(db, TaskStatus.PENDING)
+            processing_tasks = crud_task.count_tasks_by_status(db, TaskStatus.PROCESSING)
             total_unfinished = pending_tasks + processing_tasks
 
             if total_unfinished == 0:
@@ -561,7 +562,7 @@ class TaskWorker:
             # 2. 重置PROCESSING任务为PENDING（服务重启后，PROCESSING的任务已中断）
             if processing_tasks > 0:
                 # 获取所有PROCESSING状态的任务
-                processing_task_list = db.query(Task).filter(Task.status == TaskStatus.PROCESSING).all()
+                processing_task_list = crud_task.get_tasks_by_status(db, TaskStatus.PROCESSING)
                 for task in processing_task_list:
                     # 检查payload中是否包含force=True
                     if task.payload and task.payload.get('force') is True:
@@ -623,7 +624,7 @@ class TaskWorker:
                     task_ids_failed.append(item['task_id'])
 
             if task_ids_completed:
-                db.query(Task).filter(Task.id.in_(task_ids_completed)).delete(synchronize_session=False)
+                crud_task.delete_tasks_by_ids(db, task_ids_completed)
 
             if task_ids_failed:
                 # Update failed tasks
@@ -645,35 +646,8 @@ class TaskWorker:
             db.close()
 
     def add_task(self, db: Session, type: str, payload: dict, priority: int = 0, owner_id: UUID = None):
-        if priority == 0:
-            priority = DEFAULT_PRIORITIES.get(type, 0)
-
-        task = Task(type=type, payload=payload, priority=priority, owner_id=owner_id)
-        db.add(task)
-        db.commit()
-        db.refresh(task)
-        return task
+        return crud_task.add_task(db, type, payload, priority, owner_id)
 
     def add_tasks(self, db: Session, tasks_data: List[Dict], owner_id: UUID = None):
         """Batch add tasks"""
-        if not tasks_data:
-            return
-
-        tasks = []
-        for t_data in tasks_data:
-            priority = t_data.get('priority', 0)
-            if priority == 0:
-                priority = DEFAULT_PRIORITIES.get(t_data['type'], 0)
-
-            task_owner_id = t_data.get('owner_id', owner_id)
-
-            tasks.append(Task(
-                type=t_data['type'],
-                payload=t_data.get('payload', {}),
-                priority=priority,
-                status=TaskStatus.PENDING,
-                owner_id=task_owner_id
-            ))
-
-        db.bulk_save_objects(tasks)
-        db.commit()
+        crud_task.add_tasks(db, tasks_data, owner_id)

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
 from app.service.task_manager import TaskManager
+from app.crud import task as crud_task
 
 router = APIRouter()
 
@@ -47,12 +48,7 @@ def list_tasks(
     分页查询任务列表，可按状态和类型过滤。
     默认按创建时间倒序返回前 50 条。
     """
-    query = db.query(Task).order_by(Task.created_at.desc())
-    if status:
-        query = query.filter(Task.status == status)
-    if type:
-        query = query.filter(Task.type == type)
-    return query.limit(limit).all()
+    return crud_task.list_tasks(db, status=status, type=type, limit=limit)
 
 
 @router.get("/stats", summary="获取任务统计")
@@ -117,11 +113,18 @@ def resume_category(category: str):
 @router.get("/{task_id}", response_model=TaskSchema, summary="根据 ID 获取任务详情")
 def get_task(task_id: UUID, db: Session = Depends(get_db)):
     """
-    根据任务 UUID 返回任务详情；若任务不存在则返回 404。
+    根据任务 UUID 返回任务详情；若任务不存在则返回空任务。
     """
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = crud_task.get_task(db, task_id)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        # 任务不存在，返回空任务
+        task = Task(
+            id=task_id, status=TaskStatus.COMPLETED,
+            priority = 0,
+            type=TaskType.PROCESS_BASIC,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
     return task
 
 
@@ -150,17 +153,14 @@ def cancel_task(task_id: UUID, db: Session = Depends(get_db)):
     将指定任务状态置为 CANCELLED。
     仅允许取消处于待处理或运行中的任务；已完成、已失败或已取消的任务将返回 400。
     """
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = crud_task.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
         raise HTTPException(status_code=400, detail="Task is already finished")
 
-    task.status = TaskStatus.CANCELLED
-    db.commit()
-    db.refresh(task)
-    return task
+    return crud_task.cancel_task(db, task)
 
 
 @router.post("/{task_id}/retry", response_model=TaskSchema, summary="重试任务")
@@ -168,19 +168,14 @@ def retry_task(task_id: UUID, db: Session = Depends(get_db)):
     """
     重试失败的任务。
     """
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = crud_task.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
     if task.status != TaskStatus.FAILED:
          raise HTTPException(status_code=400, detail="Only failed tasks can be retried")
 
-    task.status = TaskStatus.PENDING
-    task.error = None
-    task.updated_at = datetime.now()
-    db.commit()
-    db.refresh(task)
-    return task
+    return crud_task.retry_task(db, task)
 
 
 @router.post("/retry-all-failed", summary="重试所有失败任务")
@@ -191,18 +186,7 @@ def retry_all_failed_tasks(
     """
     重试所有失败的任务。可选指定任务类型。
     """
-    query = db.query(Task).filter(Task.status == TaskStatus.FAILED)
-    
-    if types:
-        query = query.filter(Task.type.in_(types))
-
-    result = query.update({
-        Task.status: TaskStatus.PENDING,
-        Task.error: None,
-        Task.updated_at: datetime.now()
-    }, synchronize_session=False)
-    
-    db.commit()
+    result = crud_task.retry_all_failed_tasks(db, types)
     return {"message": f"Retried {result} failed tasks", "count": result}
 
 
@@ -214,12 +198,5 @@ def delete_failed_tasks(
     """
     删除所有失败的任务。可选指定任务类型。
     """
-    query = db.query(Task).filter(Task.status == TaskStatus.FAILED)
-    
-    if types:
-        query = query.filter(Task.type.in_(types))
-
-    count = query.delete(synchronize_session=False)
-    
-    db.commit()
+    count = crud_task.delete_failed_tasks(db, types)
     return {"message": f"Deleted {count} failed tasks", "count": count}

@@ -24,6 +24,7 @@ from app.dependencies import get_db
 from app.crud import album as crud_album
 from app.crud import face as crud_face
 from app.crud import tag as crud_tag
+from app.crud import task as crud_task
 
 from app.schemas import photo as schemas
 from app.schemas.metadata import PhotoMetadata, PhotoMetadataUpdate, PhotoDetail
@@ -74,11 +75,10 @@ def get_latest_similar_task(
     """
     Get the latest similar photo clustering task
     """
-    task = db.query(Task).filter(
-        Task.type == TaskType.SIMILAR_PHOTO_CLUSTERING,
-        Task.owner_id == current_user.id,
-        Task.status.in_([TaskStatus.PENDING.value, TaskStatus.PROCESSING.value])
-    ).order_by(Task.created_at.desc()).first()
+    task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.SIMILAR_PHOTO_CLUSTERING, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value]
+    )
     
     if task:
         return task
@@ -121,10 +121,7 @@ def get_similar_task(
     """
     Get the status of a specific similar photo clustering task
     """
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.owner_id == current_user.id
-    ).first()
+    task = crud_task.get_task_by_id_and_owner(db, task_id, current_user.id)
     
     if task:
         return task
@@ -241,17 +238,14 @@ def cancel_similar_task(
     """
     Cancel/Delete a similar photo clustering task
     """
-    task = db.query(Task).filter(
-        Task.id == task_id,
-        Task.owner_id == current_user.id
-    ).first()
+    task = crud_task.get_task_by_id_and_owner(db, task_id, current_user.id)
     
     if task:
         if task.status in [TaskStatus.PENDING, TaskStatus.PROCESSING]:
             task.status = TaskStatus.CANCELLED
             # Note: This doesn't stop the running thread immediately if it's processing, 
             # but TaskWorker should handle cancellation check.
-        db.delete(task)
+        crud_task.delete_task(db, task)
     else:
         # Check if it exists in ImageCluster
         clusters = db.query(ImageCluster).filter(ImageCluster.task_id == str(task_id)).all()
