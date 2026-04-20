@@ -1,5 +1,5 @@
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
-from app.db.models.task import TaskType
+from app.db.models.task import TaskType, DEFAULT_PRIORITIES
 from typing import List, Dict
 import logging
 import os
@@ -17,6 +17,12 @@ from app.core.config_manager import config_manager
 from app.service import storage
 
 logger = logging.getLogger(__name__)
+
+
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
 
 @TaskStrategyFactory.register(TaskType.VISUAL_DESCRIPTION)
 class VisualDescriptionStrategy(BaseTaskStrategy):
@@ -130,7 +136,7 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
                         tasks_to_create.append({
                             'type': TaskType.VISUAL_DESCRIPTION,
                             'payload': {'photo_id': str(p.id), 'force': force},
-                            'priority': 3,
+                            'priority': DEFAULT_PRIORITIES[TaskType.VISUAL_DESCRIPTION],
                             'owner_id': p.owner_id
                         })
 
@@ -150,10 +156,6 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             logger.error(f"Visual Description task failed: {e}")
             raise e
 
-    def encode_image(self, image_path):
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
-
     async def process_single_photo(self, worker, photo: Photo, db: Session, settings) -> Dict[str, Any]:
         try:
             if photo.image_type == ImageType.SCREENSHOT:
@@ -163,14 +165,14 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             client =self.create_client(settings)
  
             target_path = storage.get_preview_path(photo.owner_id, photo.id)
-            if not os.path.exists(target_path):
+            if not target_path or not os.path.exists(target_path):
                 target_path = photo.file_path
                 if not target_path or not os.path.exists(target_path):
                     return {'status': 'failed', 'error': 'file not found'}
 
             eval_prompt = user_config.ai.visual_evaluation_prompt
             narrative_prompt = user_config.ai.visual_narrative_prompt
-            base64_image = self.encode_image(target_path)
+            base64_image = encode_image(target_path)
             image_info = f"照片时间：{photo.photo_time}\n"
             metadata = db.query(PhotoMetadata).filter(PhotoMetadata.photo_id == photo.id).first()
             if metadata:

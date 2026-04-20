@@ -405,6 +405,7 @@ class TaskWorker:
         task_type = task_infos[0]['type']
         task_ids = [t['id'] for t in task_infos]
         db = SessionLocal()
+        db.expire_on_commit = False  # Prevent lazy loading issues after intermediate commits
         try:
             tasks = crud_task.get_tasks_by_ids(db, task_ids)
             if not tasks:
@@ -453,13 +454,14 @@ class TaskWorker:
         while self.running:
             try:
                 done_futures = [f for f in self.active_task_map.keys() if f.done()]
+                active_count = len(self.active_task_map)
                 for f in done_futures:
                     del self.active_task_map[f]
 
                 self._sync_system_state_if_needed()
                 self._manage_pool_lifecycle()
-                
-                active_count = len(self.active_task_map)
+
+                # logging.info(f"Active task count: {active_count}")
                 if active_count > 0:
                     self.scan_status['running'] = True
                     self._idle_start_time = None
@@ -484,7 +486,7 @@ class TaskWorker:
 
                 tasks_by_type = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes)
                 dispatched_count = 0
-                
+
                 for task_type, chunked_lists in tasks_by_type.items():
                     task_factory = TaskStrategyFactory.get_strategy(task_type)
                     if not task_factory:
@@ -497,7 +499,7 @@ class TaskWorker:
                             priority = DEFAULT_PRIORITIES.get(task_type,1)
                             await self.queue_manager.put_batch(category, chunk, priority=priority)
                             dispatched_count += len(chunk)
-                
+
                 if dispatched_count == 0:
                     if active_count == 0 and self._idle_start_time:
                         idle_duration = (datetime.now() - self._idle_start_time).total_seconds()
@@ -506,7 +508,6 @@ class TaskWorker:
                             self.running = False
                             import sys
                             sys.exit(0)
-                            
                     await asyncio.sleep(self._backoff_delay)
                     self._backoff_delay = min(self._backoff_delay * 1.5, 10.0)
                 else:

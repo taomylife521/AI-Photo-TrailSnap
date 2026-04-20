@@ -56,12 +56,9 @@ def get_latest_task_by_type_and_owner(db: Session, task_type: str, owner_id: UUI
 def delete_task(db: Session, task: Task) -> None:
     db.delete(task)
     db.commit()
-    return db.query(Task).filter(
-        Task.status == TaskStatus.PENDING,
-        Task.type.in_(types_to_fetch)
-    ).order_by(Task.priority.desc(), Task.created_at.asc()).limit(limit).all()
 
 def get_grouped_status(db: Session, paused_categories: set) -> List[Dict[str, Any]]:
+    from sqlalchemy import func
     stats = []
     categories = [
         TaskType.PROCESS_BASIC, TaskType.EXTRACT_METADATA,
@@ -70,18 +67,32 @@ def get_grouped_status(db: Session, paused_categories: set) -> List[Dict[str, An
         TaskType.OCR, TaskType.IMAGE_EMBEDDING
     ]
 
-    for cat in categories:
-        pending = db.query(Task).filter(
+    try:
+        # Optimize: query all pending/processing counts in one go
+        pending_counts = db.query(
+            Task.type, func.count(Task.id)
+        ).filter(
             Task.status.in_([TaskStatus.PENDING, TaskStatus.PROCESSING]),
-            Task.type == cat
-        ).count()
+            Task.type.in_(categories)
+        ).group_by(Task.type).all()
+        pending_map = {row[0]: row[1] for row in pending_counts}
 
-        completed = 0
-
-        failed = db.query(Task).filter(
+        # Optimize: query all failed counts in one go
+        failed_counts = db.query(
+            Task.type, func.count(Task.id)
+        ).filter(
             Task.status == TaskStatus.FAILED,
-            Task.type == cat
-        ).count()
+            Task.type.in_(categories)
+        ).group_by(Task.type).all()
+        failed_map = {row[0]: row[1] for row in failed_counts}
+    except Exception as e:
+        # If session was closed (e.g. by cancelled request), return empty to avoid ResourceClosedError crash
+        return []
+
+    for cat in categories:
+        pending = pending_map.get(cat, 0)
+        completed = 0
+        failed = failed_map.get(cat, 0)
 
         stats.append({
             'task_name': CATEGORY_NAME_MAP.get(cat, cat),

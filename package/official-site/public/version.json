@@ -35,8 +35,13 @@
         "download_url": "https://trailsnap.cn"
     },
     {
-        "version": "0.3.5",
+        "version": "0.3.3",
         "update_info": "- 修复部分场景下删除照片失效的问题<br>- 支持旧版苹果.jpg和 .mov 格式的实况图视频<br>- 优化部分Ui显示",
+        "download_url": "https://trailsnap.cn"
+    },
+    {
+        "version": "0.3.6",
+        "update_info": "- 修复任务异常卡住的问题<br>- 优化任务进程管理，减少内存占用<br>- 加快AI大模型任务处理速度，减少等待时间<br>- 优化AI对话思考过程展示，用户可以查看大模型思考内容<br>- 优化智能分类准确率",
         "download_url": "https://trailsnap.cn"
     }
 ]
