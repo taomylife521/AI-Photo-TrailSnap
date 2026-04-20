@@ -27,6 +27,34 @@ def get_session_history(db: Session, session_id: str) -> List[BaseMessage]:
             messages.append(SystemMessage(content=msg.content))
     return messages
 
+class FixedChatOpenAI(ChatOpenAI):
+    def _convert_chunk_to_generation_chunk(self, chunk: dict,
+        default_chunk_class: type,
+        base_generation_info: dict | None,):
+        msg = super()._convert_chunk_to_generation_chunk(chunk, default_chunk_class, base_generation_info)
+        # print('data', chunk)
+        # print('msg', msg)
+        if msg.message and not msg.message.content:
+            message = msg.message
+            choices = chunk.get("choices", [])
+            for choice in choices:
+                delta = choice.get("delta", {})
+                if "reasoning" in delta:
+                    if not message.content:
+                        message.additional_kwargs = {
+                            "type": "reasoning",
+                            "index": 0,
+                            "summary": []
+                        }
+                    reasoning = delta["reasoning"]
+                    message.additional_kwargs['summary'].append(
+                        {
+                            'index': 0,
+                            'type': 'summary_text',
+                            'text': reasoning
+                        }
+                    )
+        return msg
 
 def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id: str = None, model_name: str = None):
     """
@@ -54,7 +82,7 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
         raise ValueError(f"选中的 AI 连接未配置 API Key: {c_id}")
 
     # 初始化 LLM
-    llm = ChatOpenAI(
+    llm = FixedChatOpenAI(
         model=m_name,
         api_key=connection.api_key,
         base_url=connection.api_base if connection.api_base else None,
@@ -234,11 +262,21 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
             print(chunk, metadata)
             if chunk.type and (metadata.get("langgraph_node") == "agent" or metadata.get("langgraph_node") == "model"):
                 contents = chunk.content
+                additional_kwargs = chunk.additional_kwargs
                 if isinstance(contents, str):
-                    full_response += contents
                     if contents:
-                        data = json.dumps({"content": contents, "session_id": session_id})
-                        yield f"data: {data}\n\n"
+                        full_response += contents
+                        if contents:
+                            data = json.dumps({"content": contents, "session_id": session_id})
+                            yield f"data: {data}\n\n"
+                    elif additional_kwargs:
+                        summaries = additional_kwargs.get('summary')
+                        for summary in summaries:
+                            text = summary.get("text", "")
+                            full_reasoning += text
+                            if text:
+                                data = json.dumps({"reasoning": text, "session_id": session_id})
+                                yield f"data: {data}\n\n"
                 elif isinstance(contents, list):
                     for content in contents:
                         content_type = content.get('type')
@@ -318,6 +356,8 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
             session_id=UUID(session_id),
             role="assistant",
             content=full_response,
+            reasoning=full_reasoning if full_reasoning else None,
+            tool_calls=tool_calls_list if tool_calls_list else None
         ))
         
         yield "data: [DONE]\n\n"

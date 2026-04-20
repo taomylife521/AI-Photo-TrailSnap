@@ -2,80 +2,53 @@
 # -*- coding: utf-8 -*-
 
 """
-@Time        : 2025/10/14 20:38 
-@Author      : SiYuan 
+@Time        : 2025/10/14 20:38
+@Author      : SiYuan
 @Email       : sixyuan044@gmail.com
-@File        : TrailSnapAPI-main.py 
-@Description : 
+@File        : TrailSnapAPI-main.py
+@Description :
 """
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware, GZipResponder
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
 import os
 import logging
 import time
 from dotenv import load_dotenv
-from starlette.staticfiles import StaticFiles
 from starlette.datastructures import Headers
-from starlette.types import ASGIApp, Receive, Scope, Send
-# Worker Process Management
-import multiprocessing
+from starlette.types import Receive, Scope, Send
 
 if not os.path.exists('./data'):
     os.mkdir('./data')
 load_dotenv('./data/.env')
 
 from app.api import (
-    user, train_ticket, flight_ticket, album, index, settings, face, ocr, 
-    location, search, classification, system, media, stats, photo, tasks, 
+    user, train_ticket, flight_ticket, album, index, settings, face, ocr,
+    location, search, classification, system, media, stats, photo, tasks,
     annual_report, auth, deps, agent, agent_token, toolbox
 )
 from railway.api import router as railway_router
 from app.db.session import engine, SessionLocal
 from app.core.logger import setup_logging
-from app.worker import run_worker
 from app.core.config_manager import VERSION
-worker_process = None
-
-import asyncio
-
-async def monitor_worker():
-    global worker_process
-    while True:
-        await asyncio.sleep(10)
-        if worker_process and not worker_process.is_alive():
-            logging.info("Worker process is dead, restarting to release resources...")
-            worker_process = multiprocessing.Process(target=run_worker, daemon=False)
-            worker_process.start()
-            logging.info(f"Worker process restarted with PID: {worker_process.pid}")
+from app.service.task_manager import TaskManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global log_listener, worker_process
+    global log_listener
     log_listener = setup_logging('api')
 
-    # Start Worker Process
-    worker_process = multiprocessing.Process(target=run_worker, daemon=False)
-    worker_process.start()
-    logging.info(f"Worker process started with PID: {worker_process.pid}")
-
-    monitor_task = asyncio.create_task(monitor_worker())
+    # Start Worker Process if there are pending tasks
+    # We can just check if we need to start it, or simply start it once and it will exit if idle
+    # TaskManager.get_instance().start_worker_if_needed()
+    # Wait, when the app starts, we might have unfinished tasks. Let's start the worker just in case.
+    TaskManager.get_instance().start_worker_if_needed()
 
     yield
 
-    monitor_task.cancel()
     # Stop Worker Process
-    if worker_process and worker_process.is_alive():
-        logging.info("Terminating worker process...")
-        worker_process.terminate()
-        # Wait a bit
-        worker_process.join(timeout=5)
-        if worker_process.is_alive():
-            logging.warning("Worker process did not terminate gracefully, killing...")
-            worker_process.kill()
-        logging.info("Worker process stopped")
+    TaskManager.get_instance().stop_worker()
 
     if log_listener:
         log_listener.stop()

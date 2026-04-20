@@ -3,224 +3,74 @@
     <div :class="['agent-chat-container', { 'is-fullscreen': isFullscreen, 'has-sidebar': isSidebarOpen }]">
       
       <!-- Sidebar for Sessions -->
-      <div v-if="isSidebarOpen" class="agent-sidebar">
-        <div class="sidebar-header">
-          <span class="font-semibold text-slate-800 dark:text-white text-sm">历史会话</span>
-          <button @click="createNewSession" class="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 dark:bg-slate-800 p-1 rounded-md" title="新建会话">
-            <Plus class="w-5 h-5" />
-          </button>
-        </div>
-        <div class="sidebar-content">
-          <div 
-            v-for="session in sortedSessions" 
-            :key="session.id"
-            @click="switchSession(session)"
-            :class="['session-item group', { 'active': currentSession?.id === session.id }]"
-          >
-            <MessageSquare class="w-4 h-4 mr-2 text-slate-400 shrink-0" />
-            <div class="flex-1 truncate text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 p-1 rounded-md">{{ session.title || '新会话' }}</div>
-            
-            <div class="session-actions hidden group-hover:flex items-center">
-              <div @click.stop>
-                <el-dropdown trigger="click" @command="(cmd: string) => handleSessionCommand(cmd, session)">
-                  <button class="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 dark:bg-slate-800 p-1 rounded-md transition-colors" title="更多操作">
-                    <MoreHorizontal class="w-4 h-4" />
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="pin">
-                        <Pin class="w-4 h-4 mr-2" />
-                        {{ session.is_pinned ? '取消置顶' : '置顶会话' }}
-                      </el-dropdown-item>
-                      <el-dropdown-item command="delete" class="text-red-500">
-                        <Trash2 class="w-4 h-4 mr-2" />
-                        删除会话
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </div>
-            <Pin v-if="session.is_pinned" class="w-4 h-4 text-yellow-500 ml-auto shrink-0 group-hover:hidden" />
-          </div>
-          <div v-if="sessions.length === 0" class="text-center text-slate-400 text-sm mt-4">
-            暂无历史会话
-          </div>
-        </div>
-      </div>
+      <AgentSidebar 
+        :is-open="isSidebarOpen"
+        :sessions="sessions"
+        :current-session-id="currentSession?.id"
+        @create="createNewSession"
+        @switch="switchSession"
+        @command="handleSessionCommand"
+      />
 
       <!-- Main Chat Area -->
       <div class="agent-main">
         <!-- Header -->
-        <div class="agent-chat-header">
-          <div class="flex items-center gap-3">
-            <button @click="isSidebarOpen = !isSidebarOpen" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors dark:bg-slate-800 p-1 rounded-md">
-              <Menu class="w-5 h-5" />
-            </button>
-            <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center hidden sm:flex">
-              <Bot class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div class="flex flex-col">
-              <div class="flex items-center gap-2">
-                <h3 class="font-semibold text-slate-800 dark:text-white text-sm m-0">TrailSnap</h3>
-                <el-select
-                  v-model="selectedModelValue"
-                  size="small"
-                  class="w-36"
-                  placeholder="选择模型"
-                  v-if="availableModels.length > 0 || isModelsLoading"
-                  :loading="isModelsLoading"
-                >
-                  <el-option
-                    v-for="m in availableModels"
-                    :key="m.conn_id + '|' + m.model"
-                    :label="m.label"
-                    :value="m.conn_id + '|' + m.model"
-                  />
-                </el-select>
-              </div>
-              <p class="text-xs text-slate-500 dark:text-slate-400 m-0 hidden sm:block">您的智能相册管家</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <!-- 批量删除状态下显示的操作按钮 -->
-            <template v-if="isSelectionMode">
-              <button v-if="selectedMessages.length > 0" @click="deleteSelectedMessages" class="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium ml-1 transition-colors">
-                删除 ({{ selectedMessages.length }})
-              </button>
-              <button @click="isSelectionMode = false" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-sm ml-2 transition-colors">
-                取消
-              </button>
-            </template>
-            
-            <div class="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
-            <button @click="isFullscreen = !isFullscreen" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors dark:bg-slate-800 p-1 rounded-md" :title="isFullscreen ? '退出全屏' : '全屏'">
-              <Minimize2 v-if="isFullscreen" class="w-5 h-5" />
-              <Maximize2 v-else class="w-5 h-5" />
-            </button>
-            <button @click="handleClose" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors dark:bg-slate-800 p-1 rounded-md">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        <AgentHeader
+          :is-fullscreen="isFullscreen"
+          :is-selection-mode="isSelectionMode"
+          :selected-count="selectedMessages.length"
+          :available-models="availableModels"
+          v-model="selectedModelValue"
+          :is-models-loading="isModelsLoading"
+          @toggle-sidebar="isSidebarOpen = !isSidebarOpen"
+          @toggle-fullscreen="isFullscreen = !isFullscreen"
+          @close="handleClose"
+          @cancel-selection="isSelectionMode = false"
+          @delete-selection="deleteSelectedMessages"
+        />
 
         <!-- Messages -->
         <div class="agent-chat-messages" ref="messagesContainer">
           <div class="w-full max-w-4xl mx-auto flex flex-col space-y-6 pb-2">
-            <div 
-              v-for="(msg, index) in messages" 
+            <AgentMessageItem
+              v-for="(msg, index) in messages"
               :key="msg.id || index"
-              class="flex w-full group relative"
-            >
-            <!-- Checkbox for selection mode -->
-            <div v-if="isSelectionMode" class="flex-shrink-0 w-8 flex justify-center pb-2 items-end">
-              <el-checkbox :model-value="selectedMessages.includes(msg.id!)" @change="toggleSelectMessage(msg.id)" :disabled="msg.id === undefined" />
-            </div>
+              :msg="msg"
+              :index="index"
+              :is-selection-mode="isSelectionMode"
+              :is-selected="selectedMessages.includes(msg.id!)"
+              :is-last-assistant="isLastAssistantMessage(index)"
+              :is-last-user="isLastUserMessage(index)"
+              :is-dropdown-active="activeDropdownIndex === index"
+              :render-markdown="renderMarkdown"
+              @toggle-select="toggleSelectMessage"
+              @copy="copyMessage"
+              @regenerate="handleRegenerate"
+              @edit="handleEditMessage"
+              @command="handleMessageCommand"
+              @dropdown-visible="handleDropdownVisibleChange"
+              @toggle-reasoning="msg.isReasoningExpanded = !msg.isReasoningExpanded"
+            />
 
-            <div class="message-wrapper flex-1" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-              <div v-if="msg.role === 'assistant'" class="message-avatar assistant">
+            <div v-if="isLoading" class="message-wrapper justify-start">
+              <div class="message-avatar assistant">
                 <Bot class="w-4 h-4" />
               </div>
-
-              <div class="flex flex-col gap-1 max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
-                <div class="message-bubble" :class="[msg.role, { 'opacity-60': isSelectionMode && !selectedMessages.includes(msg.id!) }]">
-                  <div v-if="msg.role === 'assistant' && msg.reasoning" class="reasoning-container mb-2 text-sm text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden">
-                    <div class="flex items-center justify-between p-2 cursor-pointer select-none bg-slate-100/50 dark:bg-slate-800" @click="msg.isReasoningExpanded = !msg.isReasoningExpanded">
-                      <div class="flex items-center gap-2">
-                        <Brain class="w-4 h-4 text-slate-400" />
-                        <span class="font-medium">思考过程</span>
-                      </div>
-                      <ChevronDown class="w-4 h-4 text-slate-400 transition-transform" :class="{ 'rotate-180': msg.isReasoningExpanded }" />
-                    </div>
-                    <div v-show="msg.isReasoningExpanded" class="p-3 whitespace-pre-wrap break-words border-t border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs">
-                      {{ msg.reasoning }}
-                    </div>
-                  </div>
-                  <div v-if="msg.isMarkdown" class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
-                  <div v-else class="whitespace-pre-wrap break-words">{{ msg.content }}</div>
-                </div>
-                
-                <!-- Message Actions Space Placeholder -->
-                <div v-if="!isSelectionMode" class="h-7 w-full flex items-center gap-1 text-slate-400 dark:text-slate-500 mt-0.5 px-1" :class="msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'">
-                  <!-- Message Actions -->
-                  <div class="message-actions items-center gap-1 transition-opacity duration-200" 
-                       :class="[
-                         msg.role === 'user' ? 'flex-row-reverse' : 'flex-row',
-                         activeDropdownIndex === index ? 'flex opacity-100' : 'hidden group-hover:flex opacity-0 group-hover:opacity-100'
-                       ]">
-                    <button @click="copyMessage(msg.content)" class="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 rounded-md" title="复制">
-                      <Copy class="w-4 h-4"/>
-                    </button>
-                    
-                    <!-- 重新生成按钮：只在最后一条助手消息显示 -->
-                    <button v-if="msg.role === 'assistant' && isLastAssistantMessage(index)" @click="handleRegenerate(msg, index)" class="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 rounded-md" title="重新生成">
-                      <RefreshCw class="w-4 h-4"/>
-                    </button>
-                    
-                    <!-- 编辑按钮：只在最后一条用户消息显示 -->
-                    <button v-if="msg.role === 'user' && isLastUserMessage(index)" @click="handleEditMessage(msg, index)" class="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 rounded-md" title="编辑">
-                      <Edit2 class="w-4 h-4"/>
-                    </button>
-
-                    <div @click.stop>
-                      <el-dropdown trigger="click" @command="(cmd: string) => handleMessageCommand(cmd, msg, index)" @visible-change="(visible: boolean) => handleDropdownVisibleChange(visible, index)">
-                        <button class="bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 rounded-md" title="更多">
-                          <MoreHorizontal class="w-4 h-4"/>
-                        </button>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item command="delete" class="text-red-500">
-                              <Trash2 class="w-4 h-4 mr-2" />
-                              删除消息
-                            </el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="msg.role === 'user'" class="message-avatar user">
-                <User class="w-4 h-4" />
+              <div class="message-bubble assistant flex items-center gap-2 py-3">
+                <Loader2 class="w-4 h-4 animate-spin text-indigo-500" />
+                <span class="text-sm text-slate-500">思考中...</span>
               </div>
             </div>
-          </div>
-
-          <div v-if="isLoading" class="message-wrapper justify-start">
-            <div class="message-avatar assistant">
-              <Bot class="w-4 h-4" />
-            </div>
-            <div class="message-bubble assistant flex items-center gap-2 py-3">
-              <Loader2 class="w-4 h-4 animate-spin text-indigo-500" />
-              <span class="text-sm text-slate-500">思考中...</span>
-            </div>
-          </div>
           </div>
         </div>
 
         <!-- Input Area -->
-        <div class="agent-chat-input-area">
-          <div class="w-full max-w-4xl mx-auto">
-            <form @submit.prevent="sendMessage" class="relative">
-              <input
-                v-model="inputMessage"
-                type="text"
-                placeholder="问问我关于您的照片或行程..."
-                class="agent-input"
-                :disabled="isLoading || isSelectionMode"
-              />
-              <button 
-                type="submit" 
-                class="agent-send-btn"
-                :disabled="!inputMessage.trim() || isLoading || isSelectionMode"
-              >
-                <Send class="w-4 h-4" />
-              </button>
-            </form>
-          </div>
-        </div>
+        <AgentInput
+          v-model="inputMessage"
+          :is-loading="isLoading"
+          :is-selection-mode="isSelectionMode"
+          @send="sendMessage"
+        />
       </div>
     </div>
 
@@ -240,12 +90,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Bot, User, X, Loader2, Send, Menu, Maximize2, Minimize2, Plus, Trash2, Pin, MessageSquare, ListChecks, Copy, MoreHorizontal, RefreshCw, Edit2, Brain, ChevronDown } from 'lucide-vue-next';
+import { Loader2, Bot } from 'lucide-vue-next';
 import { agentApi, type AgentSession, type AgentMessage } from '@/api/agent';
 import { settingsApi } from '@/api/settings';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import PhotoLightbox from '@/components/PhotoLightbox.vue';
+
+import AgentSidebar from './components/AgentSidebar.vue';
+import AgentHeader from './components/AgentHeader.vue';
+import AgentMessageItem from './components/AgentMessageItem.vue';
+import AgentInput from './components/AgentInput.vue';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -307,16 +162,8 @@ const loadModels = async () => {
 const sessions = ref<AgentSession[]>([]);
 const currentSession = ref<AgentSession | null>(null);
 
-const sortedSessions = computed(() => {
-  return [...sessions.value].sort((a, b) => {
-    if (a.is_pinned && !b.is_pinned) return -1;
-    if (!a.is_pinned && b.is_pinned) return 1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-});
-
 // 消息管理
-interface MessageItem {
+export interface MessageItem {
   id?: number;
   role: 'user' | 'assistant';
   content: string;
@@ -389,7 +236,6 @@ const copyMessage = async (content: string) => {
       await navigator.clipboard.writeText(content);
       ElMessage.success('已复制到剪贴板');
     } else {
-      // Fallback for non-secure contexts
       const textArea = document.createElement("textarea");
       textArea.value = content;
       textArea.style.position = "fixed";
@@ -791,12 +637,10 @@ const sendMessage = async () => {
       },
       (content) => {
         if (aiMessageIndex === -1) {
-          // 首次收到响应，关闭加载状态并创建 AI 消息对象
           isLoading.value = false;
           aiMessageIndex = messages.value.length;
           messages.value.push({ role: 'assistant', content: content, isMarkdown: true, reasoning: '', isReasoningExpanded: true });
         } else {
-          // 追加内容
           messages.value[aiMessageIndex].content += content;
           if (messages.value[aiMessageIndex].isReasoningExpanded && messages.value[aiMessageIndex].content.trim()) {
             messages.value[aiMessageIndex].isReasoningExpanded = false;
@@ -815,11 +659,9 @@ const sendMessage = async () => {
         }
       },
       (title) => {
-        // 更新当前会话的标题
         if (currentSession.value) {
           currentSession.value.title = title;
         }
-        // 同步更新列表中对应的会话标题
         const sessionInList = sessions.value.find(s => s.id === currentSession.value?.id);
         if (sessionInList) {
           sessionInList.title = title;
@@ -827,12 +669,10 @@ const sendMessage = async () => {
       },
       (reasoningContent) => {
         if (aiMessageIndex === -1) {
-          // 首次收到思考过程，关闭加载状态并创建 AI 消息对象
           isLoading.value = false;
           aiMessageIndex = messages.value.length;
           messages.value.push({ role: 'assistant', content: '', isMarkdown: true, reasoning: reasoningContent, isReasoningExpanded: true });
         } else {
-          // 追加思考内容
           if (messages.value[aiMessageIndex].reasoning === undefined) {
             messages.value[aiMessageIndex].reasoning = reasoningContent;
             messages.value[aiMessageIndex].isReasoningExpanded = true;
@@ -844,7 +684,6 @@ const sendMessage = async () => {
       }
     );
 
-    // 流结束后更新 DOM
     if (currentSession.value) {
       await loadMessages(currentSession.value.id, false);
     } else {
@@ -917,36 +756,8 @@ onMounted(() => {
   to { transform: translateY(0); opacity: 1; }
 }
 
-.agent-sidebar {
-  @apply absolute sm:relative z-20 w-64 h-full border-r border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex flex-col shrink-0 shadow-xl sm:shadow-none;
-}
-
-.sidebar-header {
-  @apply px-4 py-3 flex justify-between items-center border-b border-slate-200 dark:border-slate-800;
-}
-
-.sidebar-content {
-  @apply flex-1 overflow-y-auto p-2 space-y-1;
-}
-
-.session-item {
-  @apply flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-colors;
-}
-
-.session-item:hover {
-  @apply bg-slate-200/50 dark:bg-slate-800;
-}
-
-.session-item.active {
-  @apply bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400;
-}
-
 .agent-main {
   @apply flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 h-full;
-}
-
-.agent-chat-header {
-  @apply px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-10;
 }
 
 .agent-chat-messages {
@@ -965,36 +776,12 @@ onMounted(() => {
   @apply bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400;
 }
 
-.message-avatar.user {
-  @apply bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400;
-}
-
 .message-bubble {
   @apply rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-opacity duration-200;
 }
 
-.message-bubble.user {
-  @apply bg-indigo-600 text-white rounded-br-sm;
-}
-
 .message-bubble.assistant {
   @apply bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-bl-sm;
-}
-
-.message-checkbox {
-  @apply flex items-center justify-center;
-}
-
-.agent-chat-input-area {
-  @apply p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800;
-}
-
-.agent-input {
-  @apply w-full pl-4 pr-12 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.agent-send-btn {
-  @apply absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
 }
 
 /* Markdown Styles */

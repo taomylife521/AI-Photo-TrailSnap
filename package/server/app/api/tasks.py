@@ -174,8 +174,9 @@ def retry_task(task_id: UUID, db: Session = Depends(get_db)):
     
     if task.status != TaskStatus.FAILED:
          raise HTTPException(status_code=400, detail="Only failed tasks can be retried")
-
-    return crud_task.retry_task(db, task)
+    
+    task = TaskManager.get_instance().retry_task(db, task)
+    return task
 
 
 @router.post("/retry-all-failed", summary="重试所有失败任务")
@@ -186,8 +187,8 @@ def retry_all_failed_tasks(
     """
     重试所有失败的任务。可选指定任务类型。
     """
-    result = crud_task.retry_all_failed_tasks(db, types)
-    return {"message": f"Retried {result} failed tasks", "count": result}
+    result = TaskManager.get_instance().retry_all_failed_tasks(db, types)
+    return result
 
 
 @router.delete("/failed", summary="删除失败任务")
