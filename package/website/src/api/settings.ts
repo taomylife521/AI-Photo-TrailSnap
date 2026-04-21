@@ -37,6 +37,14 @@ export const settingsApi = {
     const { data } = await request.get('/api/settings/')
     return data
   },
+  async getSystemConfig() {
+    const { data } = await request.get('/api/system/config')
+    return data
+  },
+  async updateSystemConfig(config: any) {
+    const { data } = await request.put('/api/system/config', config)
+    return data
+  },
   async updateSettings(config: any) {
     const { data } = await request.put('/api/settings/', config)
     return data

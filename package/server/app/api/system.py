@@ -1,10 +1,38 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 import aiohttp
 from app.core.config_manager import config_manager, VERSION
+from app.core.system_config import system_config
+from app.api.deps import get_current_user
+from app.db.models.user import User
 import logging
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+@router.get("/config")
+def get_system_config(current_user: User = Depends(get_current_user)):
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return system_config.config.model_dump()
+
+@router.put("/config")
+def update_system_config(payload: dict, current_user: User = Depends(get_current_user)):
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Update system config
+    current_config = system_config.config.model_dump()
+    for key, value in payload.items():
+        if key in current_config and isinstance(value, dict) and isinstance(current_config[key], dict):
+            current_config[key].update(value)
+        else:
+            current_config[key] = value
+            
+    # Re-initialize the model to validate and save
+    from app.core.system_config import SystemSettings
+    system_config.config = SystemSettings(**current_config)
+    system_config.save()
+    return {"status": "success", "config": system_config.config.model_dump()}
 
 def compare_versions(v1: str, v2: str) -> int:
     """

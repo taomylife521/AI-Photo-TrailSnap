@@ -1,6 +1,8 @@
 import logging
 import json
 import multiprocessing
+import threading
+import time
 from typing import List, Dict, Set, Any, Optional
 from uuid import UUID
 from datetime import datetime
@@ -11,6 +13,7 @@ from app.db.models.task import Task, TaskType, TaskStatus
 from app.db.models.system import SystemState
 from app.crud import task as crud_task
 from app.worker import run_worker
+from app.core.system_config import system_config
 
 class TaskManager:
     """
@@ -26,6 +29,8 @@ class TaskManager:
     def __init__(self):
         self.paused_categories: Set[str] = set()
         self.worker_process = None
+        self.scheduler_thread = None
+        self.scheduler_running = False
 
     @classmethod
     def get_instance(cls):
@@ -58,6 +63,81 @@ class TaskManager:
         """Restarts the background worker process."""
         self.stop_worker()
         self.start_worker_if_needed()
+
+    def start_scheduler(self):
+        """Starts the background scan scheduler thread."""
+        if not self.scheduler_running:
+            self.scheduler_running = True
+            self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True, name="ScanScheduler")
+            self.scheduler_thread.start()
+            logging.info("Started background scan scheduler thread.")
+
+    def stop_scheduler(self):
+        """Stops the background scan scheduler thread."""
+        self.scheduler_running = False
+        if self.scheduler_thread and self.scheduler_thread.is_alive():
+            self.scheduler_thread.join(timeout=2)
+            logging.info("Stopped background scan scheduler thread.")
+
+    def _scheduler_loop(self):
+        # We don't need a local variable if we use SystemState, but let's keep one to reduce DB queries if needed.
+        # Actually, using SystemState allows syncing between API and worker processes.
+        last_scan_trigger_time = None
+        
+        while self.scheduler_running:
+            try:
+                schedule = system_config.config.scan_schedule
+                now = datetime.now()
+                trigger = False
+                # Load shared trigger time from DB
+                saved_time_str = self._load_system_state('last_scan_trigger_time')
+                if saved_time_str:
+                    try:
+                        last_scan_trigger_time = datetime.fromisoformat(saved_time_str)
+                    except:
+                        pass
+                if schedule.mode == 'interval':
+                    if last_scan_trigger_time is None:
+                        # Initialize it to now so it waits for the first interval
+                        last_scan_trigger_time = now
+                        self._save_system_state('last_scan_trigger_time', last_scan_trigger_time.isoformat())
+                    else:
+                        elapsed_minutes = (now - last_scan_trigger_time).total_seconds() / 60.0
+                        if elapsed_minutes >= schedule.interval:
+                            trigger = True
+                elif schedule.mode == 'weekly':
+                    if now.weekday() in schedule.weekdays:
+                        current_time_str = now.strftime("%H:%M")
+                        if current_time_str == schedule.time:
+                            if last_scan_trigger_time is None or last_scan_trigger_time.strftime("%Y-%m-%d %H:%M") != now.strftime("%Y-%m-%d %H:%M"):
+                                trigger = True
+                if trigger:
+                    # Save it immediately to prevent other processes from triggering
+                    self._save_system_state('last_scan_trigger_time', now.isoformat())
+                    db = SessionLocal()
+                    try:
+                        existing = db.query(Task).filter(
+                            Task.type == TaskType.SCAN_FOLDER,
+                            Task.status.in_([TaskStatus.PENDING, TaskStatus.PROCESSING])
+                        ).first()
+                        if not existing:
+                            logging.info(f"Scheduled scan triggered (mode: {schedule.mode})")
+                            self.add_task(db, TaskType.SCAN_FOLDER, {})
+                        else:
+                            logging.info("Scheduled scan triggered but SCAN_FOLDER is already running/pending. Skipping.")
+                    except Exception as e:
+                        logging.error(f"Error triggering scheduled scan: {e}")
+                    finally:
+                        db.close()
+
+            except Exception as e:
+                logging.error(f"Error in scheduler loop: {e}")
+
+            # Sleep in small increments to allow quick exit
+            for _ in range(60):
+                if not self.scheduler_running:
+                    break
+                time.sleep(1)
 
     def _save_system_state(self, key: str, value: Any):
         db = SessionLocal()

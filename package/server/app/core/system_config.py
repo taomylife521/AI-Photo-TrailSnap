@@ -2,6 +2,7 @@ import json
 import os
 import threading
 import logging
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 class SecuritySettings(BaseModel):
@@ -12,9 +13,32 @@ class SecuritySettings(BaseModel):
 class TaskSettings(BaseModel):
     max_concurrent_tasks: int = Field(default=10, description="Maximum number of concurrent tasks")
 
+class ScanScheduleSettings(BaseModel):
+    mode: str = Field(default='off', description="Options: 'off', 'interval', 'weekly'")
+    interval: int = Field(default=60, description="Options: 5, 10, 15, 30, 60")
+    weekdays: List[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6], description="0=Monday")
+    time: str = Field(default="02:00", description="Format HH:mm")
+
+    def to_cron_expression(self) -> Optional[str]:
+        if self.mode == 'off':
+            return None
+        elif self.mode == 'interval':
+            return f"*/{self.interval} * * * *"
+        elif self.mode == 'weekly':
+            try:
+                hour, minute = self.time.split(":")
+                hour_int = int(hour)
+                minute_int = int(minute)
+                weekdays_str = ",".join(map(str, self.weekdays))
+                return f"{minute_int} {hour_int} * * {weekdays_str}"
+            except ValueError:
+                return None
+        return None
+
 class SystemSettings(BaseModel):
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     task: TaskSettings = Field(default_factory=TaskSettings)
+    scan_schedule: ScanScheduleSettings = Field(default_factory=ScanScheduleSettings)
 
 class SystemConfigManager:
     _instance = None

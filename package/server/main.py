@@ -44,10 +44,12 @@ async def lifespan(app: FastAPI):
     # TaskManager.get_instance().start_worker_if_needed()
     # Wait, when the app starts, we might have unfinished tasks. Let's start the worker just in case.
     TaskManager.get_instance().start_worker_if_needed()
+    TaskManager.get_instance().start_scheduler()
 
     yield
 
     # Stop Worker Process
+    TaskManager.get_instance().stop_scheduler()
     TaskManager.get_instance().stop_worker()
 
     if log_listener:

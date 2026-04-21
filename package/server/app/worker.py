@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 from app.core.logger import setup_logging
 from app.service.task_worker import TaskWorker
-from app.db.session import SessionLocal
 
 async def _run():
     worker = TaskWorker.get_instance()
