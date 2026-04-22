@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.api.deps import get_current_user
 from app.db.models.user import User
-from app.service.agent.service import chat_with_agent, stream_chat_with_agent
+from app.service.agent.service import chat_with_agent, stream_chat_with_agent, abort_chat_session
 from app.dependencies import get_db
 from app.crud import agent as agent_crud
 from app.schemas.agent import AgentSession, AgentSessionCreate, AgentSessionUpdate, AgentMessage
@@ -76,6 +76,24 @@ def chat_endpoint(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"内部错误: {str(e)}")
+
+@router.post("/chat/{session_id}/abort", summary="终止流式对话")
+def abort_chat(
+    session_id: str = Path(..., description="The ID of the session to abort"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    手动终止后台正在运行的指定 session_id 的 AI 响应生成流。
+    """
+    session = agent_crud.get_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+        
+    abort_chat_session(session_id)
+    return {"message": "Chat stream abort signal sent"}
 
 @router.get("/sessions", response_model=List[AgentSession], summary="获取所有会话")
 def get_sessions(

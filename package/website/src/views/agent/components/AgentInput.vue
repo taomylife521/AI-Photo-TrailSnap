@@ -8,12 +8,22 @@
           type="text"
           placeholder="问问我关于您的照片或行程..."
           class="agent-input"
-          :disabled="isLoading || isSelectionMode"
+          :disabled="isGenerating || isSelectionMode"
         />
         <button 
+          v-if="isGenerating"
+          type="button"
+          @click.prevent="emit('abort')"
+          class="agent-stop-btn"
+          title="终止"
+        >
+          <Square class="w-4 h-4 fill-current" />
+        </button>
+        <button 
+          v-else
           type="submit" 
           class="agent-send-btn"
-          :disabled="!modelValue.trim() || isLoading || isSelectionMode"
+          :disabled="!modelValue.trim() || isSelectionMode"
         >
           <Send class="w-4 h-4" />
         </button>
@@ -23,17 +33,18 @@
 </template>
 
 <script setup lang="ts">
-import { Send } from 'lucide-vue-next';
+import { Send, Square } from 'lucide-vue-next';
 
 defineProps<{
   modelValue: string;
-  isLoading: boolean;
+  isGenerating: boolean;
   isSelectionMode: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
   (e: 'send'): void;
+  (e: 'abort'): void;
 }>();
 </script>
 
@@ -48,5 +59,9 @@ const emit = defineEmits<{
 
 .agent-send-btn {
   @apply absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+}
+
+.agent-stop-btn {
+  @apply absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors;
 }
 </style>

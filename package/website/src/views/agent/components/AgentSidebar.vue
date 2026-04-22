@@ -14,8 +14,7 @@
         :class="['session-item group', { 'active': currentSessionId === session.id }]"
       >
         <MessageSquare class="w-4 h-4 mr-2 text-slate-400 shrink-0" />
-        <div class="flex-1 truncate text-sm text-slate-700 dark:text-slate-300 dark:bg-slate-800 p-1 rounded-md">{{ session.title || '新会话' }}</div>
-        
+        <div class="flex-1 truncate text-sm text-slate-700 dark:text-slate-300 p-1 rounded-md">{{ session.title || '新会话' }}</div>
         <div class="session-actions hidden group-hover:flex items-center">
           <div @click.stop>
             <el-dropdown trigger="click" @command="(cmd: string) => emit('command', cmd, session)">

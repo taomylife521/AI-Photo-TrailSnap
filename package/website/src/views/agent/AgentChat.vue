@@ -67,9 +67,10 @@
         <!-- Input Area -->
         <AgentInput
           v-model="inputMessage"
-          :is-loading="isLoading"
+          :is-generating="isGenerating"
           :is-selection-mode="isSelectionMode"
           @send="sendMessage"
+          @abort="handleAbort"
         />
       </div>
     </div>
@@ -193,7 +194,27 @@ const defaultWelcomeMessage: MessageItem = {
 const messages = ref<MessageItem[]>([ { ...defaultWelcomeMessage } ]);
 const inputMessage = ref('');
 const isLoading = ref(false);
+const isGenerating = ref(false);
 const messagesContainer = ref<HTMLElement | null>(null);
+const abortController = ref<AbortController | null>(null);
+const runningSessionId = ref<string | null>(null);
+
+const handleAbort = async () => {
+  if (runningSessionId.value) {
+    try {
+      await agentApi.abortChat(runningSessionId.value);
+    } catch (e) {
+      console.error('Failed to send abort signal to backend', e);
+    }
+  }
+
+  if (abortController.value) {
+    abortController.value.abort();
+    abortController.value = null;
+    isLoading.value = false;
+    isGenerating.value = false;
+  }
+};
 
 // 批量选择
 const isSelectionMode = ref(false);
@@ -614,13 +635,17 @@ const handleSessionCommand = (command: string, session: AgentSession) => {
 };
 
 const sendMessage = async () => {
-  if (!inputMessage.value.trim() || isLoading.value) return;
+  if (!inputMessage.value.trim() || isGenerating.value) return;
 
   const userText = inputMessage.value.trim();
   messages.value.push({ role: 'user', content: userText });
   inputMessage.value = '';
   isLoading.value = true;
+  isGenerating.value = true;
   await scrollToBottom(true);
+
+  abortController.value = new AbortController();
+  runningSessionId.value = currentSession.value?.id || null;
 
   try {
     let aiMessageIndex = -1;
@@ -649,6 +674,7 @@ const sendMessage = async () => {
         scrollToBottom();
       },
       async (sessionId) => {
+        runningSessionId.value = sessionId;
         if (!sessionIdReceived && (!currentSession.value || currentSession.value.id !== sessionId)) {
           sessionIdReceived = true;
           await loadSessions();
@@ -681,7 +707,8 @@ const sendMessage = async () => {
           }
         }
         scrollToBottom();
-      }
+      },
+      abortController.value.signal
     );
 
     if (currentSession.value) {
@@ -693,6 +720,10 @@ const sendMessage = async () => {
     }
 
   } catch (error: any) {
+    if (error.name === 'AbortError') {
+      // 如果是用户主动终止，直接返回，不报错，保留当前已经输出的内容在页面上
+      return;
+    }
     let errorMsg = '对话失败，请重试';
     if (error.response?.data?.detail) {
       errorMsg = error.response.data.detail;
@@ -706,6 +737,9 @@ const sendMessage = async () => {
     });
   } finally {
     isLoading.value = false;
+    isGenerating.value = false;
+    abortController.value = null;
+    runningSessionId.value = null;
     nextTick(() => {
       scrollToBottom();
     });

@@ -1,7 +1,9 @@
+import asyncio
 import logging
 from typing import Dict, Any, List
 from uuid import UUID
-
+import json
+from concurrent.futures import ThreadPoolExecutor
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
@@ -14,6 +16,15 @@ from app.crud.agent import get_messages_by_session, create_message
 from app.schemas.agent import AgentMessageCreate
 
 logger = logging.getLogger(__name__)
+
+# 全局字典记录被手动终止的 session_id
+_aborted_sessions: Dict[str, bool] = {}
+
+def abort_chat_session(session_id: str):
+    """
+    手动标记某个 session 为终止状态，用于打断仍在运行的流式对话
+    """
+    _aborted_sessions[session_id] = True
 
 def get_session_history(db: Session, session_id: str) -> List[BaseMessage]:
     db_messages = get_messages_by_session(db, session_id, limit=100)
@@ -89,6 +100,7 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
         timeout=60,
         temperature=0.7,
         streaming=True,
+        max_completion_tokens=8192,
         # reasoning_effort='high',
 
         # use_responses_api=False,
@@ -125,7 +137,6 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
     agent = create_agent(llm, tools)
 
     return agent, system_prompt
-
 
 def chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session, connection_id: str = None, model_name: str = None) -> str:
     """
@@ -168,10 +179,6 @@ def chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session,
     except Exception as e:
         logger.error(f"Agent 对话失败：{str(e)}", exc_info=True)
         return f"抱歉，处理你的请求时出错了：{str(e)}，请稍后重试。"
-
-import json
-from concurrent.futures import ThreadPoolExecutor
-from app.db.session import SessionLocal
 
 def generate_session_title_task(user_id: str, session_id: str, user_input: str):
     try:
@@ -224,13 +231,22 @@ def generate_session_title_task(user_id: str, session_id: str, user_input: str):
         logger.error(f"Failed to generate title: {e}")
         return None
 
-def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session, connection_id: str = None, model_name: str = None):
+async def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: Session, connection_id: str = None, model_name: str = None):
     """
     与 Agent 对话，并使用 SSE 流式返回大模型的回复
     """
+    is_saved = False
+    full_response = ""
+    full_reasoning = ""
+    tool_calls_list = []
+    
+    # 标记该会话未被终止
+    _aborted_sessions[session_id] = False
+    
     try:
-        agent, system_prompt = get_agent_executor(user_id, session_id, db, connection_id, model_name)
-        messages = get_session_history(db, session_id)
+        # 在独立的线程中执行可能会阻塞的同步代码，以避免阻塞主事件循环
+        agent, system_prompt = await asyncio.to_thread(get_agent_executor, user_id, session_id, db, connection_id, model_name)
+        messages = await asyncio.to_thread(get_session_history, db, session_id)
 
         if not messages or not isinstance(messages[0], SystemMessage):
             messages.insert(0, SystemMessage(content=system_prompt))
@@ -238,27 +254,28 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
         messages.append(HumanMessage(content=user_input))
 
         # Save user message to DB
-        create_message(db, AgentMessageCreate(
+        await asyncio.to_thread(create_message, db, AgentMessageCreate(
             session_id=UUID(session_id),
             role="user",
             content=user_input,
         ))
 
-        full_response = ""
-        full_reasoning = ""
-        tool_calls_list = []
         import json
         
         # Check if it's the first message (1 system prompt + 1 user message = 2)
         is_first_message = len(messages) <= 2
-        future_title = None
-        executor = None
+        future_title_task = None
         if is_first_message:
-            executor = ThreadPoolExecutor(max_workers=1)
-            future_title = executor.submit(generate_session_title_task, user_id, session_id, user_input)
+            future_title_task = asyncio.create_task(
+                asyncio.to_thread(generate_session_title_task, user_id, session_id, user_input)
+            )
         
-        # 使用 langgraph stream 模式
-        for chunk, metadata in agent.stream({"messages": messages}, stream_mode="messages"):
+        # 使用 langgraph astream 模式
+        async for chunk, metadata in agent.astream({"messages": messages}, stream_mode="messages"):
+            if _aborted_sessions.get(session_id, False):
+                logger.info(f"Stream manually aborted by API for session {session_id}")
+                break
+
             print(chunk, metadata)
             if chunk.type and (metadata.get("langgraph_node") == "agent" or metadata.get("langgraph_node") == "model"):
                 contents = chunk.content
@@ -295,7 +312,7 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
                                 if text:
                                     data = json.dumps({"reasoning": text, "session_id": session_id})
                                     yield f"data: {data}\n\n"
-            
+
             # 捕获工具调用
             if metadata.get("langgraph_node") == "tools":
                 if hasattr(chunk, "name") and hasattr(chunk, "content") and hasattr(chunk, "tool_call_id"):
@@ -304,7 +321,7 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
                         if tc.get("tool_call_id") == chunk.tool_call_id:
                             tc["tool_return"] = chunk.content
                             tc["tool_status"] = "success" if not getattr(chunk, "status", "") == "error" else "error"
-            
+
             if hasattr(chunk, "tool_calls") and chunk.tool_calls:
                 for tc in chunk.tool_calls:
                     # check if already in list
@@ -317,47 +334,63 @@ def stream_chat_with_agent(user_id: str, session_id: str, user_input: str, db: S
                             "tool_status": "pending"
                         })
 
-        if future_title:
+        if future_title_task:
             try:
-                new_title = future_title.result(timeout=10) # wait at most 10 seconds
+                new_title = await asyncio.wait_for(future_title_task, timeout=10.0)
                 print(new_title)
                 if new_title:
                     data = json.dumps({"title": new_title, "session_id": session_id})
                     yield f"data: {data}\n\n"
+            except asyncio.TimeoutError:
+                logger.error(f"Wait for title generation timeout")
             except Exception as e:
-                logger.error(f"Wait for title generation timeout or error: {e}")
-            finally:
-                if executor:
-                    executor.shutdown(wait=False)
+                logger.error(f"Wait for title generation error: {e}")
 
         # Save AI message to DB
         if full_response or full_reasoning or tool_calls_list:
-            create_message(db, AgentMessageCreate(
+            await asyncio.to_thread(create_message, db, AgentMessageCreate(
                 session_id=UUID(session_id),
                 role="assistant",
                 content=full_response,
                 reasoning=full_reasoning if full_reasoning else None,
                 tool_calls=tool_calls_list if tool_calls_list else None
             ))
+            is_saved = True
 
         # 结束标志
         yield "data: [DONE]\n\n"
 
+    except asyncio.CancelledError:
+        logger.info(f"Agent chat stream cancelled by client for session {session_id}")
+        # The client disconnected, so we shouldn't yield anything more
+        raise
     except Exception as e:
         logger.error(f"Agent 流式对话失败：{str(e)}", exc_info=True)
-        import json
         error_msg = f"\n\n抱歉，处理你的请求时出错了：{str(e)}，请稍后重试。"
         data = json.dumps({"content": error_msg, "session_id": session_id})
         yield f"data: {data}\n\n"
-        
+
         full_response += error_msg
-        # Save partial AI message with error to DB
-        create_message(db, AgentMessageCreate(
-            session_id=UUID(session_id),
-            role="assistant",
-            content=full_response,
-            reasoning=full_reasoning if full_reasoning else None,
-            tool_calls=tool_calls_list if tool_calls_list else None
-        ))
-        
+
         yield "data: [DONE]\n\n"
+
+    finally:
+        # 兜底保存，处理用户中断（如抛出 GeneratorExit 或 CancelledError）
+        # 注意：因为 StreamingResponse 可能会在流结束前导致 FastAPI 关闭 db 会话，
+        # 此时如果继续使用原 db 则会抛出 IllegalStateChangeError。
+        # 因此，若发生错误或中止，需在此创建一个新的独立 db session 来完成持久化。
+        if not is_saved and (full_response or full_reasoning or tool_calls_list):
+            try:
+                with SessionLocal() as new_db:
+                    create_message(new_db, AgentMessageCreate(
+                        session_id=UUID(session_id),
+                        role="assistant",
+                        content=full_response,
+                        reasoning=full_reasoning if full_reasoning else None,
+                        tool_calls=tool_calls_list if tool_calls_list else None
+                    ))
+            except Exception as save_err:
+                logger.error(f"Failed to save partial message on abort: {save_err}")
+            
+        # 移除 abort 标记
+        _aborted_sessions.pop(session_id, None)

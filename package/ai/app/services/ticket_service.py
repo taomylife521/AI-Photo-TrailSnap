@@ -140,9 +140,9 @@ class TicketService:
                 conf = box.conf[0].item()
 
                 # 实现阈值比较判断（confidence > 0.6）
-                if conf <= 0.6:
-                    filtered_count += 1
-                    continue
+                # if conf <= 0.6:
+                #     filtered_count += 1
+                #     continue
 
                 # 获取坐标
                 xyxy = box.xyxy[0].cpu().numpy()

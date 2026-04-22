@@ -52,7 +52,7 @@ export const agentApi = {
       data
     );
   },
-  async chatStream(data: ChatRequest, onMessage: (content: string) => void, onSessionId?: (id: string) => void, onTitleUpdate?: (title: string) => void, onReasoning?: (content: string) => void) {
+  async chatStream(data: ChatRequest, onMessage: (content: string) => void, onSessionId?: (id: string) => void, onTitleUpdate?: (title: string) => void, onReasoning?: (content: string) => void, signal?: AbortSignal) {
     const userStore = (await import('@/stores/user')).useUserStore();
     const token = userStore.token;
     
@@ -65,7 +65,8 @@ export const agentApi = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ ...data, stream: true })
+      body: JSON.stringify({ ...data, stream: true }),
+      signal
     });
 
     if (!response.ok) {
@@ -130,6 +131,9 @@ export const agentApi = {
   },
   createSession(data: CreateSessionRequest) {
     return request.post<AgentSession>('/api/agent/sessions', data);
+  },
+  abortChat(sessionId: string) {
+    return request.post<{ message: string }>(`/api/agent/chat/${sessionId}/abort`);
   },
   deleteSession(sessionId: string) {
     return request.delete<{ message: string }>(`/api/agent/sessions/${sessionId}`);
