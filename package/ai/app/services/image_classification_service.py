@@ -42,7 +42,7 @@ class ImageClassificationService:
         self._category_model_map = self._discover_category_models()
         self._register_models()
         self._register_downloads()
-        self.version = 'v0.1.4'
+        self.version = 'v0.1.5'
 
     def _translate_label(self, label: str) -> str:
         return self._LABEL_TO_CHINESE.get(label, label)
@@ -158,7 +158,7 @@ class ImageClassificationService:
         return None, None
 
     def _normalize_label(self, label: Optional[str], confidence: float) -> str:
-        if label is None or confidence < 0.8:
+        if label is None or confidence < 0.7:
             return "others"
         return label
 
@@ -234,6 +234,7 @@ class ImageClassificationService:
                     idx = indices[i][0]
                     final_label, final_conf = self._get_top_prediction(small_pred, small_model)
                     final_label = self._normalize_label(final_label, final_conf)
+                    # final_results[idx] = {"label": category + '_' + self._translate_label(final_label), "confidence": final_conf}
                     final_results[idx] = {"label": self._translate_label(final_label), "confidence": final_conf}
             else:
                 for i in indices:

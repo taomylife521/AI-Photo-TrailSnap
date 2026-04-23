@@ -195,6 +195,7 @@ export const photoStoreSetup = () => {
 
   const fetchTimelineStats = async (albumId?: string) => {
     try {
+      timelineStats.value = undefined
       const filters = cleanFilters();
       const stats = await albumService.getTimelineStats(albumId, filters)
       timelineStats.value = stats
@@ -213,7 +214,7 @@ export const photoStoreSetup = () => {
 
   const getOffsetRangeForMonth = (year: number, month: number): { start: number, count: number } | null => {
       if (!timelineStats.value?.timeline) return null;
-
+      console.log('timelineStats', timelineStats.value)
       // Sort timeline to match gallery order
       const sortedTimeline = [...timelineStats.value.timeline].sort((a, b) => {
           if (a.year !== b.year) return b.year - a.year;
@@ -258,6 +259,7 @@ export const photoStoreSetup = () => {
 
     // Get offset info for the whole month
     const offsetInfo = getOffsetRangeForMonth(year, month);
+    // console.log('offsetInfo', offsetInfo)
     if (!offsetInfo || offsetInfo.count === 0) return;
 
     const processPhotos = (photos: Photo[]) => {
@@ -308,7 +310,7 @@ export const photoStoreSetup = () => {
         };
         
         const count = offsetInfo.count;
-
+        // console.log('count', count, year, month, cleanFilters())
         if (albumId) {
              photosData = await albumService.getPhotos(albumId, 0, count, filters);
         } else {
