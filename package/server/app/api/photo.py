@@ -267,6 +267,37 @@ def get_similar_photos(
     service = SimilarPhotoService(db, str(current_user.id))
     return service.get_similar_groups(threshold)
 
+@router.get("/recycle-bin", response_model=List[schemas.Photo])
+def get_recycle_bin(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return app.crud.photo.get_recycle_bin_photos(db, user_id=current_user.id, skip=skip, limit=limit)
+
+@router.post("/recycle-bin/restore")
+def restore_recycle_bin_photos(
+    batch_data: schemas.BatchPhotoDelete,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not batch_data.photo_ids:
+        raise HTTPException(status_code=400, detail="No photo IDs provided")
+    count = app.crud.photo.restore_photos(db, batch_data.photo_ids, user_id=current_user.id)
+    return {"message": f"Successfully restored {count} photos"}
+
+@router.delete("/recycle-bin/permanent")
+def permanently_delete_recycle_bin_photos(
+    batch_data: schemas.BatchPhotoDelete,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not batch_data.photo_ids:
+        raise HTTPException(status_code=400, detail="No photo IDs provided")
+    count = app.crud.photo.batch_delete_photos_db(db, batch_data.photo_ids, is_delete_file=True, user_id=current_user.id)
+    return {"message": f"Successfully permanently deleted {count} photos"}
+
 @router.get("/cleanup", response_model=List[schemas.Photo])
 def get_photos_for_cleanup(
     skip: int = 0,
@@ -276,7 +307,7 @@ def get_photos_for_cleanup(
     current_user: User = Depends(get_current_user)
 ):
     # Join with ImageDescription to access scores
-    query = db.query(Photo).join(ImageDescriptionModel, Photo.id == ImageDescriptionModel.photo_id).filter(Photo.owner_id == current_user.id)
+    query = db.query(Photo).join(ImageDescriptionModel, Photo.id == ImageDescriptionModel.photo_id).filter(Photo.owner_id == current_user.id, Photo.is_deleted == False)
 
     # Calculate score: memory_score + quality_score
     # We use coalesce to treat nulls as 0
@@ -384,10 +415,8 @@ def batch_update_photos(
         return {"message": f"Successfully updated {count} photos"}
 
     elif batch_data.action == 'delete':
-        # Get photos to delete files
-        # photos = app.crud.photo.get_photos_by_ids(db, batch_data.photo_ids, user_id=current_user.id)
-        app.crud.photo.batch_delete_photos_db(db, batch_data.photo_ids, is_delete_file=True, user_id=current_user.id)
-        return {"message": "Photos deleted successfully"}
+        app.crud.photo.batch_soft_delete_photos(db, batch_data.photo_ids, user_id=current_user.id)
+        return {"message": "Photos moved to recycle bin successfully"}
 
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
@@ -399,13 +428,15 @@ def batch_delete_photos(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    count = app.crud.photo.batch_delete_photos_db(db, batch_data.photo_ids, is_delete_file=True, user_id=current_user.id)
-    return {"message": f"Successfully deleted {count} photos"}
+    count = app.crud.photo.batch_soft_delete_photos(db, batch_data.photo_ids, user_id=current_user.id)
+    return {"message": f"Successfully moved {count} photos to recycle bin"}
 
 
 @router.delete("/{photo_id}", response_model=schemas.Photo)
 def delete_photo_global(photo_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    db_photo = app.crud.photo.delete_photo(db, photo_id=photo_id, is_delete_file=True, user_id=current_user.id)
+    app.crud.photo.batch_soft_delete_photos(db, [photo_id], user_id=current_user.id)
+    # Fetch it again to return, or just return an empty response. Wait, return the deleted photo object.
+    db_photo = app.crud.photo.get_photo(db, photo_id, include_deleted=True)
     return db_photo
 
 
@@ -425,7 +456,7 @@ def get_photo_metadata(photo_id: UUID, db: Session = Depends(get_db), current_us
 
     if not db_metadata:
         raise HTTPException(status_code=404, detail="Metadata not found")
-    photo = app.crud.photo.get_photo(db, photo_id=photo_id)
+    photo = app.crud.photo.get_photo(db, photo_id=photo_id, include_deleted=True)
     albums = crud_album.get_albums_by_photo_id(db, photo_id=photo_id)
     faces_identities = crud_face.get_identities_by_photo_id(db, photo_id=photo_id)
     tags = crud_tag.get_photo_tags(db, photo_id=photo_id, owner_id=current_user.id)

@@ -4,7 +4,7 @@
 import uuid
 import enum
 from datetime import datetime
-from sqlalchemy import Column, String, ForeignKey, DateTime, BigInteger, Integer, Enum, Float, JSON
+from sqlalchemy import Column, String, ForeignKey, DateTime, BigInteger, Integer, Enum, Float, JSON, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -37,6 +37,10 @@ class Photo(Base):
     # Task Status Tracking: {"thumbnail": true, "metadata": true, "face": false}
     processed_tasks = Column(JSON, default={})
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
+
+    # Soft delete fields
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
 
     # Relationships
     albums = relationship("Album", secondary="album_photos", back_populates="photos")

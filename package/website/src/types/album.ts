@@ -63,6 +63,8 @@ export interface Photo {
   duration?: number;
   metadata_info?: PhotoMetadata;
   image_description?: ImageDescription;
+  is_deleted?: boolean;
+  deleted_at?: string;
 }
 
 export interface PhotoGroup {
@@ -104,6 +106,7 @@ export interface AlbumImage {
   duration?: string
   live_photo_video_url?: string
   has_live_video?: boolean
+  deleted_at?: string
 }
 
 export interface AlbumCondition {

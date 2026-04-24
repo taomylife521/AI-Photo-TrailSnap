@@ -1,5 +1,5 @@
 <template>
-  <nav class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-14 z-30 shadow-sm h-14 transition-colors duration-300">
+  <nav class="sticky top-14 z-30 shadow-sm h-14 transition-colors duration-300">
     <div class="max-w-[1400px] mx-auto px-4 h-full flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg flex items-center justify-center border border-primary-500 bg-primary-50 dark:bg-slate-700/50 transition-colors">

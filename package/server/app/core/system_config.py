@@ -35,10 +35,15 @@ class ScanScheduleSettings(BaseModel):
                 return None
         return None
 
+class RecycleBinSettings(BaseModel):
+    retention_days: int = Field(default=7, description="Number of days to keep photos in recycle bin before permanent deletion")
+    cleanup_time: str = Field(default="00:00", description="Time of day to run the cleanup task, format HH:mm")
+
 class SystemSettings(BaseModel):
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     task: TaskSettings = Field(default_factory=TaskSettings)
     scan_schedule: ScanScheduleSettings = Field(default_factory=ScanScheduleSettings)
+    recycle_bin: RecycleBinSettings = Field(default_factory=RecycleBinSettings)
 
 class SystemConfigManager:
     _instance = None

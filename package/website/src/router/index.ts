@@ -23,6 +23,7 @@ const CleanupPage = () => import('@/views/toolbox/CleanupPage.vue');
 const ToolboxPage = () => import('@/views/toolbox/ToolboxPage.vue');
 const SimilarPhotoCleanup = () => import('@/views/toolbox/SimilarPhotoCleanup.vue');
 const DuplicatePhotoCleanup = () => import('@/views/toolbox/DuplicatePhotoCleanup.vue');
+const RecycleBinPage = () => import('@/views/RecycleBinPage.vue');
 
 const NotFound = () => import('@/views/NotFound.vue');
 
@@ -49,6 +50,7 @@ const routes: RouteRecordRaw[] = [
       { path: '/toolbox/similar', name: 'SimilarPhotoCleanup', component: SimilarPhotoCleanup, meta: { title: '相似照片清理' } },
       { path: '/toolbox/duplicate', name: 'DuplicatePhotoCleanup', component: DuplicatePhotoCleanup, meta: { title: '重复照片清理' } },
       { path: '/toolbox/cleanup', name: 'Cleanup', component: CleanupPage, meta: { title: '清理相册' } },
+      { path: '/recycle-bin', name: 'RecycleBin', component: RecycleBinPage, meta: { title: '回收站' } },
       { path: '/photos', name: 'Photos', component: PhotosPage, meta: { title: '所有照片' } },
       { path: '/mobile-search', name: 'MobileSearch', component: MobileSearch, meta: { title: '搜索', layout: 'blank' } },
       { path: '/ticket', name: 'Ticket', component: TicketPage, meta: { title: '车票', keepAlive: true } },

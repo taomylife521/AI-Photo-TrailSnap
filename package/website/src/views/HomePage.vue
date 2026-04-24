@@ -4,7 +4,10 @@
     <div class="sticky top-0 z-20 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 h-14 flex items-center justify-between px-4 transition-opacity duration-300">
       <h1 class="text-lg font-bold text-[#333] dark:text-white">相册概览</h1>
       <div class="flex items-center space-x-4">
-        <button class="text-[#666] dark:text-gray-300 dark:bg-gray-800 hover:text-[#4A90E2] transition-colors" @click="$router.push('/settings')">
+        <button class="text-[#666] dark:text-gray-300 dark:bg-gray-800 hover:text-[#4A90E2] transition-colors" @click="$router.push('/recycle-bin')" title="回收站">
+          <i class="mgc_delete_2_line text-2xl"></i>
+        </button>
+        <button class="text-[#666] dark:text-gray-300 dark:bg-gray-800 hover:text-[#4A90E2] transition-colors" @click="$router.push('/settings')" title="设置">
           <i class="mgc_settings_4_line text-2xl"></i>
         </button>
       </div>

@@ -70,7 +70,6 @@
 ### Todo List
 
 - [ ] 支持回收站功能，用户可以恢复已删除的照片。
-- [ ] 支持定期扫描外部文件夹，自动更新照片。
 - [ ] 支持MCP协议，用户可以通过MCP协议与TrailSnap进行通信。
 - [ ] 支持skills，可以接入OpenClaw、Claude Code等平台。
 - [ ] 更丰富的行程管理功能，例如：支持演唱会门票、景区门票、酒店订单、电影票等。
@@ -205,7 +204,6 @@ TrailSnap/
 ### 相关项目
 
 - [InkTime](https://github.com/dai-hongtao/InkTime) InkTime 是一个可自托管的墨水屏电子相框。它用AI分析你的照片库，按值得回忆度打分，并按“历史上的今天”自动生成每日最具回忆价值的照片，让沉睡的记忆重新被看见。
-
 
 ## 🌟 Star History
 

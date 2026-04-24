@@ -83,13 +83,16 @@ class TaskManager:
         # We don't need a local variable if we use SystemState, but let's keep one to reduce DB queries if needed.
         # Actually, using SystemState allows syncing between API and worker processes.
         last_scan_trigger_time = None
+        last_cleanup_trigger_time = None
         
         while self.scheduler_running:
             try:
                 schedule = system_config.config.scan_schedule
+                rb_schedule = system_config.config.recycle_bin
                 now = datetime.now()
-                trigger = False
-                # Load shared trigger time from DB
+                
+                # Check Scan Schedule
+                trigger_scan = False
                 saved_time_str = self._load_system_state('last_scan_trigger_time')
                 if saved_time_str:
                     try:
@@ -104,14 +107,15 @@ class TaskManager:
                     else:
                         elapsed_minutes = (now - last_scan_trigger_time).total_seconds() / 60.0
                         if elapsed_minutes >= schedule.interval:
-                            trigger = True
+                            trigger_scan = True
                 elif schedule.mode == 'weekly':
                     if now.weekday() in schedule.weekdays:
                         current_time_str = now.strftime("%H:%M")
                         if current_time_str == schedule.time:
                             if last_scan_trigger_time is None or last_scan_trigger_time.strftime("%Y-%m-%d %H:%M") != now.strftime("%Y-%m-%d %H:%M"):
-                                trigger = True
-                if trigger:
+                                trigger_scan = True
+                
+                if trigger_scan:
                     # Save it immediately to prevent other processes from triggering
                     self._save_system_state('last_scan_trigger_time', now.isoformat())
                     db = SessionLocal()
@@ -127,6 +131,52 @@ class TaskManager:
                             logging.info("Scheduled scan triggered but SCAN_FOLDER is already running/pending. Skipping.")
                     except Exception as e:
                         logging.error(f"Error triggering scheduled scan: {e}")
+                    finally:
+                        db.close()
+                        
+                # Check Recycle Bin Cleanup Schedule
+                trigger_cleanup = False
+                saved_cleanup_str = self._load_system_state('last_cleanup_trigger_time')
+                if saved_cleanup_str:
+                    try:
+                        last_cleanup_trigger_time = datetime.fromisoformat(saved_cleanup_str)
+                    except:
+                        pass
+                
+                current_time_str = now.strftime("%H:%M")
+                if current_time_str == rb_schedule.cleanup_time:
+                    if last_cleanup_trigger_time is None or last_cleanup_trigger_time.strftime("%Y-%m-%d") != now.strftime("%Y-%m-%d"):
+                        trigger_cleanup = True
+                        
+                if trigger_cleanup:
+                    self._save_system_state('last_cleanup_trigger_time', now.isoformat())
+                    db = SessionLocal()
+                    try:
+                        # Clean up photos older than retention_days
+                        from app.crud.photo import batch_delete_photos_db
+                        from app.db.models.photo import Photo
+                        from datetime import timedelta
+                        
+                        cutoff_time = now - timedelta(days=rb_schedule.retention_days)
+                        expired_photos = db.query(Photo).filter(
+                            Photo.is_deleted == True,
+                            Photo.deleted_at <= cutoff_time
+                        ).all()
+                        
+                        if expired_photos:
+                            from collections import defaultdict
+                            photos_by_owner = defaultdict(list)
+                            for p in expired_photos:
+                                photos_by_owner[p.owner_id].append(p.id)
+                            
+                            total_deleted = 0
+                            for owner_id, photo_ids in photos_by_owner.items():
+                                batch_delete_photos_db(db, photo_ids, is_delete_file=True, user_id=owner_id)
+                                total_deleted += len(photo_ids)
+                                
+                            logging.info(f"Scheduled recycle bin cleanup triggered. Deleted {total_deleted} photos.")
+                    except Exception as e:
+                        logging.error(f"Error triggering scheduled recycle bin cleanup: {e}")
                     finally:
                         db.close()
 

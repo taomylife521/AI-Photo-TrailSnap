@@ -26,6 +26,7 @@ class ImageClassificationService:
         "night": "夜景",
         "moon": "月亮",
         "document": "文档",
+        "chat_message": "聊天消息",
         "id_card": "卡证",
         "train_ticket": "火车票",
         "train_ticket_screenshot": "火车票截图",
@@ -42,7 +43,7 @@ class ImageClassificationService:
         self._category_model_map = self._discover_category_models()
         self._register_models()
         self._register_downloads()
-        self.version = 'v0.1.5'
+        self.version = 'v0.1.6'
 
     def _translate_label(self, label: str) -> str:
         return self._LABEL_TO_CHINESE.get(label, label)

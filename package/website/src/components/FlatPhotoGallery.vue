@@ -192,13 +192,16 @@
                 <div v-else-if="img.file_type === 'live_photo'" class="flex mb-1 absolute top-2 right-2 justify-center pointer-events-none z-10 items-center">
                     <span class="icon-[tabler--live-photo] w-4 h-4 text-white drop-shadow-md opacity-90"></span>
                 </div>
+                <!-- Always Visible Overlay Actions Slot -->
+                <div v-if="$slots['overlay-actions']" class="absolute top-2 right-2 z-10">
+                  <slot name="overlay-actions" :photo="img"></slot>
+                </div>
                 <!-- Info Overlay -->
                 <div class="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex justify-between items-end">
                     <p class="text-white text-xs font-medium truncate flex items-center gap-1">
                       <MapPin v-if="img.filename" class="w-3 h-3 text-white/80" />
                       {{ img.filename || formatTime(img.timestamp) }}
                     </p>
-                    <slot name="overlay-actions" :photo="img"></slot>
                 </div>
             </div>
         </div>

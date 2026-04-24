@@ -107,7 +107,8 @@ export const mapPhotoToImage = (photo: Photo): AlbumImage => {
       duration: formatDuration(photo.duration ?? null) || '00:00',
       live_photo_video_url,
       has_live_video: live_photo_video_url !== undefined,
-      file_path: photo.file_path || ''
+      file_path: photo.file_path || '',
+      deleted_at: photo.deleted_at
     }
   }
 
@@ -156,23 +157,25 @@ export const photoStoreSetup = () => {
     }
 
     return {
-      id: photo.id,
-      url,
-      thumbnail,
-      preview,
-      srcset: '', // 暂不分发多尺寸，后端按需动态处理
-      timestamp,
-      albumIds: photo.album_ids || [],
-      width: photo.width || 300,
-      height: photo.height || 300,
-      size: photo.size || 0,
-      filename: photo.filename || '',
-      file_type: photo.file_type || 'image',
-      duration: formatDuration(photo.duration ?? null) || '00:00',
-      live_photo_video_url,
-      has_live_video: live_photo_video_url !== undefined
+        id: photo.id,
+        url,
+        thumbnail,
+        preview,
+        srcset: '', // 暂不分发多尺寸，后端按需动态处理
+        timestamp,
+        albumIds: photo.album_ids || [],
+        width: photo.width || 300,
+        height: photo.height || 300,
+        size: photo.size || 0,
+        filename: photo.filename || '',
+        file_type: photo.file_type || 'image',
+        duration: formatDuration(photo.duration ?? null) || '00:00',
+        live_photo_video_url,
+        has_live_video: live_photo_video_url !== undefined,
+        file_path: photo.file_path || '',
+        deleted_at: photo.deleted_at
+        }
     }
-  }
 
   // --- 动作 ---
   const fetchAvailableFilters = async () => {

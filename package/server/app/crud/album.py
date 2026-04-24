@@ -16,7 +16,7 @@ from app.schemas import album as album_schemas
 
 # Album CRUD
 def _build_album_query(db: Session, album: Album):
-    query = db.query(Photo)
+    query = db.query(Photo).filter(Photo.is_deleted == False)
     
     # Ensure smart/conditional albums only see user's own photos
     if album.owner_id is not None:

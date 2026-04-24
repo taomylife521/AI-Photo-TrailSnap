@@ -185,7 +185,7 @@ def get_photos(db: Session, album_id: UUID, skip: int = 0, limit: int = 100, sta
 
 
 def get_photos_by_time(db: Session, owner_id: UUID, skip: int = 0, limit: int = 100, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None):
-    query = db.query(Photo).filter(Photo.owner_id == owner_id)
+    query = db.query(Photo).filter(Photo.owner_id == owner_id, Photo.is_deleted == False)
     if start_time:
         query = query.filter(Photo.photo_time >= start_time)
     if end_time:
@@ -271,10 +271,11 @@ def _build_photo_filter_query(
     center_lat: Optional[float] = None,
     center_lng: Optional[float] = None,
     ids: Optional[List[UUID]] = None,
-    user_id: UUID = None
+    user_id: UUID = None,
+    is_deleted: bool = False
 ):
     # 先筛选 Photo，减少后续连表的数据量
-    photo_query = db.query(Photo.id)
+    photo_query = db.query(Photo.id).filter(Photo.is_deleted == is_deleted)
 
     if user_id is not None:
         photo_query = photo_query.filter(Photo.owner_id == user_id)
@@ -536,8 +537,11 @@ def get_timeline_stats(
     }
 
 
-def get_photo(db: Session, photo_id: UUID):
-    return db.query(Photo).filter(Photo.id == photo_id).first()
+def get_photo(db: Session, photo_id: UUID, include_deleted: bool = False):
+    query = db.query(Photo).filter(Photo.id == photo_id)
+    if not include_deleted:
+        query = query.filter(Photo.is_deleted == False)
+    return query.first()
 
 
 def create_photo(db: Session, photo: photo_schemas.PhotoCreate, album_id: Optional[UUID], file_path: str, photo_id: Optional[UUID] = None, user_id: UUID = None):
@@ -592,8 +596,10 @@ def update_photo(db: Session, photo_id: UUID, photo_update: photo_schemas.PhotoU
     return db_photo
 
 
-def get_photos_by_ids(db: Session, photo_ids: List[UUID], user_id: UUID = None):
+def get_photos_by_ids(db: Session, photo_ids: List[UUID], user_id: UUID = None, include_deleted: bool = False):
     query = db.query(Photo).filter(Photo.id.in_(photo_ids))
+    if not include_deleted:
+        query = query.filter(Photo.is_deleted == False)
     if user_id is not None:
         query = query.filter(Photo.owner_id == user_id)
     return query.all()
@@ -618,6 +624,71 @@ def delete_photo(db: Session, photo_id: UUID, is_delete_file = False, user_id: U
         db.commit()
     return db_photo
 
+
+def batch_soft_delete_photos(db: Session, photo_ids: List[UUID], user_id: UUID = None):
+    query = db.query(Photo).options(joinedload(Photo.albums)).filter(Photo.id.in_(photo_ids))
+    if user_id is not None:
+        query = query.filter(Photo.owner_id == user_id)
+    
+    photos = query.all()
+    count = len(photos)
+    
+    for photo in photos:
+        photo.is_deleted = True
+        photo.deleted_at = datetime.now()
+        
+    db.commit()
+    
+    # Update album counts
+    affected_album_ids = set()
+    for photo in photos:
+        for album in photo.albums:
+            affected_album_ids.add(album.id)
+            
+    for album_id in affected_album_ids:
+        _update_album_photo_count(db, album_id)
+        
+    if user_id:
+        from app.crud.album import trigger_conditional_albums_update
+        trigger_conditional_albums_update(db, user_id, [])
+        
+    return count
+
+def restore_photos(db: Session, photo_ids: List[UUID], user_id: UUID = None):
+    query = db.query(Photo).options(joinedload(Photo.albums)).filter(Photo.id.in_(photo_ids), Photo.is_deleted == True)
+    if user_id is not None:
+        query = query.filter(Photo.owner_id == user_id)
+        
+    photos = query.all()
+    count = len(photos)
+    
+    for photo in photos:
+        photo.is_deleted = False
+        photo.deleted_at = None
+        
+    db.commit()
+    
+    # Update album counts
+    affected_album_ids = set()
+    for photo in photos:
+        for album in photo.albums:
+            affected_album_ids.add(album.id)
+            
+    for album_id in affected_album_ids:
+        _update_album_photo_count(db, album_id)
+        
+    if user_id:
+        from app.crud.album import trigger_conditional_albums_update
+        trigger_conditional_albums_update(db, user_id, [])
+        
+    return count
+
+def get_recycle_bin_photos(db: Session, user_id: UUID, skip: int = 0, limit: int = 100):
+    query = db.query(Photo).filter(Photo.owner_id == user_id, Photo.is_deleted == True)
+    query = query.order_by(Photo.deleted_at.desc())
+    if limit == 0:
+        return query.offset(skip).all()
+    return query.offset(skip).limit(limit).all()
 
 def batch_delete_photos_db(db: Session, photo_ids: List[UUID], is_delete_file = False, user_id: UUID = None):
     # Get photos with albums to know which albums to update
