@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -17,7 +18,7 @@ class FlightTicketBase(BaseModel):
     total_mileage: Optional[Decimal] = Field(default=0, ge=0, description="里程")
     total_running_time: Optional[int] = Field(default=0, ge=0, description="飞行时长（分钟）")
     comments: Optional[str] = Field(None, description="备注信息")
-    photo_id: Optional[str] = Field(None, description="关联照片ID")
+    photo_id: Optional[UUID] = Field(None, description="关联照片ID")
 
 class FlightTicketCreate(FlightTicketBase):
     """创建飞机票请求模型"""
@@ -34,7 +35,7 @@ class FlightTicketUpdate(BaseModel):
     total_mileage: Optional[Decimal] = Field(None, ge=0, description="里程")
     total_running_time: Optional[int] = Field(None, ge=0, description="飞行时长（分钟）")
     comments: Optional[str] = Field(None, description="备注信息")
-    photo_id: Optional[str] = Field(None, description="关联照片ID")
+    photo_id: Optional[UUID] = Field(None, description="关联照片ID")
 
 class FlightTicketResponse(FlightTicketBase):
     """飞机票响应模型"""

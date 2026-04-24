@@ -50,7 +50,8 @@ class TrainTicket(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     
     # 新增字段：关联照片ID
-    photo_id = Column(String(36), nullable=True, comment="关联照片ID", index=True)
+    # photo_id = Column(String(36), nullable=True, comment="关联照片ID", index=True)
+    photo_id = Column(UUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True, comment="关联照片ID", index=True)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
 
 class FlightTicket(Base):
@@ -79,5 +80,7 @@ class FlightTicket(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     
     # 新增字段：关联照片ID
-    photo_id = Column(String(36), nullable=True, comment="关联照片ID", index=True)
+    # photo_id = Column(String(36), nullable=True, comment="关联照片ID", index=True)
+    photo_id = Column(UUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True,
+                      comment="关联照片ID", index=True)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)

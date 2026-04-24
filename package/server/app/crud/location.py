@@ -165,10 +165,10 @@ def get_map_markers(db: Session, owner_id: UUID, start_date: str = None, end_dat
         Photo.id,
         PhotoMetadata.latitude,
         PhotoMetadata.longitude
-    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id, Photo.is_deleted == False)\
+    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)\
      .filter(PhotoMetadata.latitude.isnot(None))\
      .filter(PhotoMetadata.longitude.isnot(None))\
-     .filter(Photo.owner_id == owner_id)
+     .filter(Photo.owner_id == owner_id, Photo.is_deleted == False)
      
     if start_date:
         query = query.filter(Photo.photo_time >= start_date)
@@ -236,9 +236,9 @@ def get_timeline_nodes(db: Session, owner_id: UUID, level: str = 'city', skip: i
         func.avg(PhotoMetadata.latitude).label('lat'),
         func.avg(PhotoMetadata.longitude).label('lng'),
         func.max(cast(Photo.id, String)).label('cover_id')
-    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id, Photo.is_deleted == False) \
+    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id) \
      .outerjoin(Scene, PhotoMetadata.scene_id == Scene.id) \
-     .filter(Photo.owner_id == owner_id) \
+     .filter(Photo.owner_id == owner_id, Photo.is_deleted == False) \
      .filter(PhotoMetadata.latitude.isnot(None)) \
      .filter(PhotoMetadata.longitude.isnot(None)) \
      .filter(Photo.photo_time.isnot(None))

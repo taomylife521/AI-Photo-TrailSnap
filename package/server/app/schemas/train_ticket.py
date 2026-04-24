@@ -8,6 +8,7 @@
 @File        : server-train_ticket.py
 @Description : 
 """
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -31,7 +32,7 @@ class TrainTicketBase(BaseModel):
     total_mileage: Optional[int] = Field(default=0, ge=0, description="总里程（公里）")
     stop_stations: Optional[str] = Field(None, description="途经站点列表")
     comments: Optional[str] = Field(None, description="备注信息")
-    photo_id: Optional[str] = Field(None, description="关联照片ID")
+    photo_id: Optional[UUID] = Field(None, description="关联照片ID")
 
 class TrainTicketCreate(TrainTicketBase):
     """创建火车票请求模型（继承基础模型，无额外字段）"""
@@ -54,7 +55,7 @@ class TrainTicketUpdate(BaseModel):
     total_mileage: Optional[int] = Field(None, ge=0, description="总里程（公里）")
     stop_stations: Optional[str] = Field(None, description="途经站点列表")
     comments: Optional[str] = Field(None, description="备注信息")
-    photo_id: Optional[str] = Field(None, description="关联照片ID")
+    photo_id: Optional[UUID] = Field(None, description="关联照片ID")
 
 class TrainTicketResponse(TrainTicketBase):
     """火车票响应模型（包含数据库额外字段）"""
