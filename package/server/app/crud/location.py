@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, contains_eager
 from uuid import UUID
 from sqlalchemy import func, desc, extract, case
 from app.db.models.photo import Photo
@@ -7,7 +7,7 @@ from app.db.models.scene import Scene
 
 def get_location_years(db: Session, owner_id: UUID):
     years = db.query(extract('year', Photo.photo_time))\
-        .filter(Photo.photo_time.isnot(None), Photo.owner_id == owner_id)\
+        .filter(Photo.photo_time.isnot(None), Photo.is_deleted == False, Photo.owner_id == owner_id)\
         .distinct()\
         .order_by(desc(extract('year', Photo.photo_time)))\
         .all()
@@ -34,7 +34,7 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
             Scene.id,
             Scene.is_custom,
             func.count(Photo.id).label('count')
-        ).filter(Photo.owner_id == owner_id).outerjoin(
+        ).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).outerjoin(
             PhotoMetadata, Scene.id == PhotoMetadata.scene_id
         ).outerjoin(
             Photo, Photo.id == PhotoMetadata.photo_id
@@ -43,7 +43,7 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
         query = db.query(
             group_col,
             func.count(Photo.id).label('count')
-        ).filter(Photo.owner_id == owner_id).join(
+        ).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).join(
             PhotoMetadata, Photo.id == PhotoMetadata.photo_id
         )
 
@@ -86,7 +86,7 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
     cover_query = db.query(
         Photo,
         group_col
-    ).filter(Photo.owner_id == owner_id).join(
+    ).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).join(
         PhotoMetadata, Photo.id == PhotoMetadata.photo_id
     )
 
@@ -133,20 +133,19 @@ def get_locations(db: Session, owner_id: UUID, level: str = 'city', skip: int = 
     return locations
 
 def get_location_photos(db: Session, owner_id: UUID, name: str, level: str = 'city', skip: int = 0, limit: int = 50, start_date: str = None, end_date: str = None):
-    query = db.query(Photo).options(joinedload(Photo.metadata_info)).filter(Photo.owner_id == owner_id)
+    # 使用 join 配合 contains_eager 替代 joinedload，避免产生重复的 JOIN 查询，提升性能
+    query = db.query(Photo).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)
+    query = query.filter(Photo.owner_id == owner_id, Photo.is_deleted == False)
+
     if level == 'city':
         col = PhotoMetadata.city
-        query = query.join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)
     elif level == 'province':
         col = PhotoMetadata.province
-        query = query.join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)
     elif level == 'district':
         col = PhotoMetadata.district
-        query = query.join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)
     elif level == 'scene':
         col = Scene.name
-        query = query.join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)\
-                  .join(Scene, PhotoMetadata.scene_id == Scene.id)
+        query = query.join(Scene, PhotoMetadata.scene_id == Scene.id)
     else:
         return []
         
@@ -166,7 +165,7 @@ def get_map_markers(db: Session, owner_id: UUID, start_date: str = None, end_dat
         Photo.id,
         PhotoMetadata.latitude,
         PhotoMetadata.longitude
-    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)\
+    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id, Photo.is_deleted == False)\
      .filter(PhotoMetadata.latitude.isnot(None))\
      .filter(PhotoMetadata.longitude.isnot(None))\
      .filter(Photo.owner_id == owner_id)
@@ -237,7 +236,7 @@ def get_timeline_nodes(db: Session, owner_id: UUID, level: str = 'city', skip: i
         func.avg(PhotoMetadata.latitude).label('lat'),
         func.avg(PhotoMetadata.longitude).label('lng'),
         func.max(cast(Photo.id, String)).label('cover_id')
-    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id) \
+    ).join(PhotoMetadata, Photo.id == PhotoMetadata.photo_id, Photo.is_deleted == False) \
      .outerjoin(Scene, PhotoMetadata.scene_id == Scene.id) \
      .filter(Photo.owner_id == owner_id) \
      .filter(PhotoMetadata.latitude.isnot(None)) \
@@ -322,7 +321,7 @@ def get_location_distribution(db: Session, owner_id: UUID, level: str = 'city', 
     query = db.query(
         group_col.label('name'),
         func.count(Photo.id).label('count')
-    ).filter(Photo.owner_id == owner_id).join(
+    ).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).join(
         PhotoMetadata, Photo.id == PhotoMetadata.photo_id
     )
 
@@ -345,7 +344,7 @@ def get_location_distribution(db: Session, owner_id: UUID, level: str = 'city', 
 
 def get_location_statistics(db: Session, owner_id: UUID):
     # Filter photos by owner_id first
-    subq = db.query(Photo.id).filter(Photo.owner_id == owner_id).subquery()
+    subq = db.query(Photo.id).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).subquery()
     
     # Query stats using the subquery
     result = db.query(
@@ -372,7 +371,7 @@ def search_locations(db: Session, owner_id: UUID, query: str, limit: int = 20):
     # 1. Search Provinces
     provinces = db.query(PhotoMetadata.province)\
         .join(Photo, Photo.id == PhotoMetadata.photo_id)\
-        .filter(Photo.owner_id == owner_id)\
+        .filter(Photo.owner_id == owner_id, Photo.is_deleted == False)\
         .filter(PhotoMetadata.province.ilike(search))\
         .filter(PhotoMetadata.province.isnot(None), PhotoMetadata.province != '')\
         .distinct()\
@@ -422,7 +421,7 @@ def search_locations(db: Session, owner_id: UUID, query: str, limit: int = 20):
     # Match on Province OR City OR District
     districts = db.query(PhotoMetadata.province, PhotoMetadata.city, PhotoMetadata.district)\
         .join(Photo, Photo.id == PhotoMetadata.photo_id)\
-        .filter(Photo.owner_id == owner_id)\
+        .filter(Photo.owner_id == owner_id, Photo.is_deleted == False)\
         .filter(
             (PhotoMetadata.province.ilike(search)) |
             (PhotoMetadata.city.ilike(search)) |

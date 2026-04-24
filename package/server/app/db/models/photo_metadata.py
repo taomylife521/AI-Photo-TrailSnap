@@ -21,19 +21,19 @@ class PhotoMetadata(Base):
     # Enhanced location fields
     longitude = Column(DECIMAL(10, 7))
     latitude = Column(DECIMAL(10, 7))
-    city = Column(String(100))
-    district = Column(String(100))
-    province = Column(String(100))
-    country = Column(String(100))
-    address = Column(Text)
-    
+    city = Column(String(100), index=True)
+    district = Column(String(100), index=True)
+    province = Column(String(100), index=True)
+    country = Column(String(100), index=True)
+    address = Column(Text, index=True)
+
     # Camera info
     make = Column(String(100))
     model = Column(String(100))
     shooting_params = Column(JSON)
 
     location_api = Column(String(255)) # API info for location
-    
+
     scene_id = Column(UUID(as_uuid=True), ForeignKey("scenes.id", ondelete="SET NULL"), nullable=True)
     scene = relationship("Scene")
 

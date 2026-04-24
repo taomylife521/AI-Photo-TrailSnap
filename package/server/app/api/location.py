@@ -10,6 +10,7 @@ from app.schemas import scene as scene_schemas
 from app.crud import scene as scene_crud
 from app.api import deps
 from app.db.models import User
+from app.schemas.photo import Photo
 
 router = APIRouter()
 
@@ -169,7 +170,7 @@ def delete_scene(
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
-@router.get("/{name}/photos", response_model=List[PhotoDetail], summary="获取位置照片列表")
+@router.get("/{name}/photos", response_model=List[Photo], summary="获取位置照片列表")
 def get_location_photos(
     name: str = Path(..., description="位置名称"),
     level: str = Query('city', regex='^(city|province|district|scene)$', description="分组级别：city 或 province 或 district 或 scene"),
@@ -183,4 +184,9 @@ def get_location_photos(
     """
     获取指定位置（城市或省份）的照片列表。
     """
-    return crud.get_location_photos(db, current_user.id, name, level, skip, limit, start_date, end_date)
+    import time
+    st = time.time()
+    photos = crud.get_location_photos(db, current_user.id, name, level, skip, limit, start_date, end_date)
+    et = time.time()
+    print(f"get_location_photos: {et - st} s")
+    return photos

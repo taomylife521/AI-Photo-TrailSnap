@@ -24,7 +24,7 @@ def get_photo_tags(db: Session, photo_id: UUID, owner_id: Optional[UUID] = None)
     # Join PhotoTagRelation and PhotoTag
     query = db.query(PhotoTag, PhotoTagRelation.confidence)\
         .join(PhotoTagRelation, PhotoTag.id == PhotoTagRelation.tag_id)\
-        .filter(PhotoTagRelation.photo_id == photo_id, PhotoTagRelation.is_deleted == False)
+        .filter(PhotoTagRelation.photo_id == photo_id, PhotoTagRelation.is_deleted == False, Photo.is_deleted == False)
 
     if owner_id:
         query = query.filter((PhotoTag.owner_id == owner_id) | (PhotoTag.owner_id == None))
@@ -108,7 +108,8 @@ def get_tags_with_stats(db: Session, owner_id: UUID, skip: int = 0, limit: int =
         func.count(PhotoTagRelation.photo_id).label('count')
     ).join(Photo).filter(
         Photo.owner_id == owner_id,
-        PhotoTagRelation.is_deleted == False
+        PhotoTagRelation.is_deleted == False,
+        Photo.is_deleted == False
     ).group_by(PhotoTagRelation.tag_id).subquery()
 
     # Query tags joined with count
@@ -122,7 +123,7 @@ def get_tags_with_stats(db: Session, owner_id: UUID, skip: int = 0, limit: int =
     for tag, count in tags_with_count:
         # Get latest photo for cover
         cover = None
-        cover = db.query(Photo).filter(Photo.owner_id == owner_id).join(PhotoTagRelation, Photo.id == PhotoTagRelation.photo_id).filter(PhotoTagRelation.tag_id == tag.id).first()
+        cover = db.query(Photo).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).join(PhotoTagRelation, Photo.id == PhotoTagRelation.photo_id).filter(PhotoTagRelation.tag_id == tag.id).first()
 
         result.append(schemas.TagStats(
             id=tag.id,
@@ -142,6 +143,7 @@ def get_photos_by_tag_name(db: Session, owner_id: UUID, tag_name: str, skip: int
         .join(PhotoTagRelation, Photo.id == PhotoTagRelation.photo_id)\
         .filter(
             Photo.owner_id == owner_id,
+            Photo.is_deleted == False,
             PhotoTagRelation.tag_id == tag.id,
             PhotoTagRelation.is_deleted == False
         ).order_by(desc(Photo.photo_time))\

@@ -39,7 +39,7 @@ def get_face(db: Session, face_id: int, owner_id: Optional[UUID] = None) -> Opti
 def get_faces(db: Session, skip: int = 0, limit: int = 100, owner_id: Optional[UUID] = None) -> List[Face]:
     query = db.query(Face).filter(Face.is_deleted == False)
     if owner_id:
-        query = query.join(Photo).filter(Photo.owner_id == owner_id)
+        query = query.join(Photo).filter(Photo.owner_id == owner_id, Photo.is_deleted == False)
     return query.offset(skip).limit(limit).all()
 
 def update_face(db: Session, face_id: int, obj_in: schemas.FaceUpdate, owner_id: Optional[UUID] = None) -> Optional[Face]:
@@ -317,7 +317,7 @@ def get_identity_photos(db: Session, identity_id: UUID, skip: int = 0, limit: in
         Photo.id == Face.photo_id
     )
     if owner_id:
-        query = query.filter(Photo.owner_id == owner_id)
+        query = query.filter(Photo.owner_id == owner_id, Photo.is_deleted == False)
     return query.order_by(desc(Photo.id)).offset(skip).limit(limit).all()
 
 def remove_photos_from_identity(db: Session, identity_id: UUID, photo_ids: List[UUID], owner_id: Optional[UUID] = None) -> int:

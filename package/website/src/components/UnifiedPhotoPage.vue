@@ -391,7 +391,10 @@ const handlePhotoDelete = (id: string) => {
 }
 
 const confirmMessage = computed(() => {
-    return `确定要${props.deleteLabel}选中的 ${idsToDelete.value.length} 张照片吗？`
+  if (props.deleteLabel === '删除') {
+    return `确定要删除选中的 ${idsToDelete.value.length} 张照片吗？删除的照片将放入回收站，可稍后恢复。`
+  }
+  return `确定要${props.deleteLabel}选中的 ${idsToDelete.value.length} 张照片吗？`
 })
 
 const confirmDelete = () => {

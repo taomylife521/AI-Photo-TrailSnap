@@ -755,6 +755,7 @@ def get_on_this_day_photos(db: Session, user_id: UUID, month: int, day: int, yea
         # 我们修改查询：只选择 Photo 对象，但是保留 outerjoin 以便排序
     ).outerjoin(ImageDescription).outerjoin(ImageVector).filter(
         Photo.owner_id == user_id,
+        Photo.is_deleted == False,
         func.extract('month', Photo.photo_time) == month,
         func.extract('day', Photo.photo_time) == day,
         func.extract('year', Photo.photo_time) != year,

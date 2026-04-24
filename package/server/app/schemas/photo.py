@@ -15,7 +15,7 @@ class PhotoBase(BaseModel):
     duration: Optional[float] = None
     filename: Optional[str] = None
     photo_time: Optional[datetime] = None
-    md5: Optional[str] = None
+    md5: Optional[str] = Field(default=None, exclude=True)
 
 class PhotoCreate(PhotoBase):
     pass

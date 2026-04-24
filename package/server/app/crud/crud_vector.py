@@ -38,7 +38,7 @@ def search_similar_vectors(db: Session, embedding: List[float], limit: int = 10,
     query = db.query(ImageVector, distance)
 
     if user_id:
-        query = query.join(Photo, ImageVector.photo_id == Photo.id).filter(Photo.owner_id == user_id)
+        query = query.join(Photo, ImageVector.photo_id == Photo.id).filter(Photo.owner_id == user_id, Photo.is_deleted == False)
 
     query = query.order_by(distance).offset(offset).limit(limit)
     

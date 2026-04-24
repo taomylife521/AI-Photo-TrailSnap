@@ -36,7 +36,8 @@ class ReportSummary(BaseModel):
 def get_date_range_filter(query, start_time: datetime, end_time: datetime, user_id: Optional[UUID] = None):
     q = query.filter(
         Photo.photo_time >= start_time,
-        Photo.photo_time <= end_time
+        Photo.photo_time <= end_time,
+        Photo.is_deleted == False
     )
     if user_id:
         q = q.filter(Photo.owner_id == user_id)
@@ -52,7 +53,8 @@ def get_annual_report_photos(
     query = db.query(Photo).join(PhotoMetadata, PhotoMetadata.photo_id == Photo.id)\
     .filter(
         Photo.photo_time >= start_time,
-        Photo.photo_time <= end_time
+        Photo.photo_time <= end_time,
+        Photo.is_deleted == False
     )\
     .filter(Photo.file_type == FileType.image)\
     .filter(Photo.image_type != ImageType.SCREENSHOT)\
@@ -245,7 +247,7 @@ def find_best_match_photo(
     Filters by time range, file type (image only), excludes screenshots.
     """
     query = db.query(Photo).join(ImageVector, Photo.id == ImageVector.photo_id)\
-        .filter(Photo.photo_time >= start_time, Photo.photo_time <= end_time)\
+        .filter(Photo.photo_time >= start_time, Photo.photo_time <= end_time, Photo.is_deleted == False)\
         .filter(Photo.file_type == FileType.image)\
         .filter(Photo.image_type != ImageType.SCREENSHOT)
     

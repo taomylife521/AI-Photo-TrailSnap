@@ -39,7 +39,7 @@ class Photo(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
 
     # Soft delete fields
-    is_deleted = Column(Boolean, default=False, index=True)
+    is_deleted = Column(Boolean, nullable=False, default=False, index=True)
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     # Relationships
