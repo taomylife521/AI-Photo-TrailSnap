@@ -10,11 +10,13 @@ def setup_parser(subparsers):
     list_parser = sub_subparsers.add_parser("list", help="查询照片列表")
     list_parser.add_argument("--skip", type=int, default=0, help="跳过 N 张照片")
     list_parser.add_argument("--limit", type=int, default=10, help="限制返回 N 张照片")
-    list_parser.add_argument("--album-id", help="按相册 ID 过滤")
-    list_parser.add_argument("--city", help="按城市过滤")
-    list_parser.add_argument("--province", help="按省份过滤")
-    list_parser.add_argument("--make", help="按相机品牌过滤")
-    list_parser.add_argument("--model", help="按相机型号过滤")
+    list_parser.add_argument("--album-id", help="按相册 ID 过滤，多个 ID 用逗号分隔")
+    list_parser.add_argument("--people-id", help="按人物 ID 过滤，多个 ID 用逗号分隔")
+    list_parser.add_argument("--tag-id", help="按标签 ID 过滤，多个 ID 用逗号分隔")
+    list_parser.add_argument("--city", help="按城市过滤，多个城市用逗号分隔")
+    list_parser.add_argument("--province", help="按省份过滤，多个省份用逗号分隔")
+    list_parser.add_argument("--make", help="按相机品牌过滤，多个品牌用逗号分隔")
+    list_parser.add_argument("--model", help="按相机型号过滤，多个型号用逗号分隔")
     list_parser.set_defaults(func=execute_list)
 
     # info subcommand
@@ -31,11 +33,13 @@ def execute_list(args):
     params = {
         "skip": args.skip,
         "limit": args.limit,
-        "album_id": args.album_id,
-        "city": args.city,
-        "province": args.province,
-        "make": args.make,
-        "model": args.model
+        "album_ids": args.album_id.split(",") if args.album_id else [],
+        "cities": args.city.split(",") if args.city else [],
+        "provinces": args.province.split(",") if args.province else [],
+        "makes": args.make.split(",") if args.make else [],
+        "models": args.model.split(",") if args.model else [],
+        "face_ids": args.people_id.split(",") if args.people_id else [],
+        "tag_ids": args.tag_id.split(",") if args.tag_id else []
     }
     data = make_request("/photos", params)
     if data:

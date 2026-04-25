@@ -9,10 +9,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 from commands import config, photos, tags, albums, locations, people, folders, medias
 
 def main():
-    # 强制将标准输出的编码设置为 utf-8，解决 Windows 下默认 GBK 编码导致的字符报错问题
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
-
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(errors="replace")
+    sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description="TrailSnap CLI 命令行工具")
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
     subparsers.required = True

@@ -250,7 +250,9 @@ def _build_photo_filter_query(
     city: Optional[str] = None,
     cities: Optional[List[str]] = None,
     province: Optional[str] = None,
+    provinces: Optional[List[str]] = None,
     country: Optional[str] = None,
+    countries: Optional[List[str]] = None,
     make: Optional[str] = None,
     makes: Optional[List[str]] = None,
     model: Optional[str] = None,
@@ -261,8 +263,11 @@ def _build_photo_filter_query(
     file_types: Optional[List[str]] = None,
     tag: Optional[str] = None,
     album_id: Optional[UUID] = None,
+    album_ids: Optional[List[UUID]] = None,
     face_id: Optional[UUID] = None,
+    face_ids: Optional[List[UUID]] = None,
     tag_id: Optional[UUID] = None,
+    tag_ids: Optional[List[UUID]] = None,
     lat_min: Optional[float] = None,
     lat_max: Optional[float] = None,
     lng_min: Optional[float] = None,
@@ -308,25 +313,43 @@ def _build_photo_filter_query(
     elif file_type:
         photo_query = photo_query.filter(Photo.file_type == file_type)
 
-    # 如果指定 album_id，先过滤出该相册下的 photo_id
-    if album_id is not None:
+    needs_distinct = False
+
+    # 如果指定 album_id / album_ids，先过滤出该相册下的 photo_id
+    if album_ids:
+        photo_query = photo_query.join(Photo.albums).filter(Album.id.in_(album_ids))
+        needs_distinct = True
+    elif album_id is not None:
         photo_query = photo_query.join(Photo.albums).filter(Album.id == album_id)
+        needs_distinct = True
 
     # Face Identity Filter
-    if face_id is not None:
+    if face_ids:
+        photo_query = photo_query.join(Photo.faces).filter(Face.face_identity_id.in_(face_ids))
+        needs_distinct = True
+    elif face_id is not None:
         photo_query = photo_query.join(Photo.faces).filter(Face.face_identity_id == face_id)
+        needs_distinct = True
 
     # Tag ID Filter
-    if tag_id is not None:
+    if tag_ids:
+        photo_query = photo_query.join(Photo.tags).filter(PhotoTag.id.in_(tag_ids))
+        needs_distinct = True
+    elif tag_id is not None:
         photo_query = photo_query.join(Photo.tags).filter(PhotoTag.id == tag_id)
+        needs_distinct = True
 
     # Tag Name Filter (if tag string provided)
     if tag is not None and tag.strip():
         photo_query = photo_query.join(Photo.tags).filter(PhotoTag.tag_name.ilike(f"%{tag.strip()}%"))
+        needs_distinct = True
+
+    if needs_distinct:
+        photo_query = photo_query.distinct()
 
     has_metadata_filters = (
         (city and city.strip()) or cities or
-        province or country or
+        province or provinces or country or countries or
         (make and make.strip()) or makes or
         (model and model.strip()) or models or
         lat_min or lat_max or lng_min or lng_max or radius or center_lat or center_lng
@@ -349,9 +372,14 @@ def _build_photo_filter_query(
         elif city is not None and city.strip():
             query = query.filter(PhotoMetadata.city.ilike(f"%{city.strip()}%"))
 
-        if province:
+        if provinces:
+            query = query.filter(PhotoMetadata.province.in_(provinces))
+        elif province:
             query = query.filter(PhotoMetadata.province.ilike(f"%{province.strip()}%"))
-        if country:
+
+        if countries:
+            query = query.filter(PhotoMetadata.country.in_(countries))
+        elif country:
             query = query.filter(PhotoMetadata.country.ilike(f"%{country.strip()}%"))
 
         # Camera Make/Model Filters
@@ -407,7 +435,9 @@ def get_all_photos(
     city: Optional[str] = None,
     cities: Optional[List[str]] = None,
     province: Optional[str] = None,
+    provinces: Optional[List[str]] = None,
     country: Optional[str] = None,
+    countries: Optional[List[str]] = None,
     make: Optional[str] = None,
     makes: Optional[List[str]] = None,
     model: Optional[str] = None,
@@ -418,8 +448,11 @@ def get_all_photos(
     file_types: Optional[List[str]] = None,
     tag: Optional[str] = None,
     album_id: Optional[UUID] = None,
+    album_ids: Optional[List[UUID]] = None,
     face_id: Optional[UUID] = None,
+    face_ids: Optional[List[UUID]] = None,
     tag_id: Optional[UUID] = None,
+    tag_ids: Optional[List[UUID]] = None,
     lat_min: Optional[float] = None,
     lat_max: Optional[float] = None,
     lng_min: Optional[float] = None,
@@ -431,10 +464,40 @@ def get_all_photos(
     user_id: UUID = None
 ):
     query = _build_photo_filter_query(
-        db, start_time, end_time, years, city, cities, province, country,
-        make, makes, model, models, image_type, image_types, file_type, file_types,
-        tag, album_id, face_id, tag_id, lat_min, lat_max, lng_min, lng_max,
-        radius, center_lat, center_lng, ids, user_id=user_id
+        db=db,
+        start_time=start_time,
+        end_time=end_time,
+        years=years,
+        city=city,
+        cities=cities,
+        province=province,
+        provinces=provinces,
+        country=country,
+        countries=countries,
+        make=make,
+        makes=makes,
+        model=model,
+        models=models,
+        image_type=image_type,
+        image_types=image_types,
+        file_type=file_type,
+        file_types=file_types,
+        tag=tag,
+        album_id=album_id,
+        album_ids=album_ids,
+        face_id=face_id,
+        face_ids=face_ids,
+        tag_id=tag_id,
+        tag_ids=tag_ids,
+        lat_min=lat_min,
+        lat_max=lat_max,
+        lng_min=lng_min,
+        lng_max=lng_max,
+        radius=radius,
+        center_lat=center_lat,
+        center_lng=center_lng,
+        ids=ids,
+        user_id=user_id
     )
 
     # Optimization for user albums / eager load albums
@@ -453,7 +516,9 @@ def get_timeline_stats(
     city: Optional[str] = None,
     cities: Optional[List[str]] = None,
     province: Optional[str] = None,
+    provinces: Optional[List[str]] = None,
     country: Optional[str] = None,
+    countries: Optional[List[str]] = None,
     make: Optional[str] = None,
     makes: Optional[List[str]] = None,
     model: Optional[str] = None,
@@ -464,8 +529,11 @@ def get_timeline_stats(
     file_types: Optional[List[str]] = None,
     tag: Optional[str] = None,
     album_id: Optional[UUID] = None,
+    album_ids: Optional[List[UUID]] = None,
     face_id: Optional[UUID] = None,
+    face_ids: Optional[List[UUID]] = None,
     tag_id: Optional[UUID] = None,
+    tag_ids: Optional[List[UUID]] = None,
     lat_min: Optional[float] = None,
     lat_max: Optional[float] = None,
     lng_min: Optional[float] = None,
@@ -477,10 +545,40 @@ def get_timeline_stats(
     user_id: UUID = None
 ):
     query = _build_photo_filter_query(
-        db, start_time, end_time, years, city, cities, province, country,
-        make, makes, model, models, image_type, image_types, file_type, file_types,
-        tag, album_id, face_id, tag_id, lat_min, lat_max, lng_min, lng_max,
-        radius, center_lat, center_lng, ids, user_id=user_id
+        db=db,
+        start_time=start_time,
+        end_time=end_time,
+        years=years,
+        city=city,
+        cities=cities,
+        province=province,
+        provinces=provinces,
+        country=country,
+        countries=countries,
+        make=make,
+        makes=makes,
+        model=model,
+        models=models,
+        image_type=image_type,
+        image_types=image_types,
+        file_type=file_type,
+        file_types=file_types,
+        tag=tag,
+        album_id=album_id,
+        album_ids=album_ids,
+        face_id=face_id,
+        face_ids=face_ids,
+        tag_id=tag_id,
+        tag_ids=tag_ids,
+        lat_min=lat_min,
+        lat_max=lat_max,
+        lng_min=lng_min,
+        lng_max=lng_max,
+        radius=radius,
+        center_lat=center_lat,
+        center_lng=center_lng,
+        ids=ids,
+        user_id=user_id
     )
 
     # 总数
