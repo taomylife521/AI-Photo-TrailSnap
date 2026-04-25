@@ -9,3 +9,4 @@ dist
 .trae
 *uploads*
 data/*
+.env

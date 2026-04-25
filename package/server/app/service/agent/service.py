@@ -79,18 +79,18 @@ def get_agent_executor(user_id: str, session_id: str, db: Session, connection_id
     m_name = model_name or ai_settings.analysis_model_name
 
     if not c_id or not m_name:
-        raise ValueError("未配置智能分析模型，请在「系统设置 -> 智能分析」中配置连接和模型。")
+        raise ValueError("未配置智能分析模型，请在「系统设置 -> AI相关配置」中配置连接和模型。")
 
     # Find connection
     connection = next((c for c in ai_settings.connections if c.id == c_id), None)
     if not connection:
-        raise ValueError(f"未找到指定的 AI 连接配置: {c_id}")
+        raise ValueError(f"未找到指定的 AI 连接配置: {c_id}，请在「系统设置 -> AI相关配置」中检查配置。")
 
     if not connection.enable:
-        raise ValueError(f"选中的 AI 连接已禁用: {c_id}")
+        raise ValueError(f"选中的 AI 连接已禁用: {c_id}，请在「系统设置 -> AI相关配置」中检查配置")
 
     if not connection.api_key:
-        raise ValueError(f"选中的 AI 连接未配置 API Key: {c_id}")
+        raise ValueError(f"选中的 AI 连接未配置 API Key: {c_id}，请在「系统设置 -> AI相关配置」中检查配置")
 
     # 初始化 LLM
     llm = FixedChatOpenAI(
@@ -259,8 +259,6 @@ async def stream_chat_with_agent(user_id: str, session_id: str, user_input: str,
             role="user",
             content=user_input,
         ))
-
-        import json
         
         # Check if it's the first message (1 system prompt + 1 user message = 2)
         is_first_message = len(messages) <= 2

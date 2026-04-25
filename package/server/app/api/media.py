@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request, status, 
 from fastapi.responses import FileResponse, StreamingResponse, Response
 from starlette.concurrency import run_in_threadpool
 import anyio
+import base64
 from sqlalchemy.orm import Session
 
 from app.crud.photo import save_and_create_photo
@@ -110,7 +111,7 @@ async def get_live_photo_video(
     return FileResponse(file_path, media_type=media_type, headers={"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=31536000"})
 
 @router.get('/{photo_id}/thumbnail')
-async def get_thumbnail(photo_id: UUID, size: str = 'small', db: Session = Depends(get_db)):
+async def get_thumbnail(photo_id: UUID, size: str = 'small', format: str = 'file', db: Session = Depends(get_db)):
     photo = await run_in_threadpool(lambda: db.query(Photo).filter(Photo.id == photo_id).first())
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
@@ -118,7 +119,15 @@ async def get_thumbnail(photo_id: UUID, size: str = 'small', db: Session = Depen
     exists = await run_in_threadpool(os.path.exists, path)
     if not exists:
         raise HTTPException(status_code=404, detail="Thumbnail not found")
-    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000"})
+
+    if format == 'file':
+        return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000"})
+    elif format == 'base64':
+        with open(path, "rb") as f:
+            thumbnail_base64 = base64.b64encode(f.read()).decode("utf-8")
+        return {"base64": thumbnail_base64}
+
+    raise HTTPException(status_code=400, detail="Invalid format. Use 'file' or 'base64'")
 
 @router.get('/{photo_id}/file')
 async def get_media_file(
