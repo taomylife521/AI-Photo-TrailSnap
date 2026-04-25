@@ -34,7 +34,6 @@ dependencies = [
     "langchain-openai>=0.2.14",
     "langchain-community>=0.3.10",
     "langgraph>=0.2.61",
-    "mcp>=1.2.0",
 ]
 [tool.uv]
 index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
