@@ -17,12 +17,13 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
-    "vitepress": "^1.0.0",
-    "vitepress-plugin-mermaid": "^2.0.17",
+    "vitepress": "^2.0.0-alpha.17",
     "vue": "^3.5.0"
   },
   "dependencies": {
     "@giscus/vue": "^3.1.1",
-    "lucide-vue-next": "^0.562.0"
+    "@leelaa/vitepress-plugin-extended": "^1.0.7",
+    "lucide-vue-next": "^0.562.0",
+    "markdown-it-mathjax3": "^4.3.2"
   }
 }

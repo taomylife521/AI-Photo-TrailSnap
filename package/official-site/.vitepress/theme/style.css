@@ -41,3 +41,121 @@
     display: none !important;
   }
 }
+
+/* ========================================== */
+/* VitePress 自定义高亮提示块（统一风格） */
+/* 适配你截图的样式：圆角 + 浅色背景 + 图标 + 主题色文字 */
+/* ========================================== */
+
+/* 通用样式 */
+.custom-block {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+  padding: 8px 20px !important;
+  margin: 16px 0 !important;
+  background-color: #f9fafb !important;
+  position: relative;
+  border: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* 隐藏默认标题 */
+.custom-block .custom-block-title {
+  display: none !important;
+}
+
+/* 图标统一样式 */
+.custom-block::before {
+  font-size: 18px;
+  line-height: 1.5;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ========================================== */
+/* 1. info 信息块（蓝色） */
+/* ========================================== */
+.custom-block.info {
+  background-color: #eff6ff !important;
+  border-color: #dbeafe !important;
+}
+.custom-block.info::before {
+  content: "ⓘ";
+  color: #2563eb;
+}
+.custom-block.info p {
+  margin: 0 !important;
+  line-height: 1.6 !important;
+  color: #1e40af !important; /* 主题蓝色文字 */
+}
+
+/* ========================================== */
+/* 2. tip 技巧块（绿色） */
+/* ========================================== */
+.custom-block.tip {
+  background-color: #f0fdf4 !important;
+  border-color: #dcfce7 !important;
+}
+.custom-block.tip::before {
+  content: "💡";
+  color: #16a34a;
+}
+.custom-block.tip p {
+  margin: 0 !important;
+  line-height: 1.6 !important;
+  color: #15803d !important; /* 主题绿色文字 */
+}
+
+/* ========================================== */
+/* 3. warning 警告块（黄色） */
+/* ========================================== */
+.custom-block.warning {
+  background-color: #fffbeb !important;
+  border-color: #fef3c7 !important;
+}
+.custom-block.warning::before {
+  content: "⚠️";
+  color: #d97706;
+}
+.custom-block.warning p {
+  margin: 0 !important;
+  line-height: 1.6 !important;
+  color: #b45309 !important; /* 主题黄色文字 */
+}
+
+/* ========================================== */
+/* 4. danger 危险块（红色） */
+/* ========================================== */
+.custom-block.danger {
+  background-color: #fef2f2 !important;
+  border-color: #fee2e2 !important;
+}
+.custom-block.danger::before {
+  content: "🛑";
+  color: #dc2626;
+}
+.custom-block.danger p {
+  margin: 0 !important;
+  line-height: 1.6 !important;
+  color: #b91c1c !important; /* 主题红色文字 */
+}
+
+/* ========================================== */
+/* 5. note 备注块（灰色） */
+/* ========================================== */
+.custom-block.note {
+  background-color: #f9fafb !important;
+  border-color: #f3f4f6 !important;
+}
+.custom-block.note::before {
+  content: "📝";
+  color: #4b5563;
+}
+.custom-block.note p {
+  margin: 0 !important;
+  line-height: 1.6 !important;
+  color: #374151 !important; /* 主题灰色文字 */
+}

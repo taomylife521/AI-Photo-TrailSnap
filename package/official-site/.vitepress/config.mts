@@ -1,8 +1,22 @@
 import { defineConfig } from 'vitepress'
-import { withMermaid } from "vitepress-plugin-mermaid";
+// import { withMermaid } from "vitepress-plugin-mermaid";
+import {MermaidPlugin} from "@leelaa/vitepress-plugin-extended";
 
-export default withMermaid(defineConfig({
+export default defineConfig({
   base: '/',
+  markdown: {
+    breaks: true,
+    math: true,
+    lineNumbers: true,
+    image: {
+      // 默认禁用；设置为 true 可为所有图片启用懒加载。
+      lazyLoading: true
+    },
+    config: (md) => {
+      // 使用更多的 Markdown-it 插件！
+      MermaidPlugin(md);
+    }
+  },
   ignoreDeadLinks: [
     '/^http:\/\/localhost:\d+$/',
     'http://localhost:8082',
@@ -28,69 +42,63 @@ export default withMermaid(defineConfig({
         ],
         sidebar: {
           '/docs/guide/': [
+            { text: '概览', link: '/docs/guide/overview' },
+            { text: '安装指南', link: '/docs/guide/install' },
             {
-              text: '用户指南',
+              text: 'Docker 部署',
+              collapsed: true,
               items: [
-                { text: '概览', link: '/docs/guide/overview' },
-                { text: '安装指南', link: '/docs/guide/install' },
-                {
-                  text: 'Docker 部署',
-                  collapsed: true,
-                  items: [
-                    { text: '通用部署', link: '/docs/guide/docker/' },
-                    { text: 'Windows 部署', link: '/docs/guide/docker/windows' },
-                    { text: '绿联 NAS', link: '/docs/guide/docker/ugreen' },
-                    { text: '极空间', link: '/docs/guide/docker/zspace' },
-                    { text: '飞牛OS', link: '/docs/guide/docker/fnos' }
-                  ]
-                },
-                { text: '使用简介', link: '/docs/guide/user' },
-                {
-                  text: '设置指南',
-                  link: '/docs/guide/settings/',
-                  collapsed: true,
-                  items: [
-                    { text: '地图设置', link: '/docs/guide/settings/mapsetting' },
-                    { text: 'AI 大模型设置', link: '/docs/guide/settings/aisetting' },
-                    { text: '目录设置', link: '/docs/guide/settings/directories' }
-                  ]
-                },
-                { text: '常见问题', link: '/docs/guide/questions' },
-                { text: '问题反馈', link: '/docs/guide/feedback' },
-                { text: '更新日志', link: '/docs/guide/changelog' },
+                { text: '通用部署', link: '/docs/guide/docker/' },
+                { text: 'Windows 部署', link: '/docs/guide/docker/windows' },
+                { text: '绿联 NAS', link: '/docs/guide/docker/ugreen' },
+                { text: '极空间', link: '/docs/guide/docker/zspace' },
+                { text: '飞牛OS', link: '/docs/guide/docker/fnos' }
               ]
-            }
+            },
+            { text: '使用简介', link: '/docs/guide/user' },
+            {
+              text: '设置指南',
+              link: '/docs/guide/settings/',
+              collapsed: true,
+              items: [
+                { text: '地图设置', link: '/docs/guide/settings/mapsetting' },
+                { text: 'AI 大模型设置', link: '/docs/guide/settings/aisetting' },
+                { text: '目录设置', link: '/docs/guide/settings/directories' }
+              ]
+            },
+            { text: '常见问题', link: '/docs/guide/questions' },
+            { text: '问题反馈', link: '/docs/guide/feedback' },
+            { text: '更新日志', link: '/docs/guide/changelog' },
           ],
           '/docs/dev/': [
-            {
-              text: '开发者指南',
-              items: [
-                { text: '快速开始', link: '/docs/dev/guide' },
-                { text: '架构设计', link: '/docs/dev/architecture' },
-                { text: '前端设计', link: '/docs/dev/frontend' },
-                { text: '后端设计', link: '/docs/dev/backend' },
-                { text: 'AI微服务设计', link: '/docs/dev/ai_service' },
-                { text: '任务管理设计', link: '/docs/dev/task_manager' },
-                {
-                  text: 'AI提示词',
-                  link: '/docs/dev/prompt',
-                  collapsed: false,
-                  items: [
-                    { text: '2025-12-25', link: '/docs/dev/prompt/2025-12-25' },
-                    { text: '2026-01-07', link: '/docs/dev/prompt/2026-01-07' },
-                    { text: '2026-01-24', link: '/docs/dev/prompt/2026-01-24' },
-                    { text: '0.2.0', link: '/docs/dev/prompt/0.2.0' },
-                    { text: '0.2.2', link: '/docs/dev/prompt/0.2.2' },
-                    { text: '0.2.3', link: '/docs/dev/prompt/0.2.3' },
-                    { text: '0.3.0', link: '/docs/dev/prompt/0.3.0' },
-                    { text: '0.3.1', link: '/docs/dev/prompt/0.3.1' },
-                    { text: '0.3.2', link: '/docs/dev/prompt/0.3.2' },
-                    { text: '0.3.3', link: '/docs/dev/prompt/0.3.3' },
-                    { text: '官网设计文档', link: '/docs/dev/prompt/official_website_design' }
-                  ]
-                }
-              ]
-            }
+              { text: '快速开始', link: '/docs/dev/guide' },
+              {
+                text: '设计文档',
+                items: [
+                  { text: '整体架构设计', link: '/docs/dev/architecture' },
+                  { text: '前端设计', link: '/docs/dev/frontend' },
+                  { text: '后端设计', link: '/docs/dev/backend' },
+                  { text: 'AI微服务设计', link: '/docs/dev/ai_service' },
+                  { text: '任务管理设计', link: '/docs/dev/task_manager' }
+                ]
+              },
+              {
+                text: 'AI提示词',
+                collapsed: true,
+                items: [
+                  { text: '2025-12-25', link: '/docs/dev/prompt/2025-12-25' },
+                  { text: '2026-01-07', link: '/docs/dev/prompt/2026-01-07' },
+                  { text: '2026-01-24', link: '/docs/dev/prompt/2026-01-24' },
+                  { text: '0.2.0', link: '/docs/dev/prompt/0.2.0' },
+                  { text: '0.2.2', link: '/docs/dev/prompt/0.2.2' },
+                  { text: '0.2.3', link: '/docs/dev/prompt/0.2.3' },
+                  { text: '0.3.0', link: '/docs/dev/prompt/0.3.0' },
+                  { text: '0.3.1', link: '/docs/dev/prompt/0.3.1' },
+                  { text: '0.3.2', link: '/docs/dev/prompt/0.3.2' },
+                  { text: '0.3.3', link: '/docs/dev/prompt/0.3.3' },
+                  { text: '官网设计文档', link: '/docs/dev/prompt/official_website_design' }
+                ]
+              }
           ],
           '/docs/blog/': [
             {
@@ -271,4 +279,4 @@ export default withMermaid(defineConfig({
       }
     }
   }
-}))
+})

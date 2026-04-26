@@ -1,6 +1,6 @@
-# 安装指南
-
+::: info 安装指南
 TrailSnap 目前仅支持docker部署，推荐使用 Docker Compose 进行快速部署。
+:::
 
 ## Docker 部署 (推荐)
 
@@ -130,11 +130,13 @@ TrailSnap 目前仅支持docker部署，推荐使用 Docker Compose 进行快速
 
 ### 注意事项
 
+::: warning
 - **数据持久化**: 数据库数据会保存在当前目录下的 `pg_data` 文件夹中，应用数据保存在 `data` 文件夹中。请勿随意删除这些目录，以免丢失数据。
 - **端口冲突**: 如果默认端口被占用，请在 `docker-compose.yml` 中修改 `ports` 映射（例如 `8083:80`）。
 - **照片权限**: 确保 Docker 容器有权限读取挂载的照片目录。
 - **使用 GPU 加速**：如果你的系统支持 GPU 加速，建议在 `docker-compose.yml` 中添加 GPU 支持。详细步骤请参考 [Docker 部署（GPU 支持）](./docker/index.md)。
 - **体验新特性**：如果你想体验最新功能，可以把 `latest` 标签替换为 `master` 版本。
+:::
 
 ### 开始使用
 
