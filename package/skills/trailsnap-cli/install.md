@@ -48,5 +48,5 @@ trailsnap config set --url <url> --token <token>
 ## 第 3 步 验证
 
 ```shell
-trailsnap locations timeline --limit 5
+trailsnap photos list --limit 5
 ```

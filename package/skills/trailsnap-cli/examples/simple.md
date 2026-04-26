@@ -8,8 +8,10 @@
 
 ```bash
 trailsnap locations timeline  --start-date "2025-10-01" --end-date "2025-14-01"
+```
 
 输出：
+
 ```json
 [
   {
@@ -81,22 +83,23 @@ trailsnap locations timeline  --start-date "2025-10-01" --end-date "2025-14-01"
 ]
 ```
 
+2. 根据足迹时间轴确定旅游日记的大致布局，生成旅游日记的大概框架。
 
-2. 找到2025年10月1日在苏州市的照片。
+3. 根据大纲，找到某一部分的照片，例如：2025年10月1日在苏州市的照片。
 
 ```bash
 trailsnap photos list --city "苏州市" --limit 50
 ```
 
-3. 查看某一张照片的详细信息。
+4. 查看某些值得记录到日记里照片的详细信息。
 
 ```bash
 trailsnap photos info --photo-id <photo_id>
 ```
 
-4. 根据要求查看对应照片的详细信息，进而生成旅游日志。
+5. 根据要求查看对应照片的详细信息，进而生成旅游日记。
 
-5. 获取某张照片的URL地址
+6. 获取某张照片的URL地址，将URL地址添加到旅游日记中。
 
 ```bash
 trailsnap medias get --photo-id <photo_id> --format url --size medium
