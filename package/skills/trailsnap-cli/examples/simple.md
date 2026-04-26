@@ -1,6 +1,6 @@
 ## 目标
 
-查一下去年国庆节去了哪些地方？帮我生成一个旅游日志。
+查一下去年国庆节去了哪些地方？帮我生成一个旅游日记。
 
 ## 步骤
 
@@ -95,3 +95,9 @@ python cli.py photos info --photo-id <photo_id>
 ```
 
 4. 根据要求查看对应照片的详细信息，进而生成旅游日志。
+
+5. 获取某张照片的URL地址
+
+```bash
+python cli.py medias get --photo-id <photo_id> --format url --size medium
+```

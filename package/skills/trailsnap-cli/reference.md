@@ -53,11 +53,15 @@ python cli.py config set --url http://localhost:8000 --token eyJhbGciOiJIUzI1NiI
 
 - `--skip`：跳过 N 张照片（默认 0）
 - `--limit`：限制返回 N 张照片（默认 10）
+- `--image-type`：按图片类型过滤照片，多个类型用逗号分隔，可选值：Camera（手机或相机拍摄）、Screenshot（截图）、Other（未知的其他类型）
+- `--start-time`：按开始时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS
+- `--end-time`：按结束时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS
 - `--album-id`：按相册 ID 过滤，多个 ID 用逗号分隔
 - `--people-id`：按人物 ID 过滤，多个 ID 用逗号分隔
 - `--tag-id`：按标签 ID 过滤，多个 ID 用逗号分隔
 - `--city`：按城市过滤，多个城市用逗号分隔（全称）
 - `--province`：按省份过滤，多个省份用逗号分隔（全称）
+- `--scene`：按景区过滤，多个景区用逗号分隔
 - `--make`：按相机品牌过滤，多个品牌用逗号分隔
 - `--model`：按相机型号过滤，多个型号用逗号分隔
 
@@ -81,8 +85,7 @@ python cli.py photos list --limit 20 --city 西安市,上海市
 
 「返回值」：JSON 对象，包含：
 
-- `file_path`：文件路径
-- `address`：地址信息
+- `address`：照片详细拍摄地址（精确到街道）
 - `albums`：所属相册信息
 - `tags`：标签信息
 - `faces_identities`：人物（面部识别身份）信息
@@ -247,7 +250,7 @@ python cli.py folders list
 
 # 九、媒体文件命令
 
-## 9.1 medias get - 获取照片的媒体文件
+## 9.1 medias get - 获取照片的媒体文件或URL
 
 「功能」：获取指定照片的媒体内容/访问地址，支持输出 URL、base64、或保存到本地文件。
 
@@ -257,19 +260,19 @@ python cli.py folders list
 
 - `--photo-id`：照片 ID（默认 100）
 - `--size`：照片质量/尺寸（默认 medium，可选：small、medium、large）
-- `--format`：输出格式（默认 url，可选：url、base64、file）
+- `--format`：输出格式（默认 url（可以把链接插入到HTML页面或者markdown文件），可选：url、base64、file）
 - `--output`：输出文件路径（仅当 `--format file` 时必填）
 
 「示例」：
 
 ```bash
-# 输出 URL（large 输出原图文件地址，small/medium 输出缩略图地址）
+# 输出 URL（large 输出原图URL，small/medium 输出缩略图URL）
 python cli.py medias get --photo-id 10001 --format url --size large
 
-# base64 输出（缩略图）
+# base64 输出（缩略图base64编码）
 python cli.py medias get --photo-id 10001 --format base64 --size medium
 
-# 保存到本地文件（原图）
+# 保存到本地文件
 python cli.py medias get --photo-id 10001 --format file --output .\photo_10001.jpg
 ```
 

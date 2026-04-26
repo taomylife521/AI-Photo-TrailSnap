@@ -20,7 +20,7 @@ from app.crud import face as crud_face
 from app.crud.album import get_album, _build_album_query, _update_album_photo_count
 from app.crud.cluster import remove_photo_from_clusters
 from app.crud.search_vector import POSITIVE_SENTIMENT_VECTOR
-from app.db.models import Photo, PhotoMetadata, ImageVector, Album, Face, PhotoTag, ImageDescription
+from app.db.models import Photo, PhotoMetadata, ImageVector, Album, Face, PhotoTag, ImageDescription, Scene
 from app.db.models.photo import FileType, ImageType
 from app.schemas import photo as photo_schemas
 from app.schemas.metadata import PhotoMetadataUpdate
@@ -249,6 +249,8 @@ def _build_photo_filter_query(
     years: Optional[List[int]] = None,
     city: Optional[str] = None,
     cities: Optional[List[str]] = None,
+    scene: Optional[str] = None,
+    scenes: Optional[List[str]] = None,
     province: Optional[str] = None,
     provinces: Optional[List[str]] = None,
     country: Optional[str] = None,
@@ -349,6 +351,7 @@ def _build_photo_filter_query(
 
     has_metadata_filters = (
         (city and city.strip()) or cities or
+        (scene and scene.strip()) or scenes or
         province or provinces or country or countries or
         (make and make.strip()) or makes or
         (model and model.strip()) or models or
@@ -371,6 +374,11 @@ def _build_photo_filter_query(
             query = query.filter(PhotoMetadata.city.in_(cities))
         elif city is not None and city.strip():
             query = query.filter(PhotoMetadata.city.ilike(f"%{city.strip()}%"))
+
+        if scenes:
+            query = query.filter(PhotoMetadata.scene.has(Scene.name.in_(scenes)))
+        elif scene is not None and scene.strip():
+            query = query.filter(PhotoMetadata.scene.has(Scene.name.ilike(f"%{scene.strip()}%")))
 
         if provinces:
             query = query.filter(PhotoMetadata.province.in_(provinces))
@@ -434,6 +442,8 @@ def get_all_photos(
     years: Optional[List[int]] = None,
     city: Optional[str] = None,
     cities: Optional[List[str]] = None,
+    scene: Optional[str] = None,
+    scenes: Optional[List[str]] = None,
     province: Optional[str] = None,
     provinces: Optional[List[str]] = None,
     country: Optional[str] = None,
@@ -470,6 +480,8 @@ def get_all_photos(
         years=years,
         city=city,
         cities=cities,
+        scene=scene,
+        scenes=scenes,
         province=province,
         provinces=provinces,
         country=country,
@@ -515,6 +527,8 @@ def get_timeline_stats(
     years: Optional[List[int]] = None,
     city: Optional[str] = None,
     cities: Optional[List[str]] = None,
+    scene: Optional[str] = None,
+    scenes: Optional[List[str]] = None,
     province: Optional[str] = None,
     provinces: Optional[List[str]] = None,
     country: Optional[str] = None,
@@ -551,6 +565,8 @@ def get_timeline_stats(
         years=years,
         city=city,
         cities=cities,
+        scene=scene,
+        scenes=scenes,
         province=province,
         provinces=provinces,
         country=country,

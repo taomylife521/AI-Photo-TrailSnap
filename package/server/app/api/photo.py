@@ -337,6 +337,8 @@ def read_all_photos(
         years: Optional[List[int]] = Query(None),
         city: Optional[str] = None,
         cities: Optional[List[str]] = Query(None),
+        scene: Optional[str] = None,
+        scenes: Optional[List[str]] = Query(None),
         province: Optional[str] = None,
         provinces: Optional[List[str]] = Query(None),
         country: Optional[str] = None,
@@ -364,7 +366,7 @@ def read_all_photos(
     st_time = time.time()
     photos = app.crud.photo.get_all_photos(
         db, skip=skip, limit=limit, start_time=start_time, end_time=end_time,
-        years=years, city=city, cities=cities, province=province, provinces=provinces, country=country, countries=countries, 
+        years=years, city=city, cities=cities, scene=scene, scenes=scenes, province=province, provinces=provinces, country=country, countries=countries, 
         make=make, makes=makes, model=model, models=models, 
         image_type=image_type, image_types=image_types, 
         file_type=file_type, file_types=file_types,

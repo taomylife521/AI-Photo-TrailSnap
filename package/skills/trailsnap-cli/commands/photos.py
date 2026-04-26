@@ -10,11 +10,17 @@ def setup_parser(subparsers):
     list_parser = sub_subparsers.add_parser("list", help="查询照片列表")
     list_parser.add_argument("--skip", type=int, default=0, help="跳过 N 张照片")
     list_parser.add_argument("--limit", type=int, default=10, help="限制返回 N 张照片")
+    list_parser.add_argument("--image-type", help="按图片类型过滤照片，多个类型用逗号分隔，可选值：Camera,Screenshot,Other")
+    # start_time 过滤照片
+    list_parser.add_argument("--start-time", help="按开始时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS")
+    # end_time 过滤照片
+    list_parser.add_argument("--end-time", help="按结束时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS")
     list_parser.add_argument("--album-id", help="按相册 ID 过滤，多个 ID 用逗号分隔")
     list_parser.add_argument("--people-id", help="按人物 ID 过滤，多个 ID 用逗号分隔")
     list_parser.add_argument("--tag-id", help="按标签 ID 过滤，多个 ID 用逗号分隔")
     list_parser.add_argument("--city", help="按城市过滤，多个城市用逗号分隔")
     list_parser.add_argument("--province", help="按省份过滤，多个省份用逗号分隔")
+    list_parser.add_argument("--scene", help="按景区过滤，多个景区用逗号分隔")
     list_parser.add_argument("--make", help="按相机品牌过滤，多个品牌用逗号分隔")
     list_parser.add_argument("--model", help="按相机型号过滤，多个型号用逗号分隔")
     list_parser.set_defaults(func=execute_list)
@@ -33,6 +39,10 @@ def execute_list(args):
     params = {
         "skip": args.skip,
         "limit": args.limit,
+        "start_time": args.start_time,
+        "end_time": args.end_time,
+        "image_types": args.image_type.split(",") if args.image_type else [],
+        "scenes": args.scene.split(",") if args.scene else [],
         "album_ids": args.album_id.split(",") if args.album_id else [],
         "cities": args.city.split(",") if args.city else [],
         "provinces": args.province.split(",") if args.province else [],
@@ -63,7 +73,7 @@ def execute_info(args):
         description_data = {}
     if data:
         info = {
-            "file_path": data["file_path"],
+            # "file_path": data["file_path"],
             "address": data["address"],
             "albums": data["albums"],
             "tags": data["tags"],

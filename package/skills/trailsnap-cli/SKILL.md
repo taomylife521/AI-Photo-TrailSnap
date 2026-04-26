@@ -21,7 +21,7 @@ python cli.py config set --url <API_BASE_URL> --token <YOUR_API_TOKEN>
 
 ## 使用方法
 
-使用前可以通过 `python cli.py <command> -h` 或 `python cli.py <command> <subcommand> -h` 查看每个命令的详细帮助信息。通常情况下，你需要先根据用户的问题逐步筛选出检索条件（一个简单的[示例](examples/simple.md)），然后查询符合条件的照片列表。如果需要访问照片的媒体文件（如 base64 编码或直接下载文件），你可以使用 `medias` 命令。
+使用前可以通过 `python cli.py <command> -h` 或 `python cli.py <command> <subcommand> -h` 查看每个命令的详细帮助信息。通常情况下，你需要先根据用户的问题逐步筛选出检索条件（一个简单的[示例](examples/simple.md)），然后查询符合条件的照片列表。如果需要显示某张照片，你可以使用 `medias` 命令获取其URL地址。
 
 **你只能通过cli.py脚本运行，不能直接调用API。更不能直接读取.env文件中的配置信息。**
 
