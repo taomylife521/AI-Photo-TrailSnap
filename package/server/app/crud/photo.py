@@ -278,6 +278,7 @@ def _build_photo_filter_query(
     center_lat: Optional[float] = None,
     center_lng: Optional[float] = None,
     ids: Optional[List[UUID]] = None,
+    order_by: Optional[str] = None,
     user_id: UUID = None,
     is_deleted: bool = False
 ):
@@ -419,7 +420,18 @@ def _build_photo_filter_query(
                 func.sin(func.radians(center_lat))
             )
             query = query.filter(distance_expr <= radius)
-
+        if order_by == 'quality_score':
+            query = query.outerjoin(
+                ImageDescription, Photo.id == ImageDescription.photo_id
+            ).order_by(
+                ImageDescription.quality_score.desc().nulls_last()
+            )
+        elif order_by == 'memory_score':
+            query = query.outerjoin(
+                ImageDescription, Photo.id == ImageDescription.photo_id
+            ).order_by(
+                ImageDescription.memory_score.desc().nulls_last()
+            )
         return query
     else:
         # 得到候选 photo_id 子查询
@@ -471,6 +483,7 @@ def get_all_photos(
     center_lat: Optional[float] = None,
     center_lng: Optional[float] = None,
     ids: Optional[List[UUID]] = None,
+    order_by: Optional[str] = None,
     user_id: UUID = None
 ):
     query = _build_photo_filter_query(
@@ -509,14 +522,15 @@ def get_all_photos(
         center_lat=center_lat,
         center_lng=center_lng,
         ids=ids,
+        order_by=order_by,
         user_id=user_id
     )
 
     # Optimization for user albums / eager load albums
     query = query.options(joinedload(Photo.albums))
-
-    # 按拍摄时间倒序
-    query = query.order_by(Photo.photo_time.desc())
+    if not order_by or order_by == 'photo_time':
+        # 按拍摄时间倒序
+        query = query.order_by(Photo.photo_time.desc())
     return query.offset(skip).limit(limit).all()
 
 

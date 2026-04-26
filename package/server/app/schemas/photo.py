@@ -32,14 +32,6 @@ class Photo(PhotoBase):
     class Config:
         from_attributes = True
 
-class PhotoDetail(PhotoBase):
-    id: UUID
-    file_path: str
-    upload_time: datetime
-
-    class Config:
-        from_attributes = True
-
 class PhotoGroup(BaseModel):
     date: str
     items: List[Photo]

@@ -2,7 +2,7 @@
 
 本文档详细说明 TrailSnap CLI 命令行工具的所有可用命令、参数用法、功能描述及使用示例，适用于快速上手操作。命令结构遵循「主命令 + 子命令 + 参数」。
 
-核心说明：所有命令需在终端执行，格式统一为 `python <脚本目录>/cli.py <command> <subcommand> [options]`。涉及 API 交互的命令（如 photos、locations 等）需先通过 `config set` 配置 API 地址和 Token，否则会直接报错并退出。
+核心说明：所有命令需在终端执行，格式统一为 `trailsnap <command> <subcommand> [options]`。涉及 API 交互的命令（如 photos、locations 等）需先通过 `config set` 配置 API 地址和 Token，否则会直接报错并退出。
 
 # 一、基础命令
 
@@ -53,6 +53,7 @@ trailsnap config set --url http://localhost:8000 --token eyJhbGciOiJIUzI1NiIsInR
 
 - `--skip`：跳过 N 张照片（默认 0）
 - `--limit`：限制返回 N 张照片（默认 10）
+- `--order_by`：排序字段，默认按值得回忆评分排序，可选值：quality_score（画面质量评分）,memory_score（值得回忆评分）,photo_time（拍摄时间）
 - `--image-type`：按图片类型过滤照片，多个类型用逗号分隔，可选值：Camera（手机或相机拍摄）、Screenshot（截图）、Other（未知的其他类型）
 - `--start-time`：按开始时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS
 - `--end-time`：按结束时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS

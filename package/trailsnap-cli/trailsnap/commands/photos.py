@@ -1,5 +1,5 @@
 import json
-from utils import make_request
+from utils import make_request,load_env
 
 def setup_parser(subparsers):
     parser = subparsers.add_parser("photos", help="管理和查询照片")
@@ -10,6 +10,7 @@ def setup_parser(subparsers):
     list_parser = sub_subparsers.add_parser("list", help="查询照片列表")
     list_parser.add_argument("--skip", type=int, default=0, help="跳过 N 张照片")
     list_parser.add_argument("--limit", type=int, default=10, help="限制返回 N 张照片")
+    list_parser.add_argument("--order_by", type=str, default="memory_score", help="排序字段，默认按值得回忆评分排序，可选值：quality_score,memory_score,photo_time")
     list_parser.add_argument("--image-type", help="按图片类型过滤照片，多个类型用逗号分隔，可选值：Camera,Screenshot,Other")
     # start_time 过滤照片
     list_parser.add_argument("--start-time", help="按开始时间过滤照片，格式为 YYYY-MM-DD HH:MM:SS")
@@ -49,19 +50,37 @@ def execute_list(args):
         "makes": args.make.split(",") if args.make else [],
         "models": args.model.split(",") if args.model else [],
         "face_ids": args.people_id.split(",") if args.people_id else [],
-        "tag_ids": args.tag_id.split(",") if args.tag_id else []
+        "tag_ids": args.tag_id.split(",") if args.tag_id else [],
+        "order_by": args.order_by
     }
-    data = make_request("/photos", params)
+    data = make_request("/photos/detail", params)
+    env = load_env()
+    base_url = env.get("TRAILSNAP_API_URL", "")
+
     if data:
-        photos = [
-            {
+        photos = []
+        for photo in data:
+            metadata = photo.get("metadata_info", {})
+            if not metadata:
+                metadata = {}
+            image_description = photo.get("image_description", {})
+            if not image_description:
+                image_description = {}
+            photos.append({
                 "id": photo["id"],
+                "url": f"{base_url}/medias/{photo['id']}/file",
                 "filename": photo["filename"],
                 "file_type": photo["file_type"],
-                "photo_time": photo["photo_time"]
-            }
-            for photo in data
-        ]
+                "photo_time": photo["photo_time"],
+                "address": metadata.get("address", ""),
+                "description": {
+                    "description": image_description.get("description", ""),
+                    "tags": image_description.get("tags", []),
+                    "memory_score": image_description.get("memory_score", 0),
+                    "quality_score": image_description.get("quality_score", 0),
+                    "narrative": image_description.get("narrative", "")
+                }
+            })
         print(json.dumps(photos, indent=2, ensure_ascii=False))
     else:
         print("没有查询到照片列表")

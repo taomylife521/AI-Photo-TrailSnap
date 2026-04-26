@@ -360,6 +360,7 @@ def read_all_photos(
         center_lat: Optional[float] = None,
         center_lng: Optional[float] = None,
         ids: Optional[List[UUID]] = Query(None),
+        order_by: Optional[str] = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -374,11 +375,70 @@ def read_all_photos(
         face_id=face_id, face_ids=face_ids, tag_id=tag_id, tag_ids=tag_ids,
         lat_min=lat_min, lat_max=lat_max, lng_min=lng_min, lng_max=lng_max,
         radius=radius, center_lat=center_lat, center_lng=center_lng,
+        order_by=order_by,
         ids=ids, user_id=current_user.id
     )
     logging.info(f"read_all_photos time: {time.time() - st_time}")
     return photos
 
+@router.get("/detail", response_model=List[PhotoDetail])
+def read_all_photos_with_detail(
+        skip: int = 0,
+        limit: int = 100,
+        album_id: Optional[UUID] = None,
+        album_ids: Optional[List[UUID]] = Query(None),
+        face_id: Optional[UUID] = None,
+        face_ids: Optional[List[UUID]] = Query(None),
+        tag_id: Optional[UUID] = None,
+        tag_ids: Optional[List[UUID]] = Query(None),
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        years: Optional[List[int]] = Query(None),
+        city: Optional[str] = None,
+        cities: Optional[List[str]] = Query(None),
+        scene: Optional[str] = None,
+        scenes: Optional[List[str]] = Query(None),
+        province: Optional[str] = None,
+        provinces: Optional[List[str]] = Query(None),
+        country: Optional[str] = None,
+        countries: Optional[List[str]] = Query(None),
+        make: Optional[str] = None,
+        makes: Optional[List[str]] = Query(None),
+        model: Optional[str] = None,
+        models: Optional[List[str]] = Query(None),
+        image_type: Optional[str] = None,
+        image_types: Optional[List[str]] = Query(None),
+        file_type: Optional[str] = None,
+        file_types: Optional[List[str]] = Query(None),
+        tag: Optional[str] = None,
+        lat_min: Optional[float] = None,
+        lat_max: Optional[float] = None,
+        lng_min: Optional[float] = None,
+        lng_max: Optional[float] = None,
+        radius: Optional[float] = None,
+        center_lat: Optional[float] = None,
+        center_lng: Optional[float] = None,
+        ids: Optional[List[UUID]] = Query(None),
+        order_by: Optional[str] = None,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    st_time = time.time()
+    photos = app.crud.photo.get_all_photos(
+        db, skip=skip, limit=limit, start_time=start_time, end_time=end_time,
+        years=years, city=city, cities=cities, scene=scene, scenes=scenes, province=province, provinces=provinces, country=country, countries=countries,
+        make=make, makes=makes, model=model, models=models,
+        image_type=image_type, image_types=image_types,
+        file_type=file_type, file_types=file_types,
+        tag=tag, album_id=album_id, album_ids=album_ids,
+        face_id=face_id, face_ids=face_ids, tag_id=tag_id, tag_ids=tag_ids,
+        lat_min=lat_min, lat_max=lat_max, lng_min=lng_min, lng_max=lng_max,
+        radius=radius, center_lat=center_lat, center_lng=center_lng,
+        order_by=order_by,
+        ids=ids, user_id=current_user.id
+    )
+    logging.info(f"read_all_photos time: {time.time() - st_time}")
+    return photos
 
 @router.post("/batch/create")
 def batch_create_photos(
