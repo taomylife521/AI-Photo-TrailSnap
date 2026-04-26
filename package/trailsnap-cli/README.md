@@ -21,3 +21,7 @@ npm install -g trailsnap-cli
 ```bash
 trailsnap --help
 ```
+
+```bash
+trailsnap config set --url <url> --token <token>
+```
