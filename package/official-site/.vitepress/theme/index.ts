@@ -8,6 +8,7 @@ import TicketRecognitionDemo from './components/TicketRecognitionDemo.vue'
 import TicketRecognitionTryIt from './components/TicketRecognitionTryIt.vue'
 import './style.css'
 import {Mermaid} from "@leelaa/vitepress-plugin-extended";
+import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 
 export default {
   extends: DefaultTheme,
@@ -23,5 +24,6 @@ export default {
     app.component('TicketRecognitionDemo', TicketRecognitionDemo)
     app.component('TicketRecognitionTryIt', TicketRecognitionTryIt)
     app.component("Mermaid", Mermaid);
+    enhanceAppWithTabs(app)
   }
 }

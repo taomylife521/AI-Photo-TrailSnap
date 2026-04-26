@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 // import { withMermaid } from "vitepress-plugin-mermaid";
 import {MermaidPlugin} from "@leelaa/vitepress-plugin-extended";
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 export default defineConfig({
   base: '/',
@@ -14,7 +15,8 @@ export default defineConfig({
     },
     config: (md) => {
       // 使用更多的 Markdown-it 插件！
-      MermaidPlugin(md);
+      MermaidPlugin(md)
+      md.use(tabsMarkdownPlugin)
     }
   },
   ignoreDeadLinks: [
