@@ -79,7 +79,7 @@ trailsnap --help
 
 「参数说明」：
 
-- `--url`（必填）：API基础地址，格式为http/https开头，例如：http://localhost:8000
+- `--url`（必填）：API基础地址，格式为http/https开头，例如：`http://localhost:8000`
 
 - `--token`（必填）：API访问凭证（Bearer Token），用于身份验证，需从后端获取。
 
