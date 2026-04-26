@@ -1,0 +1,143 @@
+name: Build and Publish CLI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package/trailsnap-cli/**'
+      - '.github/workflows/build-publish-cli.yml'
+
+jobs:
+  build-binaries:
+    if: contains(github.event.head_commit.message, '构建cli工具')
+    name: Build binaries on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_name: trailsnap-linux-x64
+            executable_name: trailsnap
+          - os: windows-latest
+            asset_name: trailsnap-windows-x64.exe
+            executable_name: trailsnap.exe
+          - os: macos-13
+            asset_name: trailsnap-macos-x64
+            executable_name: trailsnap
+          - os: macos-14
+            asset_name: trailsnap-macos-arm64
+            executable_name: trailsnap
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        working-directory: package/trailsnap-cli
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller build
+
+      - name: Build with PyInstaller
+        working-directory: package/trailsnap-cli
+        run: |
+          pyinstaller --onefile --name trailsnap --paths trailsnap trailsnap/cli.py
+
+      - name: Rename and Prepare Asset (Unix)
+        if: runner.os != 'Windows'
+        working-directory: package/trailsnap-cli/dist
+        run: |
+          mv ${{ matrix.executable_name }} ${{ matrix.asset_name }}
+          chmod +x ${{ matrix.asset_name }}
+
+      - name: Rename and Prepare Asset (Windows)
+        if: runner.os == 'Windows'
+        working-directory: package/trailsnap-cli/dist
+        run: |
+          Rename-Item -Path ${{ matrix.executable_name }} -NewName ${{ matrix.asset_name }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: package/trailsnap-cli/dist/${{ matrix.asset_name }}
+
+  create-release:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get Version
+        id: get_version
+        working-directory: package/trailsnap-cli
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-pypi:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build PyPI Package
+        working-directory: package/trailsnap-cli
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: package/trailsnap-cli/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-npm:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish to npm
+        working-directory: package/trailsnap-cli
+        run: npm publish --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

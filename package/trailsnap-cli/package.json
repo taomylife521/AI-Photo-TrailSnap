@@ -1,0 +1,30 @@
+{
+  "name": "trailsnap-cli",
+  "version": "0.1.0",
+  "description": "TrailSnap Command Line Interface",
+  "main": "bin/run.js",
+  "bin": {
+    "trailsnap": "bin/run.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LC044/TrailSnap.git"
+  },
+  "keywords": [
+    "trailsnap",
+    "cli",
+    "photos"
+  ],
+  "author": "LC044",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  }
+}
