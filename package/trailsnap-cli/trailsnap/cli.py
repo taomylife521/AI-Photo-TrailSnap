@@ -3,7 +3,6 @@ import argparse
 import sys
 from pathlib import Path
 
-# 将当前目录加入 sys.path 以便导入同级模块
 sys.path.insert(0, str(Path(__file__).parent))
 
 from commands import config, photos, tags, albums, locations, people, folders, medias
