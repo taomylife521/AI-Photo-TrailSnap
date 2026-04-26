@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from commands import config, photos, tags, albums, locations, people, folders, medias
 
-VERSION = "0.3.7"
+VERSION = "0.3.8"
 
 def main():
     if hasattr(sys.stdout, "reconfigure"):

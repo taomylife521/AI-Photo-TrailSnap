@@ -63,10 +63,22 @@ export default defineConfig({
               items: [
                 { text: '地图设置', link: '/docs/guide/settings/mapsetting' },
                 { text: 'AI 大模型设置', link: '/docs/guide/settings/aisetting' },
-                { text: '目录设置', link: '/docs/guide/settings/directories' }
+                { text: '目录设置', link: '/docs/guide/settings/directories' },
+                { text: 'Token 设置', link: '/docs/guide/settings/tokensetting' },
+                { text: 'TrailSnap CLI 工具', link: '/docs/guide/settings/trailsnap-cli' }
+              ]
+            },
+            {
+              text: 'Agent skills',
+              link: '/docs/guide/agent/',
+              collapsed: true,
+              items: [
+                { text: 'Claude Code', link: '/docs/guide/agent/claudecode' },
+                { text: 'OpenClaw', link: '/docs/guide/agent/openclaw' }
               ]
             },
             { text: '常见问题', link: '/docs/guide/questions' },
+            { text: 'Agent Skills', link: '/docs/guide/agent/' },
             { text: '问题反馈', link: '/docs/guide/feedback' },
             { text: '更新日志', link: '/docs/guide/changelog' },
           ],

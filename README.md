@@ -73,7 +73,7 @@
 
 - [ ] 支持回收站功能，用户可以恢复已删除的照片。
 - [ ] 支持MCP协议，用户可以通过MCP协议与TrailSnap进行通信。
-- [ ] 支持skills，可以接入OpenClaw、Claude Code等平台。
+- [x] 支持skills，可以接入OpenClaw、Claude Code等平台。
 - [ ] 更丰富的行程管理功能，例如：支持演唱会门票、景区门票、酒店订单、电影票等。
 - [ ] 更全面的AI能力，例如：支持AI自动剪视频生成VLOG、支持AI修图，AI生成旅行日记等。
 
