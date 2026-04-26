@@ -8,6 +8,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from commands import config, photos, tags, albums, locations, people, folders, medias
 
+VERSION = "0.1.0"
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
@@ -17,6 +19,8 @@ def main():
     parser = argparse.ArgumentParser(description="TrailSnap CLI 命令行工具")
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
     subparsers.required = True
+
+    parser.add_argument("-v", "--version", action="version", version=VERSION)
 
     # 注册各个子命令
     config.setup_parser(subparsers)

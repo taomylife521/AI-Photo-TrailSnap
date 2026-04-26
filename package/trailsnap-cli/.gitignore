@@ -1,0 +1,4 @@
+build/
+dist/
+trailsnap.exe
+trailsnap_cli.egg-info/

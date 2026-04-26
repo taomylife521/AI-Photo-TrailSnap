@@ -12,7 +12,7 @@
 「格式」：`--help`
 「示例」：
 ```bash
-python cli.py --help
+trailsnap --help
 ```
 
 # 二、配置命令
@@ -32,7 +32,7 @@ python cli.py --help
 「示例」：
 
 ```bash
-python cli.py config set --url http://localhost:8000 --token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+trailsnap config set --url http://localhost:8000 --token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 「输出说明」：配置成功后会输出配置文件保存路径（写入同目录 `.env`），例如：`配置已保存到 .../.env`。
@@ -70,7 +70,7 @@ python cli.py config set --url http://localhost:8000 --token eyJhbGciOiJIUzI1NiI
 「示例」：
 
 ```bash
-python cli.py photos list --limit 20 --city 西安市,上海市
+trailsnap photos list --limit 20 --city 西安市,上海市
 ```
 
 ### 3.1.2 photos info - 获取单张照片信息
@@ -98,7 +98,7 @@ python cli.py photos list --limit 20 --city 西安市,上海市
 「示例」：
 
 ```bash
-python cli.py photos info --photo-id 10001
+trailsnap photos info --photo-id 10001
 ```
 
 ### 3.1.3 photos delete - 删除单张照片
@@ -114,7 +114,7 @@ python cli.py photos info --photo-id 10001
 「示例」：
 
 ```bash
-python cli.py photos delete --photo-id 10001
+trailsnap photos delete --photo-id 10001
 ```
 
 「输出说明」：删除成功提示 `照片 <photo-id> 删除成功`，失败提示 `照片删除失败或不存在`。
@@ -135,7 +135,7 @@ python cli.py photos delete --photo-id 10001
 「示例」：
 
 ```bash
-python cli.py tags list
+trailsnap tags list
 ```
 
 「输出说明」：输出 JSON 数组，每项包含 `id`、`name`（tag_name）、`count`。
@@ -158,7 +158,7 @@ python cli.py tags list
 「示例」：
 
 ```bash
-python cli.py albums list
+trailsnap albums list
 ```
 
 # 六、位置相关命令
@@ -186,7 +186,7 @@ python cli.py albums list
 「示例」：
 
 ```bash
-python cli.py locations list
+trailsnap locations list
 ```
 
 ### 6.1.2 locations timeline - 查询足迹时间轴
@@ -208,7 +208,7 @@ python cli.py locations list
 「示例」：
 
 ```bash
-python cli.py locations timeline --level city --start-date 2025-01-01 --end-date 2025-06-30
+trailsnap locations timeline --level city --start-date 2025-01-01 --end-date 2025-06-30
 ```
 
 # 七、人物识别命令
@@ -229,7 +229,7 @@ python cli.py locations timeline --level city --start-date 2025-01-01 --end-date
 「示例」：
 
 ```bash
-python cli.py people list
+trailsnap people list
 ```
 
 # 八、存储文件夹命令
@@ -245,7 +245,7 @@ python cli.py people list
 「示例」：
 
 ```bash
-python cli.py folders list
+trailsnap folders list
 ```
 
 # 九、媒体文件命令
@@ -267,13 +267,13 @@ python cli.py folders list
 
 ```bash
 # 输出 URL（large 输出原图URL，small/medium 输出缩略图URL）
-python cli.py medias get --photo-id 10001 --format url --size large
+trailsnap medias get --photo-id 10001 --format url --size large
 
 # base64 输出（缩略图base64编码）
-python cli.py medias get --photo-id 10001 --format base64 --size medium
+trailsnap medias get --photo-id 10001 --format base64 --size medium
 
 # 保存到本地文件
-python cli.py medias get --photo-id 10001 --format file --output .\photo_10001.jpg
+trailsnap medias get --photo-id 10001 --format file --output .\photo_10001.jpg
 ```
 
 # 十、注意事项

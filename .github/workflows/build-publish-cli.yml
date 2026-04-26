@@ -2,8 +2,8 @@ name: Build and Publish CLI
 
 on:
   push:
-    branches:
-      - master
+    branches: [ "master" ]
+    tags: [ "v*.*.*" ]
     paths:
       - 'package/trailsnap-cli/**'
       - '.github/workflows/build-publish-cli.yml'
@@ -25,9 +25,9 @@ jobs:
           - os: macos-13
             asset_name: trailsnap-macos-x64
             executable_name: trailsnap
-          - os: macos-14
-            asset_name: trailsnap-macos-arm64
-            executable_name: trailsnap
+        #   - os: macos-14
+        #     asset_name: trailsnap-macos-arm64
+        #     executable_name: trailsnap
 
     steps:
       - name: Checkout code

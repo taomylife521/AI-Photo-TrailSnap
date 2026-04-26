@@ -299,7 +299,7 @@ def get_timeline_nodes(db: Session, owner_id: UUID, level: str = 'city', skip: i
             ))
 
     total_nodes = len(nodes)
-    paginated_nodes = nodes
+    paginated_nodes = nodes[skip:skip + limit]
 
     return TimelineResponse(nodes=paginated_nodes, total=total_nodes)
 

@@ -7,7 +7,7 @@
 1. 查询足迹时间轴，筛选出去年国庆节的地点。
 
 ```bash
-python cli.py locations timeline  --start-date "2025-10-01" --end-date "2025-14-01"
+trailsnap locations timeline  --start-date "2025-10-01" --end-date "2025-14-01"
 
 输出：
 ```json
@@ -85,13 +85,13 @@ python cli.py locations timeline  --start-date "2025-10-01" --end-date "2025-14-
 2. 找到2025年10月1日在苏州市的照片。
 
 ```bash
-python cli.py photos list --city "苏州市" --limit 50
+trailsnap photos list --city "苏州市" --limit 50
 ```
 
 3. 查看某一张照片的详细信息。
 
 ```bash
-python cli.py photos info --photo-id <photo_id>
+trailsnap photos info --photo-id <photo_id>
 ```
 
 4. 根据要求查看对应照片的详细信息，进而生成旅游日志。
@@ -99,5 +99,5 @@ python cli.py photos info --photo-id <photo_id>
 5. 获取某张照片的URL地址
 
 ```bash
-python cli.py medias get --photo-id <photo_id> --format url --size medium
+trailsnap medias get --photo-id <photo_id> --format url --size medium
 ```

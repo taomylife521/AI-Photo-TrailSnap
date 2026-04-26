@@ -5,7 +5,19 @@ import sys
 from pathlib import Path
 from urllib.parse import urlencode
 
-ENV_FILE = Path(__file__).parent / ".env"
+import os
+
+# 获取用户目录（永久目录，不会消失）
+if os.name == "nt":  # Windows
+    CONFIG_DIR = Path(os.getenv("APPDATA")) / "trailsnap"
+else:  # Mac/Linux
+    CONFIG_DIR = Path.home() / ".config" / "trailsnap"
+
+# 确保目录存在
+CONFIG_DIR.mkdir(exist_ok=True)
+
+# .env 配置文件 永久保存在这里
+ENV_FILE = CONFIG_DIR / ".env"
 
 def load_env():
     if not ENV_FILE.exists():
