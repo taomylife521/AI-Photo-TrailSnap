@@ -6,7 +6,7 @@ outline: [2, 3]
 # TrailSnap CLI 工具
 
 ::: tip
-TrailSnap CLI 工具是一个基于TrailSnap API的命令行工具，用于管理TrailSnap的相册数据。
+TrailSnap CLI 工具是一个基于TrailSnap API的命令行工具，可以通过命令行管理TrailSnap的相册数据。
 :::
 
 ## 一、安装使用
@@ -40,7 +40,7 @@ trailsnap -v
 
 ### 使用 trailsnap-cli工具
 
-首次使用需要配置TrailSnap的API URL和Token（替换 `<url>` 和 `<token>` 为实际的URL和Token）。
+首次使用需要配置TrailSnap的API URL和Token（替换 `<url>` 和 `<token>` 为实际的URL和Token，如何获取请参考[Token 设置](/docs/guide/settings/tokensetting)）。
 
 ```bash
 trailsnap config set --url <url> --token <token>

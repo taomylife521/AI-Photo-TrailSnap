@@ -25,7 +25,7 @@ export default defineConfig({
     // /^http:\/\/localhost:\d+$/ // 正则匹配所有 localhost:端口 形式的链接
   ],
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }]
+    ['link', { rel: 'icon', type: 'image/png', href: '/favicon.ico' }]
   ],
 
   locales: {
@@ -67,14 +67,14 @@ export default defineConfig({
                 { text: 'AI 大模型设置', link: '/docs/guide/settings/aisetting' },
                 { text: '目录设置', link: '/docs/guide/settings/directories' },
                 { text: 'Token 设置', link: '/docs/guide/settings/tokensetting' },
-                { text: 'TrailSnap CLI 工具', link: '/docs/guide/settings/trailsnap-cli' }
               ]
             },
             {
               text: 'Agent skills',
               link: '/docs/guide/agent/',
-              collapsed: true,
+              collapsed: false,
               items: [
+                { text: 'TrailSnap CLI 工具', link: '/docs/guide/agent/trailsnap-cli' },
                 { text: 'Claude Code', link: '/docs/guide/agent/claudecode' },
                 { text: 'OpenClaw', link: '/docs/guide/agent/openclaw' }
               ]

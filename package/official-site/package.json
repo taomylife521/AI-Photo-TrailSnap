@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/nprogress": "^0.2.3",
     "autoprefixer": "^10.4.23",
     "mermaid": "^11.12.2",
     "postcss": "^8.5.6",
@@ -25,6 +26,7 @@
     "@giscus/vue": "^3.1.1",
     "@leelaa/vitepress-plugin-extended": "^1.0.7",
     "lucide-vue-next": "^0.562.0",
-    "markdown-it-mathjax3": "^4.3.2"
+    "markdown-it-mathjax3": "^4.3.2",
+    "nprogress": "^0.2.0"
   }
 }

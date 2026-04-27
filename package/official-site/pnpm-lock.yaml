@@ -13,14 +13,20 @@ importers:
         version: 3.1.1(vue@3.5.33(typescript@5.9.3))
       '@leelaa/vitepress-plugin-extended':
         specifier: ^1.0.7
-        version: 1.0.7(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3))
+        version: 1.0.7(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3))
       lucide-vue-next:
         specifier: ^0.562.0
         version: 0.562.0(vue@3.5.33(typescript@5.9.3))
       markdown-it-mathjax3:
         specifier: ^4.3.2
         version: 4.3.2
+      nprogress:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
+      '@types/nprogress':
+        specifier: ^0.2.3
+        version: 0.2.3
       autoprefixer:
         specifier: ^10.4.23
         version: 10.5.0(postcss@8.5.12)
@@ -38,10 +44,10 @@ importers:
         version: 5.9.3
       vitepress:
         specifier: ^2.0.0-alpha.17
-        version: 2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3)
+        version: 2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3)
       vitepress-plugin-tabs:
         specifier: ^0.9.0
-        version: 0.9.0(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3))
+        version: 0.9.0(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3))
       vue:
         specifier: ^3.5.0
         version: 3.5.33(typescript@5.9.3)
@@ -587,6 +593,9 @@ packages:
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
+
+  '@types/nprogress@0.2.3':
+    resolution: {integrity: sha512-k7kRA033QNtC+gLc4VPlfnue58CM1iQLgn1IMAU8VPHGOj7oIHPp9UlhedEnD/Gl8evoCjwkZjlBORtZ3JByUA==}
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -1425,6 +1434,9 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
+  nprogress@0.2.0:
+    resolution: {integrity: sha512-I19aIingLgR1fmhftnbWWO3dXc0hSxqHQHQb3H8m+K3TnEn/iSeTZZOyvKXWqQESMwuUVnatlCnZdLBZZt2VSA==}
+
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
@@ -1993,12 +2005,12 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@leelaa/vitepress-plugin-extended@1.0.7(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3))':
+  '@leelaa/vitepress-plugin-extended@1.0.7(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3))':
     dependencies:
       d3: 7.9.0
       mermaid: 10.9.5
       three: 0.177.0
-      vitepress: 2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3)
+      vitepress: 2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3)
       vue: 3.5.33(typescript@5.9.3)
     transitivePeerDependencies:
       - supports-color
@@ -2288,6 +2300,8 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
+  '@types/nprogress@0.2.3': {}
+
   '@types/trusted-types@2.0.7': {}
 
   '@types/unist@2.0.11': {}
@@ -2383,13 +2397,14 @@ snapshots:
       '@vueuse/shared': 14.2.1(vue@3.5.33(typescript@5.9.3))
       vue: 3.5.33(typescript@5.9.3)
 
-  '@vueuse/integrations@14.2.1(focus-trap@8.1.0)(vue@3.5.33(typescript@5.9.3))':
+  '@vueuse/integrations@14.2.1(focus-trap@8.1.0)(nprogress@0.2.0)(vue@3.5.33(typescript@5.9.3))':
     dependencies:
       '@vueuse/core': 14.2.1(vue@3.5.33(typescript@5.9.3))
       '@vueuse/shared': 14.2.1(vue@3.5.33(typescript@5.9.3))
       vue: 3.5.33(typescript@5.9.3)
     optionalDependencies:
       focus-trap: 8.1.0
+      nprogress: 0.2.0
 
   '@vueuse/metadata@14.2.1': {}
 
@@ -3288,6 +3303,8 @@ snapshots:
 
   normalize-path@3.0.0: {}
 
+  nprogress@0.2.0: {}
+
   nth-check@2.1.1:
     dependencies:
       boolbase: 1.0.0
@@ -3640,12 +3657,12 @@ snapshots:
       fsevents: 2.3.3
       jiti: 1.21.7
 
-  vitepress-plugin-tabs@0.9.0(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3)):
+  vitepress-plugin-tabs@0.9.0(vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3))(vue@3.5.33(typescript@5.9.3)):
     dependencies:
-      vitepress: 2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3)
+      vitepress: 2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3)
       vue: 3.5.33(typescript@5.9.3)
 
-  vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(postcss@8.5.12)(typescript@5.9.3):
+  vitepress@2.0.0-alpha.17(jiti@1.21.7)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.12)(typescript@5.9.3):
     dependencies:
       '@docsearch/css': 4.6.2
       '@docsearch/js': 4.6.2
@@ -3659,7 +3676,7 @@ snapshots:
       '@vue/devtools-api': 8.1.1
       '@vue/shared': 3.5.33
       '@vueuse/core': 14.2.1(vue@3.5.33(typescript@5.9.3))
-      '@vueuse/integrations': 14.2.1(focus-trap@8.1.0)(vue@3.5.33(typescript@5.9.3))
+      '@vueuse/integrations': 14.2.1(focus-trap@8.1.0)(nprogress@0.2.0)(vue@3.5.33(typescript@5.9.3))
       focus-trap: 8.1.0
       mark.js: 8.11.1
       minisearch: 7.2.0
