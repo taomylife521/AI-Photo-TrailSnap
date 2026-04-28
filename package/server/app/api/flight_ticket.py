@@ -45,38 +45,39 @@ async def recognize_ticket(
         file_content = await file.read()
         
         # 2. 构造请求发送给AI服务
+        import base64
+        b64_data = base64.b64encode(file_content).decode('utf-8')
+        json_data = {"images": [b64_data]}
+        
         async with aiohttp.ClientSession() as session:
-            form_data = FormData()
-            form_data.add_field(
-                name='file',
-                value=file_content,
-                filename=file.filename,
-                content_type=file.content_type or 'image/jpeg'
-            )
-            
             api_url = f"{config_manager.get_user_config(user.id, db).ai.ai_api_url}/tickets/predict"
             
-            async with session.post(api_url, data=form_data) as response:
+            async with session.post(api_url, json=json_data) as response:
                 if response.status != 200:
                     raise HTTPException(status_code=500, detail=f"AI服务请求失败: {response.status}")
                 
-                result = await response.json()
+                result_data = await response.json()
                 
-                if not result or 'tickets' not in result or not result['tickets']:
+                ai_results = result_data.get('results', [])
+                if not ai_results:
+                    raise HTTPException(status_code=400, detail="未能识别出票据信息")
+                    
+                tickets = ai_results[0].get('tickets', [])
+                if not tickets:
                     raise HTTPException(status_code=400, detail="未能识别出票据信息")
                 
                 # 过滤出飞机票
-                flight_tickets = [t for t in result['tickets'] if t.get('type') == 'flight']
+                flight_tickets = [t for t in tickets if t.get('type') == 'flight']
                 
                 if not flight_tickets:
                     # 如果没有识别出飞机票，尝试返回任意票据但提示可能类型不符，或者直接报错
                     # 这里为了用户体验，如果识别到了但类型不对，也可以返回，但前端需要处理
                     # 暂时严格过滤
-                    if result['tickets']:
+                    if tickets:
                          # 如果识别到了火车票，可能用户传错了，或者模型误判
                          logging.warning("Recognized tickets but none marked as flight.")
                          # 尝试取第一个，前端可能需要兼容
-                         ticket_info = result['tickets'][0]
+                         ticket_info = tickets[0]
                     else:
                          raise HTTPException(status_code=400, detail="未能识别出飞机票信息")
                 else:

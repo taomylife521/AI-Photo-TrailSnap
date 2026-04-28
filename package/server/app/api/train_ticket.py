@@ -55,24 +55,25 @@ async def recognize_ticket(
         file_content = await file.read()
         
         # 2. 构造请求发送给AI服务
+        import base64
+        b64_data = base64.b64encode(file_content).decode('utf-8')
+        json_data = {"images": [b64_data]}
+        
         async with aiohttp.ClientSession() as session:
-            form_data = FormData()
-            form_data.add_field(
-                name='file',
-                value=file_content,
-                filename=file.filename,
-                content_type=file.content_type or 'image/jpeg'
-            )
-            
             api_url = f"{config_manager.get_user_config(current_user.id, db).ai.ai_api_url}/tickets/predict"
             
-            async with session.post(api_url, data=form_data) as response:
+            async with session.post(api_url, json=json_data) as response:
                 if response.status != 200:
                     raise HTTPException(status_code=500, detail=f"AI服务请求失败: {response.status}")
                 
-                result = await response.json()
+                result_data = await response.json()
                 
-                if not result or 'tickets' not in result or not result['tickets']:
+                ai_results = result_data.get('results', [])
+                if not ai_results:
+                    raise HTTPException(status_code=400, detail="未能识别出车票信息")
+                    
+                tickets = ai_results[0].get('tickets', [])
+                if not tickets:
                     raise HTTPException(status_code=400, detail="未能识别出车票信息")
                 
                 # 在多检测结果中选择“最完整/最可信”的一张
@@ -90,7 +91,6 @@ async def recognize_ticket(
                         s -= 2
                     return s
                 
-                tickets = result['tickets']
                 ticket_info = max(tickets, key=score)
                 
                 # 3. 数据格式化
