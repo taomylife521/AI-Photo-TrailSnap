@@ -1,6 +1,8 @@
 # Installation Guide
 
-TrailSnap supports multiple deployment methods. It is recommended to use Docker Compose for quick deployment.
+::: info Installation
+TrailSnap currently supports Docker deployment only. Docker Compose is recommended for quick setup.
+:::
 
 ## Docker Deployment (Recommended)
 
@@ -37,6 +39,7 @@ If you have never used Docker and are using Windows, it is recommended to read t
        container_name: postgres_container
        restart: always
        environment:
+         TZ: Asia/Shanghai
          POSTGRES_DB: trailsnap
          POSTGRES_USER: trailsnap
          POSTGRES_PASSWORD: trailsnap
@@ -55,7 +58,7 @@ If you have never used Docker and are using Windows, it is recommended to read t
          start_period: 10s
 
      server:
-       image: siyuan044/trailsnap-server:master
+      image: siyuan044/trailsnap-server:latest
        restart: always
        expose: [ "8000" ]
        ports: [ "8800:8000" ]
@@ -64,6 +67,7 @@ If you have never used Docker and are using Windows, it is recommended to read t
          - ./data:/app/data
          - /path/to/your/photos:/app/Photos/  # Please modify to your photo directory path
        environment:
+        - TZ=Asia/Shanghai
          - DB_URL=postgresql://trailsnap:trailsnap@postgres:5432/trailsnap
          - RAILWAY_DB_URL=postgresql://trailsnap:trailsnap@postgres:5432/railway
          - AI_API_URL=http://ai:8001
@@ -73,20 +77,24 @@ If you have never used Docker and are using Windows, it is recommended to read t
            restart: true
 
      ai:
-       image: siyuan044/trailsnap-ai:master
+      image: siyuan044/trailsnap-ai:latest
        restart: always
        expose: [ "8001" ]
        ports: [ "8801:8001" ]
        networks: [ app-network ]
        volumes:
          - ./data:/app/data
+      environment:
+        - TZ=Asia/Shanghai
        
      frontend:
-       image: siyuan044/trailsnap-frontend:master
+      image: siyuan044/trailsnap-frontend:latest
        restart: always
        ports: [ "8082:80" ]
        depends_on: [ server ]
        networks: [ app-network ]
+      environment:
+        - TZ=Asia/Shanghai
 
    networks:
      app-network:
@@ -124,11 +132,17 @@ If you have never used Docker and are using Windows, it is recommended to read t
 
 ### Notes
 
-- **Data Persistence**: Database data will be saved in the `pg_data` folder in the current directory, and application data in the `data` folder. Please do not delete these directories arbitrarily to avoid data loss.
-- **Port Conflicts**: If the default ports are occupied, please modify the `ports` mapping in `docker-compose.yml` (e.g., `8083:80`).
-- **Photo Permissions**: Ensure that the Docker container has permission to read the mounted photo directory.
-- **GPU Acceleration**：If your system supports GPU acceleration, it is recommended to add GPU support in `docker-compose.yml`. Please refer to [Docker Deployment (GPU Support)](./docker/index.md) for detailed steps.
-- **Experience New Features**：If you want to experience the latest features, you can replace the `latest` tag with the `master` version.
+::: warning
+- **Data Persistence**: Database data is stored in `pg_data`, and application data in `data`. Do not delete them to avoid data loss.
+- **Port Conflicts**: If default ports are occupied, modify the `ports` mappings (e.g. `8083:80`).
+- **Photo Permissions**: Ensure containers can read your mounted photo directory.
+- **GPU Acceleration**: If your system supports GPU, consider enabling GPU support. See [Docker Deployment](./docker/index.md).
+- **Try latest features**: You can replace `latest` with `master` if you want to try the newest changes.
+:::
+
+### Get started
+
+[How to use TrailSnap?](./user.md)
 
 ## Source Code Deployment
 

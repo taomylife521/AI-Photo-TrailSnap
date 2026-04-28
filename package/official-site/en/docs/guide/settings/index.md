@@ -6,6 +6,7 @@ TrailSnap provides rich customization options to help you build a personalized i
 
 - **Basic Settings**: Appearance theme, storage path, AI parameter configuration, etc.
 - **Map Settings**: [Map API Key Configuration](./mapsetting.md), used to enable the footprint map function.
+- **Token Settings**: [API access token](./tokensetting.md), used for third-party apps to access backend APIs.
 - **Task Management**: View background task status (index rebuilding, face recognition, etc.).
 
 ## Configuration Files

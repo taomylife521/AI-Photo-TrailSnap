@@ -282,6 +282,41 @@
       </div>
     </section>
 
+    <!-- 5. Agent Skills -->
+    <section id="agent-skills" class="py-20 bg-white dark:bg-slate-900">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl font-bold text-neutral-dark dark:text-white mb-4">{{ t.agentSkills.title }}</h2>
+          <p class="text-neutral-gray dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">{{ t.agentSkills.desc }}</p>
+          <div class="w-16 h-1 bg-primary mx-auto rounded-full mt-6"></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div
+            v-for="item in t.agentSkills.items"
+            :key="item.title"
+            class="bg-neutral-light dark:bg-slate-800/70 rounded-2xl p-8 border border-gray-100 dark:border-slate-700 shadow-soft hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
+          >
+            <div class="text-4xl mb-5">{{ item.icon }}</div>
+            <h3 class="text-xl font-bold text-neutral-dark dark:text-white mb-3">{{ item.title }}</h3>
+            <p class="text-sm text-neutral-gray dark:text-gray-300 leading-relaxed mb-5">{{ item.desc }}</p>
+            <ul class="space-y-2 text-sm text-neutral-gray dark:text-gray-400">
+              <li v-for="ex in item.examples" :key="ex" class="flex gap-2">
+                <span class="text-primary">•</span>
+                <span class="leading-relaxed">{{ ex }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mt-12">
+          <button class="px-8 py-3 rounded-lg bg-primary text-white font-bold hover:bg-primary-dark hover:scale-105 transition-all shadow-lg hover:shadow-xl" @click="goLink(lang === 'zh-CN' ? '/docs/guide/agent/' : '/en/docs/guide/agent/')">
+            {{ t.agentSkills.ctaDocs }}
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- 6. Testimonials -->
     <section class="py-20 bg-secondary/30 dark:bg-slate-800/30">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -344,9 +379,9 @@
             <ul class="space-y-3 text-sm opacity-80">
               <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/' : '/en/')">{{ t.footer.links.items[0] }}</a></li>
               <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="scrollTo('core-features')">{{ t.footer.links.items[1] }}</a></li>
-              <li><a href="#" class="hover:text-primary transition-colors">{{ t.footer.links.items[2] }}</a></li>
-              <li><a href="#" class="hover:text-primary transition-colors">{{ t.footer.links.items[3] }}</a></li>
-              <li><a href="#" class="hover:text-primary transition-colors">{{ t.footer.links.items[4] }}</a></li>
+              <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/docs/guide/overview' : '/en/docs/guide/overview')">{{ t.footer.links.items[2] }}</a></li>
+              <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/docs/guide/overview' : '/en/docs/guide/overview')">{{ t.footer.links.items[3] }}</a></li>
+              <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/docs/guide/questions' : '/en/docs/guide/questions')">{{ t.footer.links.items[4] }}</a></li>
             </ul>
           </div>
           <!-- Col 3 -->
@@ -467,6 +502,32 @@ const i18n = {
       demoSuffix: ' 演示',
       demoPlaceholder: '（此处展示功能演示动图/视频）'
     },
+    agentSkills: {
+      title: 'Agent Skills · AI 能帮你做什么',
+      desc: '把 TrailSnap 变成 AI 的“个人知识库”。Agent 通过 Skill 直接查询你的相册数据，帮你检索、总结、生成内容。',
+      ctaDocs: '查看使用文档',
+      ctaToken: '获取 Token',
+      items: [
+        {
+          icon: '🔎',
+          title: '智能检索相册',
+          desc: '用自然语言查询照片、人物、地点、标签等信息，支持组合筛选。',
+          examples: ['最近在西安拍的照片有哪些？', '帮我找出包含“登机口”文字的照片']
+        },
+        {
+          icon: '📝',
+          title: '生成游记/文案',
+          desc: '基于足迹与照片内容，自动整理时间线与亮点，生成可发布的内容。',
+          examples: ['我去年国庆节去了哪些地方？', '帮我写一篇 HTML 格式旅行日记']
+        },
+        {
+          icon: '🧰',
+          title: '自动化工作流',
+          desc: '把 CLI 当工具接入 Claude Code / OpenClaw 等，让 AI 执行可重复的查询与整理任务。',
+          examples: ['列出最近 50 张照片的拍摄地点统计', '按城市导出一份相册清单']
+        }
+      ]
+    },
     testimonials: {
       title: '用户心声 · 用行影集珍藏每一段旅程'
     },
@@ -539,6 +600,32 @@ const i18n = {
       title: 'Feature Overview · Comprehensive Coverage',
       demoSuffix: ' Demo',
       demoPlaceholder: '(Feature demo GIF/Video here)'
+    },
+    agentSkills: {
+      title: 'Agent Skills · What AI can do',
+      desc: 'Turn TrailSnap into your personal knowledge base. With Skills, an Agent can query your album data and help you search, summarize, and generate content.',
+      ctaDocs: 'View Docs',
+      ctaToken: 'Get Token',
+      items: [
+        {
+          icon: '🔎',
+          title: 'Search your album',
+          desc: 'Query photos, people, locations, and tags with natural language and combined filters.',
+          examples: ['List my recent photos taken in Xi’an', 'Find photos that contain “boarding gate” text']
+        },
+        {
+          icon: '📝',
+          title: 'Generate diaries & copy',
+          desc: 'Summarize footprints and photo content into timelines, highlights, and publishable posts.',
+          examples: ['Where did I travel last National Day?', 'Generate an HTML travel diary for me']
+        },
+        {
+          icon: '🧰',
+          title: 'Automate workflows',
+          desc: 'Connect the CLI as a tool in Claude Code / OpenClaw and let AI run repeatable tasks for you.',
+          examples: ['Summarize locations for my last 50 photos', 'Export a city-based album list']
+        }
+      ]
     },
     testimonials: {
       title: 'User Voice · Cherish Every Journey'

@@ -1,13 +1,8 @@
 # TrailSnap User Guide
 
-Welcome to TrailSnap! TrailSnap is an intelligent AI photo album application that not only helps you manage photos but also automatically identifies photo content, organizes itinerary tickets, and even generates travel VLOGs with one click using AI technology.
-
-This document will detail TrailSnap's main features, usage methods, and operation flows.
+Welcome to TrailSnap! This guide covers the main features and how to use them.
 
 ## 1. Quick Start
-
-### Login/Register
-When accessing the system for the first time, please log in using the account distributed by the administrator or register a new account as prompted.
 
 ### Dashboard Overview
 After logging in, you will see the system dashboard, which includes:
@@ -18,8 +13,18 @@ After logging in, you will see the system dashboard, which includes:
 ### Add External Library
 
 1. Click "Settings -> External Libraries" in the navigation bar.
-2. Enter the address of the external library, e.g., `/app/photos` (pay attention to the docker mount path).
+2. Enter the path of the external library (this is the Docker container path).
+   - Example Docker mount: `/home/user/photos:/app/Photos/`
+   - If you want to add the original folder `/home/user/photos/sea`, then add `/app/Photos/sea` in TrailSnap
+   - If you want to add the whole `/home/user/photos` directory, then add `/app/Photos/`
 3. Click Confirm, and the system will automatically scan all photos in that directory (task progress can be viewed in "Settings -> Task Management").
+4. See [Directories](/en/docs/guide/settings/directories) for common issues.
+
+### Map Service
+
+If you want map features (view photos on map, edit custom scenic spots, etc.), make sure you configured your map provider in **Settings → Map Service**. See [Map Settings](/en/docs/guide/settings/mapsetting).
+
+![](/images/map.png)
 
 ## 2. Album Management
 
@@ -51,10 +56,6 @@ TrailSnap has built-in powerful AI services to provide you with the following in
 - **Text Search**: Supports searching for text in photos (such as street signs, menus, text on tickets).
 - **Semantic Search**: Search by directly describing the photo content, such as "sunset by the sea", "friends skiing", AI can understand your natural language description.
 
-### AI Retouching & VLOG Generation
-- **One-click Retouching**: Uses AI algorithms to automatically adjust photo color and exposure to improve image quality.
-- **Generate VLOG**: Select a journey or an album, and AI will automatically pick highlights, add music, and generate a short video.
-
 ## 4. Itinerary & Tickets
 
 This is a featured function of TrailSnap designed for travelers.
@@ -77,4 +78,4 @@ On the settings page, you can configure the following:
 - **Storage Settings**: View storage space usage.
 - **Task Management**: View background task progress (such as ongoing AI recognition tasks, thumbnail generation tasks).
 
-If you have any usage questions, please contact the system administrator or consult the [Developer Documentation](/en/docs/dev/guide).
+If you have any questions, see [Feedback](/en/docs/guide/feedback) or the [Developer Guide](/en/docs/dev/guide).

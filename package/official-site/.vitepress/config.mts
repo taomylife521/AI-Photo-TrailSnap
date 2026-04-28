@@ -70,7 +70,7 @@ export default defineConfig({
               ]
             },
             {
-              text: 'Agent skills',
+              text: 'Agent Skills',
               link: '/docs/guide/agent/',
               collapsed: false,
               items: [
@@ -80,7 +80,6 @@ export default defineConfig({
               ]
             },
             { text: '常见问题', link: '/docs/guide/questions' },
-            { text: 'Agent Skills', link: '/docs/guide/agent/' },
             { text: '问题反馈', link: '/docs/guide/feedback' },
             { text: '更新日志', link: '/docs/guide/changelog' },
           ],
@@ -183,7 +182,18 @@ export default defineConfig({
                   items: [
                     { text: 'Map Settings', link: '/en/docs/guide/settings/mapsetting' },
                     { text: 'AI Settings', link: '/en/docs/guide/settings/aisetting' },
-                    { text: 'Directories', link: '/en/docs/guide/settings/directories' }
+                    { text: 'Directories', link: '/en/docs/guide/settings/directories' },
+                    { text: 'Token Settings', link: '/en/docs/guide/settings/tokensetting' }
+                  ]
+                },
+                {
+                  text: 'Agent Skills',
+                  link: '/en/docs/guide/agent/',
+                  collapsed: false,
+                  items: [
+                    { text: 'TrailSnap CLI', link: '/en/docs/guide/agent/trailsnap-cli' },
+                    { text: 'Claude Code', link: '/en/docs/guide/agent/claudecode' },
+                    { text: 'OpenClaw', link: '/en/docs/guide/agent/openclaw' }
                   ]
                 },
                 { text: 'Questions', link: '/en/docs/guide/questions' },
@@ -200,6 +210,7 @@ export default defineConfig({
                 { text: 'Architecture', link: '/en/docs/dev/architecture' },
                 { text: 'Frontend', link: '/en/docs/dev/frontend' },
                 { text: 'Backend', link: '/en/docs/dev/backend' },
+                { text: 'AI Service', link: '/en/docs/dev/ai_service' },
                 { text: 'Task Manager', link: '/en/docs/dev/task_manager' },
                 {
                   text: 'AI Prompts',
