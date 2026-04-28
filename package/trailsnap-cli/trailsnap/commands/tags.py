@@ -1,5 +1,5 @@
-import json
 from utils import make_request
+from output import output, output_error, set_formatter, OutputFormatter
 
 def setup_parser(subparsers):
     parser = subparsers.add_parser("tags", help="管理和查询分类标签")
@@ -9,9 +9,11 @@ def setup_parser(subparsers):
     list_parser = sub_subparsers.add_parser("list", help="查询分类标签")
     list_parser.add_argument("--skip", type=int, default=0, help="跳过 N 个记录")
     list_parser.add_argument("--limit", type=int, default=100, help="限制返回 N 个记录")
+    list_parser.add_argument("--format", type=str, default="json", choices=OutputFormatter.SUPPORTED_FORMATS, help="输出格式")
     list_parser.set_defaults(func=execute_list)
 
 def execute_list(args):
+    set_formatter(args.format)
     data = make_request("/tags", {"skip": args.skip, "limit": args.limit})
     if data:
         tags = [{
@@ -19,6 +21,6 @@ def execute_list(args):
             "name": tag["tag_name"],
             "count": tag["count"]
         } for tag in data]
-        print(json.dumps(tags, indent=2, ensure_ascii=False))
+        output(tags)
     else:
-        print("未查询到分类标签记录")
+        output_error("未查询到分类标签记录")

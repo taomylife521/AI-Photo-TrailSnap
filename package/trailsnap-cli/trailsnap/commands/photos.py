@@ -1,5 +1,5 @@
-import json
-from utils import make_request,load_env
+from utils import make_request, load_env
+from output import output, output_success, output_error, set_formatter, OutputFormatter
 
 def setup_parser(subparsers):
     parser = subparsers.add_parser("photos", help="管理和查询照片")
@@ -24,19 +24,23 @@ def setup_parser(subparsers):
     list_parser.add_argument("--scene", help="按景区过滤，多个景区用逗号分隔")
     list_parser.add_argument("--make", help="按相机品牌过滤，多个品牌用逗号分隔")
     list_parser.add_argument("--model", help="按相机型号过滤，多个型号用逗号分隔")
+    list_parser.add_argument("--format", type=str, default="json", choices=OutputFormatter.SUPPORTED_FORMATS, help="输出格式")
     list_parser.set_defaults(func=execute_list)
 
     # info subcommand
     info_parser = sub_subparsers.add_parser("info", help="获取单张照片信息")
     info_parser.add_argument("--photo-id", required=True, help="照片ID")
+    info_parser.add_argument("--format", type=str, default="json", choices=OutputFormatter.SUPPORTED_FORMATS, help="输出格式")
     info_parser.set_defaults(func=execute_info)
 
     # delete subcommand
     delete_parser = sub_subparsers.add_parser("delete", help="删除照片")
     delete_parser.add_argument("--photo-id", required=True, help="照片ID")
+    delete_parser.add_argument("--format", type=str, default="json", choices=OutputFormatter.SUPPORTED_FORMATS, help="输出格式")
     delete_parser.set_defaults(func=execute_delete)
 
 def execute_list(args):
+    set_formatter(args.format)
     params = {
         "skip": args.skip,
         "limit": args.limit,
@@ -81,11 +85,12 @@ def execute_list(args):
                     "narrative": image_description.get("narrative", "")
                 }
             })
-        print(json.dumps(photos, indent=2, ensure_ascii=False))
+        output(photos)
     else:
-        print("没有查询到照片列表")
+        output_error("没有查询到照片列表")
 
 def execute_info(args):
+    set_formatter(args.format)
     data = make_request(f"/photos/{args.photo_id}/metadata")
     description_data = make_request(f"/photos/{args.photo_id}/description")
     if not description_data:
@@ -99,13 +104,14 @@ def execute_info(args):
             "faces_identities": data["faces_identities"],
             "description": description_data
         }
-        print(json.dumps(info, indent=2, ensure_ascii=False))
+        output(info)
     else:
-        print("未查询到照片信息")
+        output_error("未查询到照片信息")
 
 def execute_delete(args):
+    set_formatter(args.format)
     data = make_request(f"/photos/{args.photo_id}", method="DELETE")
     if data:
-        print(f"照片 {args.photo_id} 删除成功")
+        output_success(f"照片 {args.photo_id} 删除成功")
     else:
-        print("照片删除失败或不存在")
+        output_error("照片删除失败或不存在")
