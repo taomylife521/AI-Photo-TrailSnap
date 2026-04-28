@@ -43,5 +43,10 @@
         "version": "0.3.6",
         "update_info": "- 修复任务异常卡住的问题<br>- 优化任务进程管理，减少内存占用<br>- 加快AI大模型任务处理速度，减少等待时间<br>- 优化AI对话思考过程展示，用户可以查看大模型思考内容<br>- 优化智能分类准确率",
         "download_url": "https://trailsnap.cn"
+    },
+    {
+        "version": "0.3.8",
+        "update_info": "- 新增“回收站”功能，用户可以恢复已删除的照片<br>- 新增TrailSnap CLI工具，用户可以通过命令行与TrailSnap进行交互<br>- 新增SKILL功能，用户可以接入OpenClaw、Claude Code等平台",
+        "download_url": "https://trailsnap.cn"
     }
 ]
