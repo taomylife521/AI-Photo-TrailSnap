@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 // import { withMermaid } from "vitepress-plugin-mermaid";
 import {MermaidPlugin} from "@leelaa/vitepress-plugin-extended";
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
+import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons'
 
 export default defineConfig({
   base: '/',
@@ -17,7 +18,13 @@ export default defineConfig({
       // 使用更多的 Markdown-it 插件！
       MermaidPlugin(md)
       md.use(tabsMarkdownPlugin)
+      md.use(groupIconMdPlugin)
     }
+  },
+  vite: { 
+    plugins: [
+      groupIconVitePlugin() //代码组图标
+    ],
   },
   ignoreDeadLinks: [
     '/^http:\/\/localhost:\d+$/',

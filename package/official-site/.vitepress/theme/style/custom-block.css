@@ -1,50 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Global Styles and Overrides */
-
-:root {
-  --vp-c-brand-1: #4A9DFF;
-  --vp-c-brand-2: #3b8ce6;
-  --vp-c-brand-3: #2c7bd6;
-  --vp-font-family-base: 'Source Han Sans CN', 'Microsoft YaHei', 'PingFang SC', sans-serif;
-}
-
-/* Custom Home Page Layout Overrides */
-.custom-home-page .VPContent {
-  padding: 0 !important;
-  max-width: 100% !important;
-}
-
-.custom-home-page .VPDoc {
-  padding: 0 !important;
-  max-width: 100% !important;
-}
-
-/* Hide the default doc container background/border if present */
-.custom-home-page .container {
-  max-width: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-/* Ensure no extra margins on the page content */
-.custom-home-page div[class*="_doc"] {
-  max-width: 100% !important;
-  padding: 0 !important;
-}
-
-/* Hide Return to Top button on mobile */
-@media (max-width: 960px) {
-  .VPBackToTop {
-    display: none !important;
-  }
-}
-
 /* ========================================== */
-/* VitePress 自定义高亮提示块（统一风格） */
-/* 适配你截图的样式：圆角 + 浅色背景 + 图标 + 主题色文字 */
+/* VitePress 自定义高亮提示块（统一风格 + 深色模式完美适配） */
 /* ========================================== */
 
 /* 通用样式 */
@@ -54,12 +9,11 @@
   border-radius: 12px !important;
   padding: 8px 20px !important;
   margin: 16px 0 !important;
-  background-color: #f9fafb !important;
   position: relative;
-  border: none;
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  border: none !important;
 }
 
 /* 隐藏默认标题 */
@@ -71,6 +25,12 @@
 .custom-block::before {
   font-size: 18px;
   font-weight: bold;
+  user-select: none;
+}
+
+.custom-block p {
+  margin: 0 !important;
+  line-height: 1.6 !important;
 }
 
 /* ========================================== */
@@ -85,9 +45,16 @@
   color: #2563eb;
 }
 .custom-block.info p {
-  margin: 0 !important;
-  line-height: 1.6 !important;
-  color: #1e40af !important; /* 主题蓝色文字 */
+  color: #1e40af !important;
+}
+
+/* 深色模式 */
+.dark .custom-block.info {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+.dark .custom-block.info p {
+  color: #93c5fd !important;
 }
 
 /* ========================================== */
@@ -102,9 +69,16 @@
   color: #16a34a;
 }
 .custom-block.tip p {
-  margin: 0 !important;
-  line-height: 1.6 !important;
-  color: #15803d !important; /* 主题绿色文字 */
+  color: #15803d !important;
+}
+
+/* 深色模式 */
+.dark .custom-block.tip {
+  background-color: #1e2f34 !important;
+  border-color: #2a3e32 !important;
+}
+.dark .custom-block.tip p {
+  color: #86efac !important;
 }
 
 /* ========================================== */
@@ -119,9 +93,16 @@
   color: #d97706;
 }
 .custom-block.warning p {
-  margin: 0 !important;
-  line-height: 1.6 !important;
-  color: #b45309 !important; /* 主题黄色文字 */
+  color: #b45309 !important;
+}
+
+/* 深色模式 */
+.dark .custom-block.warning {
+  background-color: #2f2a1e !important;
+  border-color: #413a2a !important;
+}
+.dark .custom-block.warning p {
+  color: #fcd34d !important;
 }
 
 /* ========================================== */
@@ -136,9 +117,16 @@
   color: #dc2626;
 }
 .custom-block.danger p {
-  margin: 0 !important;
-  line-height: 1.6 !important;
-  color: #b91c1c !important; /* 主题红色文字 */
+  color: #b91c1c !important;
+}
+
+/* 深色模式 */
+.dark .custom-block.danger {
+  background-color: #2f1e1e !important;
+  border-color: #412a2a !important;
+}
+.dark .custom-block.danger p {
+  color: #fca5a5 !important;
 }
 
 /* ========================================== */
@@ -153,7 +141,14 @@
   color: #4b5563;
 }
 .custom-block.note p {
-  margin: 0 !important;
-  line-height: 1.6 !important;
-  color: #374151 !important; /* 主题灰色文字 */
+  color: #374151 !important;
+}
+
+/* 深色模式 */
+.dark .custom-block.note {
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+}
+.dark .custom-block.note p {
+  color: #d4d4d8 !important;
 }

@@ -13,6 +13,8 @@
 
 ### 架构图示
 
+![](https://blog.siyuan.ink/static/img/f9dff9426ecdcd388450744aa3830f6a.TaskManager.webp)
+
 ```mermaid
 graph TD
     Client[客户端/API] -->|请求任务| TM[TaskManager Producer]

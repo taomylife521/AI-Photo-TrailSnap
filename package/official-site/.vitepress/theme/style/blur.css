@@ -1,0 +1,88 @@
+/* .vitepress\theme\style\blur.css */
+:root {
+
+    /* 首页下滑后导航透明 */
+    .VPNavBar:not(.has-sidebar):not(.home.top) {
+        background-color: rgba(255, 255, 255, 0);
+        backdrop-filter: blur(10px);
+    }
+
+    /* 搜索框透明 */
+    .DocSearch-Button {
+        background-color: rgba(255, 255, 255, 0);
+        backdrop-filter: blur(10px);
+    }
+
+    /* Feature透明 */
+    .VPFeature {
+        border: 1px solid transparent;
+        box-shadow: 0 10px 30px 0 rgb(0 0 0 / 15%);
+        background-color: transparent;
+    }
+
+    /* 文档页侧边栏顶部透明 */
+    .curtain {
+        background-color: rgba(255, 255, 255, 0);
+        backdrop-filter: blur(10px);
+    }
+
+    @media (min-width: 960px) {
+
+        /* 文档页导航中间透明 */
+        .VPNavBar:not(.home.top) .content-body {
+            background-color: rgba(255, 255, 255, 0);
+            backdrop-filter: blur(10px);
+        }
+    }
+
+    /* 移动端大纲栏透明 */
+    .VPLocalNav {
+        background-color: rgba(255, 255, 255, 0);
+        backdrop-filter: blur(10px);
+    }
+
+}
+
+/* .vitepress\theme\style\hidden.css */
+:root {
+
+    /* 文档页Logo出文字下横条 */
+    @media (min-width: 960px) {
+        .VPNavBarTitle.has-sidebar .title {
+            border-bottom-color: transparent;
+        }
+    }
+
+    /* 页脚横条隐藏 */
+    .VPFooter {
+        border-top: none;
+    }
+
+    /* 手机端菜单栏顶部横条隐藏 */
+    .VPNavBar.screen-open {
+        border-bottom: none;
+    }
+
+    /* 手机端菜单栏菜单分割线隐藏 */
+    .VPNavScreenMenuLink {
+        border-bottom: none;
+    }
+
+    /* 手机端菜单组隐藏 */
+    .VPNavScreenMenuGroup {
+        border-bottom: none;
+    }
+
+    /* 手机端大纲栏横条隐藏 */
+    .VPLocalNav {
+        border-bottom: none;
+    }
+
+}
+
+
+/* 导航栏下划线隐藏 */
+.divider {
+    display: none;
+}
+

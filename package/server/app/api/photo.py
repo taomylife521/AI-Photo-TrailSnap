@@ -267,7 +267,7 @@ def get_similar_photos(
     service = SimilarPhotoService(db, str(current_user.id))
     return service.get_similar_groups(threshold)
 
-@router.get("/recycle-bin", response_model=List[schemas.Photo])
+@router.get("/recycle-bin", response_model=List[schemas.RecyclePhoto])
 def get_recycle_bin(
     skip: int = 0,
     limit: int = 100,

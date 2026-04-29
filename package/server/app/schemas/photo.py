@@ -32,6 +32,9 @@ class Photo(PhotoBase):
     class Config:
         from_attributes = True
 
+class RecyclePhoto(Photo):
+    deleted_at: datetime
+
 class PhotoGroup(BaseModel):
     date: str
     items: List[Photo]

@@ -1,10 +1,26 @@
 # 架构设计文档
 
+::: code-group
+
+```python [Python]
+console.log('js 代码')
+```
+
+```sh [pnpm]
+console.log('ts 代码')
+```
+
+```vue
+<template></template>
+```
+
+:::
+
 ## 1. 整体架构图
 
 TrailSnap 采用典型的前后端分离架构，由前端展示层、后端服务层、AI 微服务层和数据存储层组成。
 
-![](https://blog.siyuan.ink/static/img/140fbfde6e8ed0fd1d676af0c35116a2.clipboard-2026-04-08.webp)
+![](https://blog.siyuan.ink/static/img/acdb9b89e748395e47df046c90fd005c.aaa.webp)
 
 1. **前端展示层**：通过 Nginx 反向代理统一入口，支持 HTTP/HTTPS 访问，为用户提供前端交互界面。
 2. **后端服务层**：以 FastAPI 为核心，通过安全认证模块实现 JWT 身份鉴权与多用户权限隔离，保障家庭多用户使用安全；拆分业务逻辑服务与任务管理器，实现同步业务与异步 AI 任务的解耦；通过 SQLAlchemy ORM 对接 PostgreSQL 存储元数据，通过文件服务对接 NAS 本地文件系统存储图片，完全适配 NAS 存储架构。
