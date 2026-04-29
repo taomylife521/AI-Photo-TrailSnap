@@ -21,7 +21,6 @@ class TaskType(str, enum.Enum):
     CLASSIFY_IMAGE = "CLASSIFY_IMAGE"
     RECOGNIZE_FACE = "RECOGNIZE_FACE"
     RECOGNIZE_TICKET = "RECOGNIZE_TICKET"
-    REBUILD_THUMBNAILS = "REBUILD_THUMBNAILS"
     REBUILD_METADATA = "REBUILD_METADATA"
     OCR = "OCR"
     VISUAL_DESCRIPTION = "VISUAL_DESCRIPTION"
@@ -36,7 +35,6 @@ DEFAULT_PRIORITIES = {
     TaskType.GENERATE_THUMBNAIL: 98,
     TaskType.EXTRACT_METADATA: 97,
     TaskType.REBUILD_METADATA: 96,
-    TaskType.REBUILD_THUMBNAILS: 95,
     TaskType.RECOGNIZE_FACE: 10,
     TaskType.CLASSIFY_IMAGE: 9,
     TaskType.IMAGE_EMBEDDING: 8,
@@ -50,7 +48,9 @@ DEFAULT_PRIORITIES = {
 CATEGORY_DESCRIPTION_MAP = {
     TaskType.SCAN_FOLDER: '用于扫描文件夹中的文件',
     TaskType.PROCESS_BASIC: '用于基本文件处理',
+    TaskType.GENERATE_THUMBNAIL: '用于生成缩略图',
     TaskType.EXTRACT_METADATA: '用于提取文件元数据（GPS位置、拍摄参数等）',
+    TaskType.REBUILD_METADATA: '用于重建文件元数据',
     TaskType.RECOGNIZE_FACE: '用于识别图片中的人脸',
     TaskType.RECOGNIZE_TICKET: '用于识别火车票、飞机票等',
     TaskType.CLASSIFY_IMAGE: '用于场景分类',
@@ -63,6 +63,7 @@ CATEGORY_DESCRIPTION_MAP = {
 
 CATEGORY_NAME_MAP = {
     TaskType.SCAN_ALBUM: '扫描文件夹',
+    TaskType.GENERATE_THUMBNAIL: '生成缩略图',
     TaskType.PROCESS_BASIC: '基本处理',
     TaskType.EXTRACT_METADATA: '元数据提取',
     TaskType.RECOGNIZE_FACE: '人脸识别',

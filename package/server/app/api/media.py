@@ -34,8 +34,17 @@ def _get_thumbnail_path(user_id: UUID, photo_id: UUID, db: Session, size: str = 
     base = os.path.join(root, 'thumbnails', p1, p2)
     
     if size == 'small':
-        return os.path.join(base, f"{compact}-thumb.jpg")
-    return os.path.join(base, f"{compact}.jpg")
+        webp = os.path.join(base, f"{compact}-thumb.webp")
+        if os.path.exists(webp):
+            return webp
+        else:
+            return os.path.join(base, f"{compact}-thumb.jpg")
+    else:
+        webp = os.path.join(base, f"{compact}.webp")
+        if os.path.exists(webp):
+            return webp
+        else:
+            return os.path.join(base, f"{compact}.jpg")
 
 @router.get('/{photo_id}/video')
 async def get_live_photo_video(
@@ -121,7 +130,7 @@ async def get_thumbnail(photo_id: UUID, size: str = 'small', format: str = 'file
         raise HTTPException(status_code=404, detail="Thumbnail not found")
 
     if format == 'file':
-        return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000"})
+        return FileResponse(path, media_type="image/webp" if path.endswith('.webp') else "image/jpeg", headers={"Cache-Control": "public, max-age=31536000"})
     elif format == 'base64':
         with open(path, "rb") as f:
             thumbnail_base64 = base64.b64encode(f.read()).decode("utf-8")
