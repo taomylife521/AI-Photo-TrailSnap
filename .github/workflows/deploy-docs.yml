@@ -44,19 +44,13 @@ jobs:
         working-directory: ./package/official-site
         run: pnpm run docs:build
 
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+      # ==============================================
+      # 👇 核心：自动部署到 Cloudflare Pages
+      # ==============================================
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
         with:
-          path: ./package/official-site/.vitepress/dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    if: contains(github.event.head_commit.message, '构建文档')
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          projectName: trailsnap
+          directory: ./package/official-site/.vitepress/dist

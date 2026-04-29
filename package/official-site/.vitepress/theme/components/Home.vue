@@ -451,14 +451,14 @@ const i18n = {
       home: '首页',
       features: '功能介绍',
       quickStart: '快速开始',
-      download: '立即下载'
+      download: '立即体验'
     },
     hero: {
       title1: 'AI赋能家庭相册',
       title2: '你的专属行影集',
       desc: 'AI智能分析、整理相册照片、生成专属记忆报告，<br class="hidden md:inline">让每一段出行都值得珍藏',
       tags: ['智能相册', '足迹相册', '生活相册'],
-      download: '立即下载',
+      download: '立即体验',
       details: '查看功能详情',
       chat: {
         online: '在线',
