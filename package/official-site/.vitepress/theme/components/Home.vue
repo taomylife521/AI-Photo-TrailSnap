@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-white dark:bg-slate-900 text-neutral-dark dark:text-gray-100 font-sans overflow-x-hidden">
+  <div class="min-h-screen bg-white dark:bg-[#141414] text-neutral-dark dark:text-gray-100 font-sans overflow-x-hidden">
     <!-- 1. Navbar -->
     <div class="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 w-max max-w-[95vw] px-2 md:px-0" :class="[isScrolled ? 'bg-white/80 dark:bg-[#141414]/80 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.1)]' : '']">
       <nav class="px-4 md:px-6 py-1.5">
@@ -34,7 +34,7 @@
       </nav>
 
       <!-- Mobile Menu -->
-      <div v-if="isMobileMenuOpen" class="md:hidden absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-4 px-4 flex flex-col space-y-4">
+      <div v-if="isMobileMenuOpen" class="md:hidden absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-[#141414]/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-4 px-4 flex flex-col space-y-4">
         <button type="button" class="text-left w-fit transition-colors" :class="navClass('home')" @click="scrollTo('home')">{{ t.nav.home }}</button>
         <button type="button" class="text-left w-fit transition-colors" :class="navClass('core-features')" @click="scrollTo('core-features')">{{ t.nav.features }}</button>
         <button type="button" class="text-left w-fit transition-colors text-neutral-dark dark:text-gray-300 hover:text-primary" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.quickStart }}</button>
@@ -45,7 +45,7 @@
     </div>
 
     <!-- 2. Hero Section -->
-    <section id="home" class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 bg-neutral-light dark:bg-gray-800/50 overflow-hidden">
+    <section id="home" class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 bg-neutral-light dark:bg-[#141414]/50 overflow-hidden">
       <!-- Background Gradients -->
       <div class="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-r from-blue-50 dark:from-blue-900/20 to-transparent opacity-50"></div>
       <div class="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-blue-50 dark:from-blue-900/20 to-transparent opacity-50"></div>
@@ -66,7 +66,7 @@
               <span v-for="(tag, index) in t.hero.tags" :key="tag"
                     class="px-4 py-1.5 rounded-full text-sm font-medium hover:-translate-y-1 transition-transform cursor-default"
                     :class="[
-                      index === 0 ? 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300' :
+                      index === 0 ? 'bg-slate-100 text-slate-700 dark:bg-[#141414]/40 dark:text-slate-300' :
                       index === 1 ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300' :
                       'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
                     ]">{{ tag }}</span>
@@ -83,9 +83,9 @@
           <div class="w-full lg:w-[65%] relative flex justify-center">
             <div class="relative w-full max-w-[1280px] animate-float-slow">
               <!-- Mock Chat Window -->
-              <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-slate-700 backdrop-blur-sm">
+              <div class="bg-gray-50 dark:bg-[#141414]/80 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-slate-700 backdrop-blur-sm">
                 <!-- Chat Header -->
-                <div class="bg-white/80 dark:bg-slate-800/80 border-b border-gray-100 dark:border-slate-700 px-4 py-3 flex items-center gap-3">
+                <div class="bg-white/80 dark:bg-[#141414]/80 border-b border-gray-100 dark:border-slate-700 px-4 py-3 flex items-center gap-3">
                   <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-lg">🤖</div>
                   <div>
                     <div class="text-sm font-bold text-neutral-dark dark:text-white">TrailSnap AI</div>
@@ -104,7 +104,7 @@
                   
                   <!-- AI Message -->
                   <div class="flex justify-start animate-fade-in-up" style="animation-delay: 0.5s; animation-fill-mode: both;">
-                    <div class="bg-white dark:bg-slate-700 text-neutral-dark dark:text-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%] shadow-sm border border-gray-100 dark:border-slate-600 leading-relaxed">
+                    <div class="bg-white dark:bg-[#1a1a1a] text-neutral-dark dark:text-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[90%] shadow-sm border border-gray-100 dark:border-slate-600 leading-relaxed">
                       <div class="typing-container">
                         <p class="mb-3">{{ t.hero.chat.aiMsg1 }}</p>
                         
@@ -154,7 +154,7 @@
               
               <!-- Decorative Elements -->
               <div class="absolute -top-6 -right-6 text-4xl opacity-20 text-primary animate-pulse z-0">✨</div>
-              <div class="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-400/20 rounded-full blur-2xl z-0"></div>
+              <div class="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-400/20 dark:bg-[#a78bfa]/20 rounded-full blur-2xl z-0"></div>
             </div>
           </div>
         </div>
@@ -162,7 +162,7 @@
     </section>
 
     <!-- 2.5 Feature Screenshots -->
-    <section class="py-20 bg-white dark:bg-slate-900">
+    <section class="py-20 bg-white dark:bg-[#141414]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl font-bold text-neutral-dark dark:text-white mb-4">{{ t.screenshots.title }}</h2>
@@ -171,7 +171,7 @@
 
         <div class="relative max-w-5xl mx-auto">
           <!-- Main Image Display -->
-          <div class="relative aspect-video rounded-xl overflow-hidden shadow-2xl group bg-gray-100 dark:bg-slate-800">
+          <div class="relative aspect-video rounded-xl overflow-hidden shadow-2xl group bg-gray-100 dark:bg-[#141414]">
              <div v-for="(shot, index) in featureScreenshots" :key="index" 
                  class="absolute inset-0 transition-opacity duration-500 ease-in-out"
                  :class="index === activeScreenshotIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'">
@@ -202,7 +202,7 @@
     </section>
 
     <!-- 3. Core Features -->
-    <section id="core-features" class="py-20 bg-secondary/20 dark:bg-slate-800/30">
+    <section id="core-features" class="py-20 bg-secondary/20 dark:bg-[#1a1a1a]/30">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl font-bold text-neutral-dark dark:text-white mb-4">{{ t.core.title }}</h2>
@@ -211,7 +211,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div v-for="(feature, index) in features" :key="index" 
-               class="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-soft hover:shadow-hover hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-blue-50 dark:hover:border-blue-900 group">
+               class="bg-white dark:bg-[#141414] rounded-xl p-8 shadow-soft hover:shadow-hover hover:-translate-y-2 transition-all duration-300 border border-transparent hover:border-blue-50 dark:hover:border-blue-900 group">
             <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300">{{ feature.icon }}</div>
             <h3 class="text-2xl font-bold text-neutral-dark dark:text-white mb-4 flex items-center gap-2">
               {{ feature.title }}
@@ -227,7 +227,7 @@
     </section>
 
     <!-- 4. Features Overview -->
-    <section class="py-20 bg-neutral-light dark:bg-slate-800/50">
+    <section class="py-20 bg-neutral-light dark:bg-[#141414]/50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col lg:flex-row gap-12 lg:gap-20">
           <!-- Left List -->
@@ -237,7 +237,7 @@
             </h2>
             <div class="space-y-4">
               <div v-for="(item, index) in overviewFeatures" :key="index" 
-                   class="bg-white dark:bg-slate-800 rounded-lg p-4 border-l-4 border-primary cursor-pointer transition-all hover:shadow-md"
+                   class="bg-white dark:bg-[#141414] rounded-lg p-4 border-l-4 border-primary cursor-pointer transition-all hover:shadow-md"
                    @click="activeFeatureIndex = index">
                 <div class="flex justify-between items-center mb-2">
                   <div class="flex items-center gap-3">
@@ -258,7 +258,7 @@
 
           <!-- Right Visual -->
           <div class="lg:w-[60%] flex items-center justify-center">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-float p-4 w-full max-w-xl aspect-[4/3] flex items-center justify-center border border-gray-100 dark:border-slate-700 relative overflow-hidden group">
+            <div class="bg-white dark:bg-[#141414] rounded-2xl shadow-float p-4 w-full max-w-xl aspect-[4/3] flex items-center justify-center border border-gray-100 dark:border-slate-700 relative overflow-hidden group">
               <div class="text-center">
                 <!-- <div class="text-6xl mb-4">{{ overviewFeatures[activeFeatureIndex].icon }}</div> -->
                 <img :src="overviewFeatures[activeFeatureIndex].image" alt="Feature Image" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy">
@@ -281,7 +281,7 @@
     </section>
 
     <!-- 5. Agent Skills -->
-    <section id="agent-skills" class="py-20 bg-white dark:bg-slate-900">
+    <section id="agent-skills" class="py-20 bg-white dark:bg-[#1a1a1a]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl font-bold text-neutral-dark dark:text-white mb-4">{{ t.agentSkills.title }}</h2>
@@ -293,7 +293,7 @@
           <div
             v-for="item in t.agentSkills.items"
             :key="item.title"
-            class="bg-neutral-light dark:bg-slate-800/70 rounded-2xl p-8 border border-gray-100 dark:border-slate-700 shadow-soft hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
+            class="bg-neutral-light dark:bg-[#141414]/70 rounded-2xl p-8 border border-gray-100 dark:border-slate-700 shadow-soft hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
           >
             <div class="text-4xl mb-5">{{ item.icon }}</div>
             <h3 class="text-xl font-bold text-neutral-dark dark:text-white mb-3">{{ item.title }}</h3>
@@ -316,11 +316,11 @@
     </section>
 
     <!-- 6. Testimonials -->
-    <section class="py-20 bg-secondary/30 dark:bg-slate-800/30">
+    <section class="py-20 bg-secondary/30 dark:bg-[#141414]/30">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 class="text-[28px] font-bold text-neutral-dark dark:text-white text-center mb-12">{{ t.testimonials.title }}</h2>
         
-        <div class="max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-xl p-10 shadow-soft relative">
+        <div class="max-w-3xl mx-auto bg-white dark:bg-[#141414] rounded-xl p-10 shadow-soft relative">
           <!-- Arrows -->
           <button @click="prevTestimonial" class="absolute left-[-20px] md:left-[-50px] top-1/2 -translate-y-1/2 w-10 h-10 bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-full flex items-center justify-center text-neutral-dark dark:text-white transition-colors">←</button>
           <button @click="nextTestimonial" class="absolute right-[-20px] md:right-[-50px] top-1/2 -translate-y-1/2 w-10 h-10 bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-full flex items-center justify-center text-neutral-dark dark:text-white transition-colors">→</button>
