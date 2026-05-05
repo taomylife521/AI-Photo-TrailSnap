@@ -39,7 +39,7 @@ export default defineConfig({
     root: {
       label: '简体中文',
       lang: 'zh-CN',
-      title: "TrailSnap 行影集",
+      title: "行影集",
       description: "AI 驱动的智能相册与旅行足迹记录工具",
       themeConfig: {
         nav: [
