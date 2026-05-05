@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-white dark:bg-[#141414] text-neutral-dark dark:text-gray-100 font-sans overflow-x-hidden">
     <!-- 1. Navbar -->
-    <div class="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 w-max max-w-[95vw] px-2 md:px-0" :class="[isScrolled ? 'bg-white/80 dark:bg-[#141414]/80 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.1)]' : '']">
+    <div class="fixed top-0 md:top-6 md:left-1/2 md:-translate-x-1/2 z-50 transition-all duration-300 w-full md:w-max md:max-w-[95vw] px-0 md:px-2" :class="[isScrolled ? 'bg-white/80 dark:bg-[#141414]/80 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 md:rounded-full md:shadow-[0_8px_32px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.02)] md:dark:shadow-[0_8px_32px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.1)]' : 'bg-neutral-light dark:bg-[#141414] border-none']">
       <nav class="px-4 md:px-6 py-1.5">
         <div class="flex justify-between items-center md:gap-8">
           <!-- Logo -->
