@@ -4,7 +4,8 @@ module.exports = {
   content: [
     "./.vitepress/**/*.{js,ts,vue}",
     "./docs/**/*.md",
-    "./index.md"
+    "./en/**/*.md",
+    "./*.md"
   ],
   theme: {
     extend: {
@@ -17,8 +18,8 @@ module.exports = {
         secondary: '#FFEEDD',
         neutral: {
           light: '#F5F7FA',
-          dark: '#333333',
-          gray: '#666666',
+          dark: '#1D2124',
+          gray: '#333333',
         }
       },
       fontFamily: {

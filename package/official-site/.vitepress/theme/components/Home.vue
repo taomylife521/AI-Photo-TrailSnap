@@ -47,7 +47,7 @@
     </nav>
 
     <!-- 2. Hero Section -->
-    <section id="home" class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 bg-neutral-light dark:bg-slate-800/50 overflow-hidden">
+    <section id="home" class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 bg-neutral-light dark:bg-gray-800/50 overflow-hidden">
       <!-- Background Gradients -->
       <div class="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-r from-blue-50 dark:from-blue-900/20 to-transparent opacity-50"></div>
       <div class="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-blue-50 dark:from-blue-900/20 to-transparent opacity-50"></div>
@@ -65,12 +65,12 @@
 
             <!-- Tags -->
             <div class="flex flex-wrap justify-center lg:justify-start gap-3 mb-10">
-              <span v-for="(tag, index) in t.hero.tags" :key="tag" 
+              <span v-for="(tag, index) in t.hero.tags" :key="tag"
                     class="px-4 py-1.5 rounded-full text-sm font-medium hover:-translate-y-1 transition-transform cursor-default"
                     :class="[
-                      index === 0 ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
-                      index === 1 ? 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' :
-                      'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                      index === 0 ? 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300' :
+                      index === 1 ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-300' :
+                      'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
                     ]">{{ tag }}</span>
             </div>
 
@@ -204,7 +204,7 @@
     </section>
 
     <!-- 3. Core Features -->
-    <section id="core-features" class="py-20 bg-white dark:bg-slate-900">
+    <section id="core-features" class="py-20 bg-secondary/20 dark:bg-slate-800/30">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl font-bold text-neutral-dark dark:text-white mb-4">{{ t.core.title }}</h2>
@@ -377,7 +377,7 @@
           <div>
             <h4 class="text-lg font-bold mb-6">{{ t.footer.links.title }}</h4>
             <ul class="space-y-3 text-sm opacity-80">
-              <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/' : '/en/')">{{ t.footer.links.items[0] }}</a></li>
+              <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/cli' : '/en/cli')">{{ t.footer.links.items[0] }}</a></li>
               <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="scrollTo('core-features')">{{ t.footer.links.items[1] }}</a></li>
               <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/docs/guide/overview' : '/en/docs/guide/overview')">{{ t.footer.links.items[2] }}</a></li>
               <li><a href="#" class="hover:text-primary transition-colors" @click.prevent="goLink(lang === 'zh-CN' ? '/docs/guide/overview' : '/en/docs/guide/overview')">{{ t.footer.links.items[3] }}</a></li>
@@ -457,7 +457,7 @@ const i18n = {
       title1: 'AI赋能家庭相册',
       title2: '你的专属行影集',
       desc: 'AI智能分析、整理相册照片、生成专属记忆报告，<br class="hidden md:inline">让每一段出行都值得珍藏',
-      tags: ['智能相册', '足迹相册', '生活相册'],
+      tags: ['AI相册', '足迹相册', '故事相册'],
       download: '快速开始',
       details: '查看功能详情',
       chat: {
@@ -537,7 +537,7 @@ const i18n = {
     },
     footer: {
       about: { title: '关于行影集', text: 'TrailSnap行影集是一款AI赋能的出行记忆珍藏工具，致力于让每一段出行都值得回味，让用户的数据真正属于自己。' },
-      links: { title: '快速链接', items: ['首页', '功能介绍', '产品优势', '关于我们', '帮助中心'] },
+      links: { title: '快速链接', items: ['TrialSnap CLI', '功能介绍', '产品优势', '关于我们', '帮助中心'] },
       contact: { title: '联系我们', email: '邮箱', wechat: '微信公众号', qq: 'QQ群', scan: '扫码加入' },
       follow: { title: '关注我们' },
       copyright: '© 2025 TrailSnap行影集 版权所有',
@@ -556,7 +556,7 @@ const i18n = {
       title1: 'AI-Empowered Travel Memories',
       title2: 'Your Exclusive TrailSnap',
       desc: 'Smartly record itineraries, organize travel photos, generate exclusive memory reports, <br class="hidden md:inline">making every trip worth cherishing.',
-      tags: ['Smart Album', 'Footprint Album', 'Life Album'],
+      tags: ['AI Album', 'Footprint Album', 'Story Album'],
       download: 'Download',
       details: 'View Features',
       chat: {
@@ -636,7 +636,7 @@ const i18n = {
     },
     footer: {
       about: { title: 'About TrailSnap', text: 'TrailSnap is an AI-powered travel memory tool, dedicated to making every trip memorable and ensuring your data belongs to you.' },
-      links: { title: 'Quick Links', items: ['Home', 'Features', 'Advantages', 'About Us', 'Help Center'] },
+      links: { title: 'Quick Links', items: ['TrailSnap CLI', 'Features', 'Advantages', 'About Us', 'Help Center'] },
       contact: { title: 'Contact Us', email: 'Email', wechat: 'WeChat', qq: 'QQ Group', scan: 'Scan to Join' },
       follow: { title: 'Follow Us' },
       copyright: '© 2025 TrailSnap All Rights Reserved',
