@@ -7,6 +7,7 @@ import TicketRecognitionDemo from './components/TicketRecognitionDemo.vue'
 import TicketRecognitionTryIt from './components/TicketRecognitionTryIt.vue'
 import CliPage from './components/CliPage.vue'
 import './style/style.css'
+// import './style/navbar.css'
 import {Mermaid} from "@leelaa/vitepress-plugin-extended";
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 import mediumZoom from 'medium-zoom'

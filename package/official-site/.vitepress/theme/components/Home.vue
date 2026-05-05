@@ -1,29 +1,27 @@
 <template>
   <div class="min-h-screen bg-white dark:bg-slate-900 text-neutral-dark dark:text-gray-100 font-sans overflow-x-hidden">
-    
     <!-- 1. Navbar -->
-    <nav :class="['fixed top-0 left-0 right-0 z-50 transition-all duration-300', isScrolled ? 'bg-white dark:bg-slate-900 shadow-md py-2' : 'bg-neutral-light dark:bg-slate-900 py-4']">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center">
+    <div class="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 w-max max-w-[95vw] px-2 md:px-0" :class="[isScrolled ? 'bg-white/80 dark:bg-[#141414]/80 backdrop-blur-xl border border-gray-200/50 dark:border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.1)]' : '']">
+      <nav class="px-4 md:px-6 py-1.5">
+        <div class="flex justify-between items-center md:gap-8">
           <!-- Logo -->
-          <div class="flex items-center cursor-pointer" @click="goLink(lang === 'zh-CN' ? '/' : '/en/')">
+          <div class="flex items-center cursor-pointer flex-shrink-0" @click="goLink(lang === 'zh-CN' ? '/' : '/en/')">
             <img src="/logo.svg" alt="行影集 Logo" class="w-8 h-8 mr-2">
             <div class="flex flex-col">
-              <span class="text-xl font-bold text-neutral-dark dark:text-white leading-none">行影集</span>
-              <span class="text-xs text-primary font-light">TrailSnap</span>
+              <span class="text-lg font-bold text-neutral-dark dark:text-white leading-none">TrailSnap</span>
             </div>
           </div>
 
           <!-- Desktop Menu -->
-          <div class="hidden md:flex items-center space-x-8">
-            <button type="button" class="transition-colors" :class="navClass('home')" @click="scrollTo('home')">{{ t.nav.home }}</button>
-            <button type="button" class="transition-colors" :class="navClass('core-features')" @click="scrollTo('core-features')">{{ t.nav.features }}</button>
-            <button type="button" class="transition-colors text-neutral-dark dark:text-gray-300 hover:text-primary" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.quickStart }}</button>
+          <div class="hidden md:flex items-center justify-center space-x-6 flex-1">
+            <button type="button" class="transition-colors text-sm font-medium" :class="navClass('home')" @click="scrollTo('home')">{{ t.nav.home }}</button>
+            <button type="button" class="transition-colors text-sm font-medium" :class="navClass('core-features')" @click="scrollTo('core-features')">{{ t.nav.features }}</button>
+            <button type="button" class="transition-colors text-sm font-medium text-neutral-dark dark:text-gray-300 hover:text-primary" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.quickStart }}</button>
           </div>
 
           <!-- Desktop Buttons -->
-          <div class="hidden md:flex items-center space-x-4">
-            <button class="px-6 py-2 rounded-lg bg-primary text-white hover:bg-primary-dark transform hover:scale-105 transition-all shadow-md hover:shadow-lg" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.download }}</button>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <button class="px-5 py-2 rounded-full bg-neutral-dark dark:bg-white text-white dark:text-neutral-dark text-sm font-bold hover:scale-105 transition-transform shadow-sm" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.download }}</button>
           </div>
 
           <!-- Mobile Hamburger -->
@@ -33,18 +31,18 @@
             </button>
           </div>
         </div>
-      </div>
+      </nav>
 
-          <!-- Mobile Menu -->
-          <div v-if="isMobileMenuOpen" class="md:hidden absolute top-full left-0 w-full bg-white dark:bg-slate-800 shadow-lg py-4 px-4 flex flex-col space-y-4">
+      <!-- Mobile Menu -->
+      <div v-if="isMobileMenuOpen" class="md:hidden absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-4 px-4 flex flex-col space-y-4">
         <button type="button" class="text-left w-fit transition-colors" :class="navClass('home')" @click="scrollTo('home')">{{ t.nav.home }}</button>
         <button type="button" class="text-left w-fit transition-colors" :class="navClass('core-features')" @click="scrollTo('core-features')">{{ t.nav.features }}</button>
         <button type="button" class="text-left w-fit transition-colors text-neutral-dark dark:text-gray-300 hover:text-primary" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.quickStart }}</button>
         <div class="flex space-x-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-          <button class="flex-1 py-2 rounded-lg bg-primary text-white" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.download }}</button>
+          <button class="flex-1 py-2.5 rounded-xl bg-neutral-dark dark:bg-white text-white dark:text-neutral-dark font-bold shadow-sm" @click="goLink(lang === 'zh-CN' ? '/docs/guide/install' : '/en/docs/guide/install')">{{ t.nav.download }}</button>
         </div>
       </div>
-    </nav>
+    </div>
 
     <!-- 2. Hero Section -->
     <section id="home" class="relative pt-32 pb-20 lg:pt-40 lg:pb-32 bg-neutral-light dark:bg-gray-800/50 overflow-hidden">

@@ -1,4 +1,157 @@
 /* .vitepress\theme\style\blur.css */
+
+/* LobeHub-style Pill Navigation Bar */
+
+@media (min-width: 960px) {
+  .VPNav {
+    position: fixed !important;
+    left: 50% !important;
+    top: 10px !important;
+    transform: translateX(-50%) !important;
+    width: max-content !important;
+    z-index: 100 !important;
+    pointer-events: none !important;
+  }
+
+  .VPNavBarTitle.has-sidebar {
+    display: none !important;
+  }
+
+  .VPNav > * {
+    pointer-events: auto !important;
+  }
+
+  .VPNavBar {
+    /* background: rgba(255, 255, 255, 0.8) !important; */
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(229, 231, 235, 0.5) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+    padding: 0 24px !important;
+    height: 56px !important;
+    transition: background-color 0.5s, border-color 0.5s !important;
+    width: auto !important;
+    min-width: fit-content !important;
+    max-width: 95vw !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .dark .VPNavBar {
+    background: rgba(20, 20, 20, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Hide default VitePress nav background and borders */
+  .VPNavBar-bg, .VPNavBar .divider {
+    display: none !important;
+  }
+  
+  .VPNavBar {
+    border-bottom: none !important;
+  }
+
+  .VPNavBar .wrapper {
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    height: 100% !important;
+    align-items: center !important;
+  }
+
+  .VPNavBar .container {
+    max-width: 100% !important;
+    margin: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    flex-wrap: nowrap !important;
+  }
+  
+  .VPNavBar .content {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+    flex: 1 !important;
+  }
+
+  .VPNavBar .content-body {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+    justify-content: flex-end !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+
+
+  /* Center the menu items */
+  /* Ensure Title doesn't shrink and cause layout issues */
+  /* .VPNavBar .container .title {
+    min-width: 100px !important;
+    flex-shrink: 0 !important;
+  } */
+
+  /* .VPNavBarTitle.has-sidebar {
+    min-width: 100px !important;
+  } */
+  
+  .VPNavBarMenu {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .VPNavBarMenu > .VPNavBarMenuLink {
+    display: flex !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+  }
+  
+  .VPNavBar .VPNavBarSearch {
+    display: flex !important;
+    align-items: center !important;
+    padding-left: 0 !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Make sure search button doesn't take too much space */
+  .DocSearch-Button {
+    margin: 0 !important;
+    padding: 0 8px !important;
+    width: auto !important;
+  }
+
+  /* Adjust sidebar to not overlap the floating nav */
+  .VPSidebar {
+    top: 0 !important;
+    padding-top: 100px !important; /* Make room for the 56px nav + 24px top margin + spacing */
+  }
+
+  /* Adjust doc content padding */
+  .VPContent {
+    padding-top: 0 !important; /* Let VitePress handle its internal spacing or adjust if necessary */
+  }
+  
+  .VPDoc {
+    padding-top: 100px !important;
+  }
+  
+  /* Home page shouldn't have top padding from doc */
+  .custom-home-page .VPDoc {
+    padding-top: 0 !important;
+  }
+}
+
+
 :root {
 
     /* 首页下滑后导航透明 */
