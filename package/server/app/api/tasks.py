@@ -51,19 +51,6 @@ def list_tasks(
     return crud_task.list_tasks(db, status=status, type=type, limit=limit)
 
 
-@router.get("/stats", summary="获取任务统计")
-def get_task_stats(db: Session = Depends(get_db)):
-    """
-    返回当前系统中 PROCESS_IMAGE 类型且状态为 FAILED 的任务数量。
-    """
-    failed_count = 0
-    # failed_count = db.query(Task).filter(
-    #     Task.type == TaskType.PROCESS_IMAGE,
-    #     Task.status == TaskStatus.FAILED
-    # ).count()
-    return {"failed_process_tasks": failed_count}
-
-
 @router.post("/fast-mode", summary="设置快速模式")
 def set_fast_mode(enabled: bool = Body(..., embed=True)):
     """

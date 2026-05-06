@@ -39,11 +39,27 @@ class TaskManager:
         return cls._instance
 
     def start_worker_if_needed(self):
-        """Starts the background worker process if it's not already running."""
-        if self.worker_process and self.worker_process.is_alive():
-            return
+        """安全地启动后台工作进程"""
+
+        # 1. 如果进程存在且活着 → 不处理
+        if self.worker_process is not None:
+            if self.worker_process.is_alive():
+                return
+            else:
+                # 进程已死，必须 join 清理僵尸进程
+                try:
+                    self.worker_process.join(timeout=1)
+                except:
+                    pass
+                self.worker_process = None
+
+        # 2. 启动新进程
         logging.info("Starting background task worker process...")
-        self.worker_process = multiprocessing.Process(target=run_worker, daemon=False, name="TaskWorker")
+        self.worker_process = multiprocessing.Process(
+            target=run_worker,
+            daemon=True,
+            name="TaskWorker"
+        )
         self.worker_process.start()
         logging.info(f"Worker process started with PID: {self.worker_process.pid}")
 

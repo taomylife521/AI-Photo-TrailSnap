@@ -496,7 +496,7 @@ class TaskWorker:
                     if category:
                         for chunk in chunked_lists:
                             # Using the priority of the first task in the batch for the queue
-                            priority = DEFAULT_PRIORITIES.get(task_type,1)
+                            priority = DEFAULT_PRIORITIES.get(task_type, 1)
                             await self.queue_manager.put_batch(category, chunk, priority=priority)
                             dispatched_count += len(chunk)
 

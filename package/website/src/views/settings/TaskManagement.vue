@@ -118,7 +118,6 @@ interface GroupedTask {
 }
 
 const groupedTasks = ref<GroupedTask[]>([])
-const stats = ref({ failed_process_tasks: 0 })
 const fastMode = ref(false)
 
 const failedTasksVisible = ref(false)
@@ -130,8 +129,6 @@ let taskPollTimer: number | null = null
 const fetchTasks = async () => {
     try {
         groupedTasks.value = await tasksApi.getGroupedStatus()
-        stats.value = await tasksApi.getTaskStats()
-
         // Fetch global status for fast mode
         const globalStatus = await tasksApi.getGlobalStatus()
         if (globalStatus && typeof globalStatus.fast_mode !== 'undefined') {
