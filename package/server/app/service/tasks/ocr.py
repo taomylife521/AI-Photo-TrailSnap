@@ -75,7 +75,7 @@ class OcrStrategy(BaseTaskStrategy):
                     if should_process:
                         tasks_to_create.append({
                             'type': TaskType.OCR,
-                            'payload': {'photo_id': str(p.id), 'force': force},
+                            'payload': {'photo_id': str(p.id), 'force': force, 'file_path': p.file_path},
                             'priority': 1,
                             'owner_id': p.owner_id
                         })

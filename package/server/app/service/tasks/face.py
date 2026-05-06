@@ -65,7 +65,7 @@ class RecognizeFaceStrategy(BaseTaskStrategy):
                     if should_process:
                         tasks_to_create.append({
                             'type': TaskType.RECOGNIZE_FACE,
-                            'payload': {'photo_id': str(p.id), 'force': force},
+                            'payload': {'photo_id': str(p.id), 'force': force, 'file_path': p.file_path},
                             'priority': 2,
                             'owner_id': p.owner_id
                         })

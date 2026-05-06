@@ -77,11 +77,12 @@
     <!-- Failed Tasks Dialog -->
     <el-dialog v-model="failedTasksVisible" title="失败任务列表" width="900px" class="max-w-[90%] w-full sm:w-[900px]">
         <el-table :data="failedTasksList" style="width: 100%" v-loading="failedTasksLoading" height="500">
-            <el-table-column prop="type" label="类型" width="180" />
+            <el-table-column prop="type" label="类型" width="160" />
+            <el-table-column prop="payload.file_path" label="文件路径" width="180" show-overflow-tooltip />
             <el-table-column prop="error" label="错误信息" show-overflow-tooltip />
             <el-table-column prop="created_at" label="创建时间" width="180">
                 <template #default="{ row }">
-                    {{ new Date(row.created_at).toLocaleString() }}
+                    {{ new Date(row.created_at).toLocaleString('zh-CN') || 'N/A' }}
                 </template>
             </el-table-column>
             <el-table-column label="操作" width="100" fixed="right">

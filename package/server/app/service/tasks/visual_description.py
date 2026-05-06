@@ -135,7 +135,7 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
                     if should_process:
                         tasks_to_create.append({
                             'type': TaskType.VISUAL_DESCRIPTION,
-                            'payload': {'photo_id': str(p.id), 'force': force},
+                            'payload': {'photo_id': str(p.id), 'force': force, 'file_path': p.file_path},
                             'priority': DEFAULT_PRIORITIES[TaskType.VISUAL_DESCRIPTION],
                             'owner_id': p.owner_id
                         })

@@ -171,7 +171,7 @@ class GenerateThumbnailStrategy(BaseTaskStrategy):
                 if should_process:
                     tasks_to_create.append({
                         'type': TaskType.GENERATE_THUMBNAIL,
-                        'payload': {'photo_id': str(p.id)},
+                        'payload': {'photo_id': str(p.id), 'force': force, 'file_path': p.file_path},
                         'priority': 8,
                         'owner_id': p.owner_id
                     })
