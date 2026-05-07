@@ -1,11 +1,9 @@
 <template>
   <div>
-    <!-- Stats Cards -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 sm:gap-0">
-        <h2 class="text-lg font-semibold text-gray-800 dark:text-white">任务管理</h2>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 sm:gap-0">
+        <h2 class="text-xl md:text-2xl font-semibold text-gray-800 dark:text-white">任务管理</h2>
         <div class="flex gap-4 items-center w-full sm:w-auto justify-between sm:justify-end">
-             <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2">
                 <span class="text-sm text-gray-600 dark:text-gray-300">快速模式</span>
                 <el-switch v-model="fastMode" @change="handleFastModeChange" />
                 <el-tooltip content="开启后将同时运行不同类型的任务（CPU/IO），最大化资源利用" placement="top">
@@ -13,9 +11,12 @@
                         <i class="i-mdi-help-circle-outline"></i>
                     </span>
                 </el-tooltip>
-             </div>
+                </div>
         </div>
-      </div>
+    </div>
+    <!-- Stats Cards -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+
       
       <!-- Category Cards -->
       <div class="grid grid-cols-1 gap-4">

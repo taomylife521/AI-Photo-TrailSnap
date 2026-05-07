@@ -1,6 +1,6 @@
 <template>
-  <div class="p-6 bg-white rounded-lg shadow-sm border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
-      <h2 class="text-lg font-semibold mb-4 border-b pb-2 dark:text-white">外部图库管理</h2>
+  <div class="p-4 md:p-6 bg-white rounded-lg shadow-sm border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+      <h2 class="text-xl md:text-2xl font-semibold mb-4 border-b pb-2 dark:text-white">外部图库管理</h2>
       
       <el-tabs v-model="activeTab" class="demo-tabs">
         <el-tab-pane label="目录管理" name="directories">

@@ -1,8 +1,9 @@
 <template>
-  <div class="flex flex-col md:flex-row h-screen bg-gray-50 dark:bg-gray-900">
+  <!-- 禁用滚动条 -->
+  <div class="flex flex-col md:flex-row bg-gray-50 dark:bg-gray-900 scrollbar-hide h-screen"  style="height: calc(100vh - 3.5rem)">
     <!-- Sidebar -->
     <div class="w-full md:w-64 bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 flex-shrink-0">
-      <div class="p-4 md:p-6">
+      <div class="hidden md:block md:p-6">
         <h1 class="text-xl font-bold text-gray-800 dark:text-white">设置中心</h1>
       </div>
       <nav class="flex md:block overflow-x-auto md:overflow-visible pb-2 md:pb-0 mt-0 md:mt-2 px-4 md:px-0 scrollbar-hide">
@@ -20,7 +21,7 @@
     </div>
 
     <!-- Content Area -->
-    <div class="flex-1 overflow-auto p-4 md:p-8 max-w-5xl mx-auto">
+    <div class="flex-1 overflow-auto p-4 md:p-8 max-w-5xl">
       <UserManagement v-if="activeTab === 'user'" />
       <TaskManagement v-if="activeTab === 'tasks'" />
       <BasicSettings v-if="activeTab === 'basic'" />

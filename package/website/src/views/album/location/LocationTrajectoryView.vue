@@ -167,23 +167,17 @@ const fetchTimelineData = async (isLoadMore = false) => {
     skip.value = 0
     hasMore.value = true
   }
-
+  timelineNodes.value = []
   try {
-    const res = await locationService.getTimelineNodes(skip.value, limit, props.startDate, props.endDate, props.level)
-    const newNodes = res.nodes
-    
-    if (newNodes.length < limit) {
-      hasMore.value = false
-    }
-
-    if (isLoadMore) {
+    while (hasMore.value) {
+      const res = await locationService.getTimelineNodes(skip.value, limit, props.startDate, props.endDate, props.level)
+      const newNodes = res.nodes
+      if (newNodes.length < limit) {
+        hasMore.value = false
+      }
       timelineNodes.value.push(...newNodes)
-    } else {
-      timelineNodes.value = newNodes
+      skip.value += limit
     }
-
-    skip.value += limit
-
     nextTick(() => {
        drawTrajectory()
     })

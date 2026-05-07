@@ -1,11 +1,12 @@
 <template>
-  <div class="p-4 md:p-6">
+  <div class="">
     <div class="mb-4 md:mb-6 flex justify-between items-center">
       <h2 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">令牌管理</h2>
       <el-button type="primary" @click="showCreateDialog = true">新增令牌</el-button>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+    <!-- Desktop View -->
+    <div class="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
       <el-table :data="tokens" style="width: 100%" v-loading="loading">
         <el-table-column prop="name" label="令牌名称" width="200" />
         <el-table-column label="令牌值" min-width="250">
@@ -49,8 +50,54 @@
       </el-table>
     </div>
 
+    <!-- Mobile View -->
+    <div class="md:hidden space-y-4" v-loading="loading">
+      <div v-if="tokens.length === 0 && !loading" class="text-center text-gray-500 py-8">
+        暂无令牌数据
+      </div>
+      <div v-for="token in tokens" :key="token.id" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow space-y-3">
+        <div class="flex justify-between items-start">
+          <div class="font-bold text-gray-800 dark:text-white text-lg">{{ token.name }}</div>
+          <el-tag :type="isExpired(token.expires_at) ? 'danger' : 'success'" size="small">
+            {{ isExpired(token.expires_at) ? '已过期' : '有效' }}
+          </el-tag>
+        </div>
+        
+        <div>
+          <div class="text-xs text-gray-500 mb-1">令牌值</div>
+          <div class="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 p-2 rounded">
+            <span class="font-mono text-sm text-gray-600 dark:text-gray-300 break-all">
+              {{ maskToken(token.token) }}
+            </span>
+            <el-button link type="primary" @click="copyToken(token.token)">
+              <Copy class="w-4 h-4" />
+            </el-button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs text-gray-500">
+          <div>
+            <span class="block mb-0.5">创建时间</span>
+            <span class="text-gray-700 dark:text-gray-300">{{ formatDate(token.created_at) }}</span>
+          </div>
+          <div>
+            <span class="block mb-0.5">过期时间</span>
+            <span class="text-gray-700 dark:text-gray-300">{{ formatDate(token.expires_at) }}</span>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t dark:border-gray-700 flex justify-end">
+          <el-popconfirm title="确定要删除这个令牌吗？删除后该令牌将失效！" @confirm="handleDelete(token.id)">
+            <template #reference>
+              <el-button type="danger" size="small" plain>删除</el-button>
+            </template>
+          </el-popconfirm>
+        </div>
+      </div>
+    </div>
+
     <!-- Create Token Dialog -->
-    <el-dialog v-model="showCreateDialog" title="新增令牌" width="400px" :close-on-click-modal="false">
+    <el-dialog v-model="showCreateDialog" title="新增令牌" width="400px" style="max-width: 90%" :close-on-click-modal="false">
       <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px">
         <el-form-item label="令牌名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入令牌名称" />

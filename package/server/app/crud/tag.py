@@ -24,13 +24,13 @@ def get_photo_tags(db: Session, photo_id: UUID, owner_id: Optional[UUID] = None)
     # Join PhotoTagRelation and PhotoTag
     query = db.query(PhotoTag, PhotoTagRelation.confidence)\
         .join(PhotoTagRelation, PhotoTag.id == PhotoTagRelation.tag_id)\
-        .filter(PhotoTagRelation.photo_id == photo_id, PhotoTagRelation.is_deleted == False, Photo.is_deleted == False)
+        .filter(PhotoTagRelation.photo_id == photo_id, PhotoTagRelation.is_deleted == False)
 
     if owner_id:
         query = query.filter((PhotoTag.owner_id == owner_id) | (PhotoTag.owner_id == None))
     else:
         query = query.filter(PhotoTag.owner_id == None)
-        
+
     results = query.all()
 
     tags = []

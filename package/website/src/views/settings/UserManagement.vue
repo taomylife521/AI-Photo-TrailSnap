@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 md:p-6">
+  <div class="">
     <div class="mb-4 md:mb-6 flex justify-between items-center">
       <h2 class="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">用户管理</h2>
       <div class="flex gap-2">
