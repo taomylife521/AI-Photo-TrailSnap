@@ -69,11 +69,11 @@ export default defineConfig({
             {
               text: '设置指南',
               link: '/docs/guide/settings/',
-              collapsed: true,
+              collapsed: false,
               items: [
                 { text: '地图设置', link: '/docs/guide/settings/mapsetting' },
-                { text: 'AI 大模型设置', link: '/docs/guide/settings/aisetting' },
-                { text: '目录设置', link: '/docs/guide/settings/directories' },
+                { text: '配置AI大模型', link: '/docs/guide/settings/aisetting' },
+                { text: '添加外部图库', link: '/docs/guide/settings/directories' },
                 { text: 'Token 设置', link: '/docs/guide/settings/tokensetting' },
               ]
             },

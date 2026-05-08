@@ -48,8 +48,6 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
       PGDATA: /var/lib/postgresql/data/pgdata
     networks: [ app-network ]
-    ports:
-      - "5532:5432"
     volumes:
       - ./pg_data:/var/lib/postgresql/data
     healthcheck:

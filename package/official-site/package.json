@@ -4,7 +4,7 @@
   "description": "Official documentation and website for TrailSnap",
   "main": "index.js",
   "scripts": {
-    "docs:dev": "vitepress dev",
+    "docs:dev": "vitepress dev --host 0.0.0.0",
     "docs:build": "vitepress build",
     "docs:preview": "vitepress preview"
   },

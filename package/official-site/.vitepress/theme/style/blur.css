@@ -13,10 +13,6 @@
     pointer-events: none !important;
   }
 
-  .VPNavBarTitle.has-sidebar {
-    display: none !important;
-  }
-
   .VPNav > * {
     pointer-events: auto !important;
   }
@@ -78,6 +74,7 @@
     align-items: center !important;
     height: 100% !important;
     flex: 1 !important;
+    padding: 0 !important;
   }
 
   .VPNavBar .content-body {
@@ -89,14 +86,15 @@
     flex-shrink: 0 !important;
   }
 
-
+  .VPNavBarTitle.has-sidebar {
+    display: none !important;
+  }
 
   /* Center the menu items */
   /* Ensure Title doesn't shrink and cause layout issues */
-  /* .VPNavBar .container .title {
-    min-width: 100px !important;
-    flex-shrink: 0 !important;
-  } */
+  .VPNavBar.has-sidebar .title {
+    display: none !important;
+  }
 
   /* .VPNavBarTitle.has-sidebar {
     min-width: 100px !important;
@@ -150,7 +148,6 @@
     padding-top: 0 !important;
   }
 }
-
 
 :root {
 
