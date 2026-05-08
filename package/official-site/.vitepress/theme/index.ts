@@ -3,8 +3,6 @@ import DefaultTheme from 'vitepress/theme'
 import { h, onMounted, watch} from 'vue'
 import Comments from './components/Comments.vue'
 import Home from './components/Home.vue'
-import TicketRecognitionDemo from './components/TicketRecognitionDemo.vue'
-import TicketRecognitionTryIt from './components/TicketRecognitionTryIt.vue'
 import CliPage from './components/CliPage.vue'
 import './style/style.css'
 // import './style/navbar.css'
@@ -53,8 +51,6 @@ export default {
   enhanceApp({ app, router }: { app: any; router: any }) {
     // 全局组件
     app.component('Home', Home)
-    app.component('TicketRecognitionDemo', TicketRecognitionDemo)
-    app.component('TicketRecognitionTryIt', TicketRecognitionTryIt)
     app.component('CliPage', CliPage)
     app.component('Mermaid', Mermaid)
     enhanceAppWithTabs(app)
