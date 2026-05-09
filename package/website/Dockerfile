@@ -1,24 +1,24 @@
 # 第一阶段：构建前端项目
-FROM node:22.14-alpine as build-stage
+FROM node:22.14-alpine AS build-stage
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制依赖文件
+# 先复制依赖文件，提升 Docker 层缓存命中率
 COPY ./package.json ./
-# 复制项目文件
-COPY . .
+COPY ./pnpm-lock.yaml ./
+
 RUN corepack enable
-RUN npm install -g pnpm --force
-RUN pnpm config set ignore-scripts false
-# 批准需要运行构建脚本的包（pnpm 10+ 安全特性）
-RUN pnpm approve-builds core-js es5-ext esbuild vue-demi || true
-RUN pnpm install --verbose
+RUN corepack prepare pnpm@9.15.9 --activate
+
+# 再复制项目文件
+COPY . .
+RUN pnpm install --frozen-lockfile --verbose
 # 构建生产版本（会生成dist目录）
 RUN pnpm run build
 
 # 第二阶段：用Nginx托管静态文件
-FROM nginx:alpine as production-stage
+FROM nginx:alpine AS production-stage
 
 # 从构建阶段复制dist目录到Nginx的静态文件目录
 COPY --from=build-stage /app/dist /usr/share/nginx/html
