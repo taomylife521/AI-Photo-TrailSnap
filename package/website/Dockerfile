@@ -11,7 +11,9 @@ COPY . .
 RUN corepack enable
 RUN npm install -g pnpm --force
 RUN pnpm config set ignore-scripts false
-RUN pnpm install --verbose --no-skip-build
+# 批准需要运行构建脚本的包（pnpm 10+ 安全特性）
+RUN pnpm approve-builds core-js es5-ext esbuild vue-demi || true
+RUN pnpm install --verbose
 # 构建生产版本（会生成dist目录）
 RUN pnpm run build
 
