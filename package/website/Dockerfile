@@ -11,7 +11,7 @@ COPY . .
 RUN corepack enable
 RUN npm install -g pnpm --force
 RUN pnpm config set ignore-scripts false
-RUN pnpm install --verbose
+RUN pnpm install --verbose --no-skip-build
 # 构建生产版本（会生成dist目录）
 RUN pnpm run build
 
