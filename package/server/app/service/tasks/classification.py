@@ -9,7 +9,7 @@ import os
 import aiohttp
 from aiohttp import FormData
 from sqlalchemy.orm import Session
-from app.db.models.task import Task, TaskType
+from app.db.models.task import Task, TaskType, DEFAULT_PRIORITIES
 from app.db.models.photo import Photo, FileType
 from app.db.models.tag import PhotoTag, PhotoTagRelation
 from app.db.models.image_vector import ImageVector
@@ -71,7 +71,7 @@ class ClassifyImageStrategy(BaseTaskStrategy):
                         tasks_to_create.append({
                             'type': TaskType.CLASSIFY_IMAGE,
                             'payload': {'photo_id': str(p.id), 'force': force, 'file_path': p.file_path},
-                            'priority': 3,
+                            'priority': DEFAULT_PRIORITIES[TaskType.CLASSIFY_IMAGE],
                             'owner_id': p.owner_id
                         })
                 if tasks_to_create:

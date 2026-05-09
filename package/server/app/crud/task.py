@@ -109,9 +109,7 @@ def get_grouped_status(db: Session, paused_categories: set) -> List[Dict[str, An
     return stats
 
 def add_task(db: Session, type: str, payload: dict, priority: int = 0, owner_id: Optional[UUID] = None) -> Task:
-    if priority == 0:
-        priority = DEFAULT_PRIORITIES.get(type, 0)
-
+    priority = DEFAULT_PRIORITIES.get(type, 0)
     task = Task(type=type, payload=payload, priority=priority, status=TaskStatus.PENDING, owner_id=owner_id)
     db.add(task)
     db.commit()
@@ -124,9 +122,7 @@ def add_tasks(db: Session, tasks_data: List[Dict], owner_id: Optional[UUID] = No
 
     tasks = []
     for t_data in tasks_data:
-        priority = t_data.get('priority', 0)
-        if priority == 0:
-            priority = DEFAULT_PRIORITIES.get(t_data['type'], 0)
+        priority = DEFAULT_PRIORITIES.get(t_data['type'], 0)
 
         task_owner_id = t_data.get('owner_id', owner_id)
 

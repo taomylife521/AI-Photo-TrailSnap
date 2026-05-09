@@ -488,19 +488,19 @@
           <div class="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-full sm:w-96">
             <button
               @click="setMode('light')"
-              :class="['flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all', currentMode === 'light' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 dark:text-gray-400']"
+              :class="['flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all', currentMode === 'light' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 dark:text-gray-400 dark:bg-gray-800 dark:text-white']"
             >
               <Sun class="w-4 h-4 mr-2" /> 浅色
             </button>
             <button
               @click="setMode('auto')"
-              :class="['flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all', currentMode === 'auto' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 dark:text-gray-400']"
+              :class="['flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all', currentMode === 'auto' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 dark:text-gray-400 dark:bg-gray-800 dark:text-white']"
             >
               <Palette class="w-4 h-4 mr-2" /> 自动
             </button>
             <button
               @click="setMode('dark')"
-              :class="['flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all', currentMode === 'dark' ? 'bg-gray-600 shadow-sm text-white' : 'text-gray-500 dark:text-gray-400']"
+              :class="['flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all', currentMode === 'dark' ? 'bg-gray-600 shadow-sm text-white' : 'text-gray-500 dark:text-gray-400 dark:bg-gray-800 dark:text-white']"
             >
               <Moon class="w-4 h-4 mr-2" /> 深色
             </button>

@@ -310,13 +310,6 @@ const formatDate = (timestamp: number) => {
 // Smart Albums Configuration
 const smartAlbums = [
   {
-    id: 'recent',
-    title: '最近照片',
-    description: '按时间排序',
-    icon: Clock,
-    route: '/album/photos'
-  },
-  {
     id: 'people',
     title: '人物相册',
     description: '智能人脸识别',

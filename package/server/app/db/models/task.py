@@ -30,6 +30,7 @@ class TaskType(str, enum.Enum):
     SCAN_ALBUM = "SCAN_ALBUM"
 
 DEFAULT_PRIORITIES = {
+    TaskType.SCAN_ALBUM: 100,
     TaskType.SCAN_FOLDER: 100,
     TaskType.PROCESS_BASIC: 99,
     TaskType.GENERATE_THUMBNAIL: 98,
