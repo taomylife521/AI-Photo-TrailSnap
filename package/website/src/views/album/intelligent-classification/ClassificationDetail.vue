@@ -13,6 +13,15 @@
     >
     <template #batch-actions="{ selectedIds, clearSelection }">
       <el-dropdown-item
+          v-if="selectedIds.size === 1"
+          @click="handleSetCover(Array.from(selectedIds)); clearSelection()"
+      >
+          <div class="flex items-center gap-2">
+            <ImageIcon class="w-4 h-4" />
+            <span>设为封面</span>
+          </div>
+      </el-dropdown-item>
+      <el-dropdown-item
           @click="removePhotoFromTags(Array.from(selectedIds)); clearSelection()"
       >
           <div class="flex items-center gap-2">
@@ -32,7 +41,7 @@ import UnifiedPhotoPage from '@/components/UnifiedPhotoPage.vue'
 import { mapPhotoToImage, usePhotoStore } from '@/stores/photoStore'
 import type { AlbumImage } from '@/types/album'
 import { ElMessage } from 'element-plus'
-import { ImageMinus } from 'lucide-vue-next'
+import { ImageMinus, ImageIcon } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,6 +135,17 @@ const removePhotoFromTags = async (ids: string[]) => {
     ElMessage.success('从分类中移除成功')
   } catch (e) {
     ElMessage.error('从分类中移除失败')
+  }
+}
+
+const handleSetCover = async (ids: string[]) => {
+  if (!ids.length) return
+  const photoId = ids[0]
+  try {
+    await classificationService.setCover(name, photoId)
+    ElMessage.success('已设为封面')
+  } catch (e) {
+    ElMessage.error('设置封面失败')
   }
 }
 

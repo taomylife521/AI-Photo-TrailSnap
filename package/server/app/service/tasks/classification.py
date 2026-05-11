@@ -30,7 +30,7 @@ def get_tag_id(db: Session, tag_name: str, owner_id: Optional[UUID] = None) -> s
     else:
         tag = crud_tag.get_tag_by_name(db, tag_name, owner_id)
         if not tag:
-            tag = PhotoTag(tag_name=tag_name, type='yolo')
+            tag = PhotoTag(tag_name=tag_name, type='yolo', owner_id=owner_id)
             db.add(tag)
             db.commit()
             db.refresh(tag)

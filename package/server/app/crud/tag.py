@@ -1,3 +1,4 @@
+from tkinter import NO
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
@@ -6,9 +7,9 @@ from app.schemas import tag as schemas
 import uuid
 
 def get_tag_by_name(db: Session, tag_name: str, owner_id: Optional[UUID] = None):
-    query = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name, PhotoTag.is_deleted != True)
+    query = db.query(PhotoTag).filter(PhotoTag.tag_name == tag_name)
     if owner_id:
-        query = query.filter((PhotoTag.owner_id == owner_id) | (PhotoTag.owner_id == None))
+        query = query.filter(PhotoTag.owner_id == owner_id)
     else:
         query = query.filter(PhotoTag.owner_id == None)
     return query.first()
@@ -25,11 +26,6 @@ def get_photo_tags(db: Session, photo_id: UUID, owner_id: Optional[UUID] = None)
     query = db.query(PhotoTag, PhotoTagRelation.confidence)\
         .join(PhotoTagRelation, PhotoTag.id == PhotoTagRelation.tag_id)\
         .filter(PhotoTagRelation.photo_id == photo_id, PhotoTagRelation.is_deleted == False)
-
-    if owner_id:
-        query = query.filter((PhotoTag.owner_id == owner_id) | (PhotoTag.owner_id == None))
-    else:
-        query = query.filter(PhotoTag.owner_id == None)
 
     results = query.all()
 
@@ -108,29 +104,44 @@ def get_tags_with_stats(db: Session, owner_id: UUID, skip: int = 0, limit: int =
         func.count(PhotoTagRelation.photo_id).label('count')
     ).join(Photo).filter(
         Photo.owner_id == owner_id,
-        PhotoTagRelation.is_deleted == False,
         Photo.is_deleted == False
     ).group_by(PhotoTagRelation.tag_id).subquery()
 
-    # Query tags joined with count
-    tags_with_count = db.query(PhotoTag, subquery.c.count)\
+    # Query tags joined with count and cover photo
+    tags_with_data = db.query(PhotoTag, subquery.c.count, Photo)\
         .join(subquery, PhotoTag.id == subquery.c.tag_id)\
-        .filter(PhotoTag.is_deleted == False)\
+        .outerjoin(Photo, (PhotoTag.cover_id == Photo.id) & (Photo.is_deleted == False))\
+        .filter(PhotoTag.owner_id == owner_id)\
         .order_by(desc(subquery.c.count))\
         .offset(skip).limit(limit).all()
 
     result = []
-    for tag, count in tags_with_count:
-        # Get latest photo for cover
-        cover = None
-        cover = db.query(Photo).filter(Photo.owner_id == owner_id, Photo.is_deleted == False).join(PhotoTagRelation, Photo.id == PhotoTagRelation.photo_id).filter(PhotoTagRelation.tag_id == tag.id).first()
+    tags_to_update = []
+    for tag, count, cover_photo in tags_with_data:
+        # If no valid cover is found from cover_id, fetch the first available photo
+        if not cover_photo:
+            cover_photo = db.query(Photo)\
+                .join(PhotoTagRelation, Photo.id == PhotoTagRelation.photo_id)\
+                .filter(
+                    Photo.owner_id == owner_id,
+                    Photo.is_deleted == False,
+                    PhotoTagRelation.tag_id == tag.id
+                ).first()
+            
+            if cover_photo:
+                tag.cover_id = cover_photo.id
+                tags_to_update.append(tag)
 
         result.append(schemas.TagStats(
             id=tag.id,
             tag_name=tag.tag_name,
             count=count,
-            cover=cover
+            cover=cover_photo
         ))
+
+    # Commit only once if there are tags that need their cover_id updated
+    if tags_to_update:
+        db.commit()
 
     return result
 
@@ -144,8 +155,7 @@ def get_photos_by_tag_name(db: Session, owner_id: UUID, tag_name: str, skip: int
         .filter(
             Photo.owner_id == owner_id,
             Photo.is_deleted == False,
-            PhotoTagRelation.tag_id == tag.id,
-            PhotoTagRelation.is_deleted == False
+            PhotoTagRelation.tag_id == tag.id
         ).order_by(desc(Photo.photo_time))\
         .offset(skip).limit(limit).all()
 
@@ -163,3 +173,16 @@ def remove_photos_from_tag(db: Session, owner_id: UUID, tag_name: str, photo_ids
     
     db.commit()
     return count
+
+def set_tag_cover(db: Session, owner_id: UUID, tag_name: str, photo_id: UUID) -> bool:
+    tag = get_tag_by_name(db, tag_name, owner_id)
+    if not tag:
+        return False
+        
+    photo = db.query(Photo).filter(Photo.id == photo_id, Photo.owner_id == owner_id, Photo.is_deleted == False).first()
+    if not photo:
+        return False
+        
+    tag.cover_id = photo_id
+    db.commit()
+    return True

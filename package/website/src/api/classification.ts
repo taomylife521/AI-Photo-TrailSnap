@@ -30,6 +30,13 @@ export const classificationService = {
     return data.data;
   },
 
+  async setCover(tagName: string, photoId: string) {
+    const data = await request.post(`/api/tags/${encodeURIComponent(tagName)}/cover`, {
+      photo_id: photoId
+    });
+    return data.data;
+  },
+
   async deleteTag(tagName: string) {
       await request.delete(`/api/tags/${tagName}`);
   },
