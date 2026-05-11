@@ -211,7 +211,7 @@ def get_identity_photos(
     offset = (page - 1) * limit
     return crud_face.get_identity_photos(db, id, skip=offset, limit=limit, owner_id=current_user.id)
 
-@router.delete("/identities/{id}", summary="删除人物", description="软删除指定人物，但保留其关联的照片（解除关联）")
+@router.delete("/identities/{id}", summary="删除人物", description="删除指定人物，但保留其关联的照片（解除关联）")
 def delete_identity(
     id: UUID = Path(..., description="人物ID"),
     db: Session = Depends(get_db),
@@ -219,7 +219,7 @@ def delete_identity(
 ):
     """
     删除人物。
-    注意：这只是软删除人物记录，并将关联的人脸数据中的 identity_id 置为 NULL（解除关联）。
+    注意：这会直接删除人物记录，并将关联的人脸数据中的 identity_id 置为 NULL（解除关联）。
     """
     if not crud_face.delete_identity(db, id, owner_id=current_user.id):
         raise HTTPException(status_code=404, detail="Identity not found")
@@ -277,7 +277,7 @@ def merge_identities(
     """
     if not crud_face.merge_identities(db, payload.target_id, payload.source_ids, owner_id=current_user.id):
          raise HTTPException(status_code=400, detail="Merge failed")
-    
+
     from app.crud.album import trigger_conditional_albums_update
     # 难以获取所有影响的 photo_ids，传 None 触发全量扫描
     trigger_conditional_albums_update(db, current_user.id, None)

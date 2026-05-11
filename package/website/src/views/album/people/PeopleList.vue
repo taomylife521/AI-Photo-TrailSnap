@@ -58,6 +58,15 @@
             <EyeIcon class="w-4 h-4" />
             <span>显示</span>
           </button>
+
+          <button 
+            @click="handleBulkDelete"
+            :disabled="selectedIds.length === 0"
+            class="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50 transition-all flex items-center gap-1.5 shadow-sm text-sm border border-red-200 dark:border-red-800/30"
+          >
+            <TrashIcon class="w-4 h-4" />
+            <span>删除</span>
+          </button>
         </template>
         
         <button 
@@ -170,12 +179,17 @@
         >
           显示人物
         </div>
-        <template v-else>
-          <div class="h-px bg-gray-200 dark:bg-gray-700 my-1 mx-2"></div>
-          <div class="px-4 py-2 text-sm text-orange-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="handleMenuClick('hide')">
-            隐藏人物
-          </div>
-        </template>
+        <div 
+          v-else
+          class="px-4 py-2 text-sm text-orange-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
+          @click="handleMenuClick('hide')"
+        >
+          隐藏人物
+        </div>
+        <div class="h-px bg-gray-200 dark:bg-gray-700 my-1 mx-2"></div>
+        <div class="px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" @click="handleMenuClick('delete')">
+          删除人物
+        </div>
       </div>
     </Teleport>
     
@@ -199,7 +213,8 @@ import {
   Eye as EyeIcon,
   EyeOff as EyeOffIcon,
   RefreshCw as RefreshCwIcon,
-  Filter as FilterIcon
+  Filter as FilterIcon,
+  Trash2 as TrashIcon
 } from 'lucide-vue-next'
 import IdentityEditDialog from '@/components/IdentityEditDialog.vue'
 import PersonAvatar from '@/components/PersonAvatar.vue'
@@ -301,6 +316,20 @@ const handleCommand = (cmd: string, person: FaceIdentity) => {
     }).catch(() => {
       ElMessage.error('重新扫描失败')
     })
+  } else if (cmd === 'delete') {
+    ElMessageBox.confirm('确定要删除这个人物吗？删除后将无法恢复，但关联的照片不会被删除。', '删除确认', { 
+      type: 'error',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    }).then(async () => {
+      try {
+        await faceApi.deleteIdentity(person.id)
+        ElMessage.success('删除成功')
+        fetchIdentities()
+      } catch (e) {
+        ElMessage.error('删除失败')
+      }
+    }).catch(() => {})
   }
 }
 
@@ -344,6 +373,26 @@ const handleBulkShow = async () => {
     fetchIdentities()
   } catch (e) {
     if (e !== 'cancel') ElMessage.error('显示失败')
+  }
+}
+
+const handleBulkDelete = async () => {
+  if (selectedIds.value.length === 0) return
+  try {
+    await ElMessageBox.confirm(`确定要删除这 ${selectedIds.value.length} 个人物吗？删除后将无法恢复，但关联的照片不会被删除。`, '批量删除确认', { 
+      type: 'error',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+    for (const id of selectedIds.value) {
+      await faceApi.deleteIdentity(id)
+    }
+    ElMessage.success('批量删除成功')
+    isMergeMode.value = false
+    selectedIds.value = []
+    fetchIdentities()
+  } catch (e) {
+    if (e !== 'cancel') ElMessage.error('批量删除失败')
   }
 }
 

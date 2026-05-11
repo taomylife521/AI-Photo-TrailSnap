@@ -102,11 +102,11 @@ class TaskWorker:
         self.result_queue = asyncio.Queue()
         self.queue_manager = TaskQueueManager()
         self.scan_status = DEFAULT_SCAN_STATUS.copy()
-        
+
         # Will be initialized in _sync_system_state_if_needed
         self.paused_categories = set()
         self.fast_mode = False
-        
+
         # Maintain a map of Future/Task -> TaskType to track running tasks
         self.active_task_map: Dict[asyncio.Future, TaskType] = {}
         self.last_active_time: Dict[TaskType, datetime] = {}

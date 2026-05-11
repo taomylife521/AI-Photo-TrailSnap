@@ -151,15 +151,8 @@ def delete_identity(db: Session, identity_id: UUID, owner_id: Optional[UUID] = N
     identity = get_identity(db, identity_id, owner_id)
     if not identity:
         return False
-    
-    # Dissociate faces
-    faces = db.query(Face).filter(Face.face_identity_id == identity_id).all()
-    for face in faces:
-        face.face_identity_id = None
-        db.add(face)
-    
-    identity.is_deleted = True
-    db.add(identity)
+
+    db.delete(identity)
     db.commit()
     return True
 
@@ -378,24 +371,24 @@ def merge_identities(db: Session, target_id: UUID, source_ids: List[UUID], owner
     target = get_identity(db, target_id, owner_id)
     if not target:
         return False
-         
+
     for source_id in source_ids:
         if source_id == target_id:
             continue
-            
+
         source = get_identity(db, source_id, owner_id)
         if not source:
             continue
-            
+
         # Move faces
         faces = db.query(Face).filter(Face.face_identity_id == source_id).all()
         for face in faces:
             face.face_identity_id = target_id
             db.add(face)
-            
+
         # Soft delete source
         source.is_deleted = True
         db.add(source)
-        
+
     db.commit()
     return True
