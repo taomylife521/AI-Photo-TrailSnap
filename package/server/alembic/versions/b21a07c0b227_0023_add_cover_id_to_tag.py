@@ -73,7 +73,7 @@ def upgrade() -> None:
 
             # 为每个owner_id新建一个tag
             conn.execute(sa.text("""
-                INSERT INTO photo_tags (id, tag_name, type, owner_id, cover_id, create_time, update_time)
+                INSERT INTO photo_tags (id, tag_name, type, owner_id, cover_id, create_time, update_time, is_deleted)
                 VALUES (:id, :tag_name, :type, :owner_id, :cover_id, :create_time, :update_time, :is_deleted)
             """), {
                 "id": new_tag_id,
