@@ -37,6 +37,7 @@ class ImageClassificationService:
         "car": "汽车",
         "plant": "植物",
         "electronics": "电子产品",
+        "ski": "滑雪"
     }
 
     def __init__(self):
@@ -240,7 +241,7 @@ class ImageClassificationService:
             else:
                 for i in indices:
                     idx = i[0]
-                    final_results[idx] = {"label": self._translate_label(category), "confidence": 1.0}
+                    final_results[idx] = {"label": self._translate_label(category), "confidence": 0.9}
 
         for idx, result in final_results.items():
             result["label"] = self._translate_label(result["label"])

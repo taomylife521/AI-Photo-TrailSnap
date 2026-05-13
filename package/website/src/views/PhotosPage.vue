@@ -6,7 +6,7 @@
     :timeline-items="photoStore.timelineStats?.timeline || []"
     :timeline-stats="photoStore.timelineStats"
     :has-more="photoStore.hasMore"
-    :allow-upload="true"
+    :allow-upload="false"
     :delete-label="'删除'"
     :confirm-remove="true"
     :show-back="false"
@@ -52,7 +52,6 @@
 
     <!-- Upload Modal -->
     <template #extra-modals>
-        <!-- Upload Toast -->
         <Transition name="slide-up">
           <div v-if="showUploadModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">

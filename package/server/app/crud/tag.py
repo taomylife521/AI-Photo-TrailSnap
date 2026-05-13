@@ -84,8 +84,7 @@ def remove_tag_from_photo(db: Session, photo_id: UUID, tag_id: UUID):
 def remove_tags_from_photo(db: Session, photo_id: UUID | str | List[UUID] | List[str], ai_generated: bool = False):
     if ai_generated:
         db.query(PhotoTagRelation).filter(
-            (PhotoTagRelation.photo_id.in_(photo_id) if isinstance(photo_id, list) else PhotoTagRelation.photo_id == photo_id),
-            PhotoTagRelation.confidence < 1.0
+            (PhotoTagRelation.photo_id.in_(photo_id) if isinstance(photo_id, list) else PhotoTagRelation.photo_id == photo_id)
         ).delete()
     else:
         db.query(PhotoTagRelation).filter(
