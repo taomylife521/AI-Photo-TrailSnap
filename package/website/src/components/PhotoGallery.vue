@@ -288,8 +288,10 @@
 
     <!-- Empty State -->
     <div v-if="totalHeight === 0 && !loading" class="flex flex-col items-center justify-center py-20 text-gray-400">
-        <ImageIcon class="w-16 h-16 mb-4 opacity-20" />
-        <p>暂无照片</p>
+        <slot name="empty">
+          <ImageIcon class="w-16 h-16 mb-4 opacity-20" />
+          <p>暂无照片</p>
+        </slot>
     </div>
   </div>
 </template>

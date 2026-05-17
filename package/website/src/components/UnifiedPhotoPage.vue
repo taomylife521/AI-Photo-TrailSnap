@@ -165,6 +165,10 @@
         <template #overlay-actions="{ photo }">
             <slot name="overlay-actions" :photo="photo"></slot>
         </template>
+
+        <template #empty>
+            <slot name="empty"></slot>
+        </template>
       </PhotoGallery>
     </div>
 

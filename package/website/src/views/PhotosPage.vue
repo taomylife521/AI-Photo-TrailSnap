@@ -67,20 +67,50 @@
         </Transition>
     </template>
 
+    <template #empty>
+      <div class="flex flex-col items-center justify-center py-20 px-4 text-center max-w-md mx-auto">
+        <div class="w-24 h-24 bg-primary-50 dark:bg-primary-900/20 rounded-full flex items-center justify-center mb-6 shadow-sm border border-primary-100 dark:border-primary-800/50">
+          <FolderPlus class="w-12 h-12 text-primary-500" />
+        </div>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">欢迎来到 TrailSnap</h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+          看起来你的图库还是空的。要开始使用，请前往设置页面添加你的外部照片文件夹，我们将自动为你整理和分析照片。
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <button
+            @click="router.push('/settings#')"
+            class="px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-all shadow-lg shadow-primary-500/30 flex items-center justify-center gap-2"
+          >
+            <Settings class="w-5 h-5" />
+            <span>前往设置添加图库</span>
+          </button>
+          <!-- <button
+            @click="triggerUpload"
+            class="px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+          >
+            <UploadCloud class="w-5 h-5" />
+            <span>直接上传照片</span>
+          </button> -->
+        </div>
+      </div>
+    </template>
+
   </UnifiedPhotoPage>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAlbumStore } from '@/stores/albumStore'
 import { usePhotoStore } from '@/stores/photoStore'
-import { Filter, X } from 'lucide-vue-next'
+import { Filter, X, Settings, FolderPlus, UploadCloud } from 'lucide-vue-next'
 import { onClickOutside } from '@vueuse/core'
 import UnifiedPhotoPage from '@/components/UnifiedPhotoPage.vue'
 import MultiFileUpload from '@/components/MultiFileUpload.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const store = useAlbumStore()
 const photoStore = usePhotoStore()
 
