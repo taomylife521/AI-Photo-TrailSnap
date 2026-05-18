@@ -2,14 +2,14 @@ from typing import List
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.dependencies import get_db
+from app.dependencies import get_db, BaseResponse
 from app.crud import ocr as crud
 from app.schemas import ocr as schemas
 from app.db.models.photo import Photo
 
 router = APIRouter()
 
-@router.get("", response_model=schemas.OCRResponse, summary="Get OCR records")
+@router.get("", response_model=BaseResponse[schemas.OCRResponse], summary="Get OCR records")
 def get_ocr_records(
     photo_id: UUID = Query(..., description="The ID of the photo to retrieve OCR records for"),
     db: Session = Depends(get_db)
@@ -19,10 +19,14 @@ def get_ocr_records(
     Returns the text, confidence score, and polygon coordinates for each detected text region.
     """
     records = crud.get_ocr_by_photo_id(db, photo_id)
-    return {
-        "count": len(records),
-        "records": records
-    }
+    return BaseResponse(
+        code = 200,
+        msg = '',
+        data = {
+            "count": len(records),
+            "records": records
+        }
+    )
 
 @router.delete("/{photo_id}", summary="Delete OCR records")
 def delete_ocr_records(
@@ -49,4 +53,9 @@ def delete_ocr_records(
             db.add(photo)
             
     count = crud.delete_ocr_by_photo_id(db, photo_id)
-    return {"status": "success", "deleted_count": count}
+    
+    return BaseResponse(
+        code = 200,
+        msg = "success",
+        data = {"status": "success", "deleted_count": count}
+    )

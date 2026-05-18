@@ -69,7 +69,7 @@ service.interceptors.response.use(
         ElMessage.error(res.message || '接口请求失败');
         return Promise.reject(res);
       }
-      return res.data;
+      return res;
     }
     // 如果没有 code 字段，假设是直接返回数据（如 login 接口）
     return response;
