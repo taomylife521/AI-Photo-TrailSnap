@@ -449,7 +449,7 @@ watch(() => props.image, async (newImg, oldImg) => {
 
         // Fetch Data
         // Don't await these to prevent blocking UI updates if they are slow
-        fetchMetadata(undefined, newImg.id)
+        fetchMetadata(newImg.id)
         
         if (showOCR.value) {
             fetchOCR(newImg.id)
@@ -476,7 +476,7 @@ watch(() => props.visible, async (newVal) => {
         }
         
         if (!metadata.value || metadata.value.photo_id !== props.image.id) {
-            await fetchMetadata(undefined, props.image.id)
+            await fetchMetadata(props.image.id)
         }
     } else {
         document.body.style.overflow = ''
@@ -547,7 +547,7 @@ const handlePersonSelected = async (person: any) => {
     ElMessage.success('添加成功')
     showPersonSelector.value = false
     // Refresh metadata if needed
-    fetchMetadata(undefined, props.image.id)
+    fetchMetadata(props.image.id)
   } catch (e) {
     console.error(e)
     ElMessage.error('添加失败')
@@ -556,10 +556,10 @@ const handlePersonSelected = async (person: any) => {
   }
 }
 
-const fetchMetadata = async (albumId: string | undefined, photoId: string) => {
+const fetchMetadata = async (photoId: string) => {
     loading.value = true
     try {
-        const data = await albumService.getMetadata(albumId, photoId)
+        const data = await albumService.getMetadata(photoId)
         metadata.value = data
     } catch (error) {
         console.error("Failed to fetch metadata", error)

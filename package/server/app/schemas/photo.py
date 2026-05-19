@@ -23,6 +23,7 @@ class PhotoCreate(PhotoBase):
 class PhotoUpdate(BaseModel):
     filename: Optional[str] = None
     photo_time: Optional[datetime] = None
+    modify_original_file: Optional[bool] = False
 
 class Photo(PhotoBase):
     id: UUID

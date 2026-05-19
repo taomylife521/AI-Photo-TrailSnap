@@ -514,42 +514,6 @@ def update_photo(photo_id: UUID, photo: schemas.PhotoUpdate, db: Session = Depen
         raise HTTPException(status_code=404, detail="Photo not found")
     return db_photo
 
-
-# Metadata Endpoints
-
-@router.get("/{photo_id}/metadata", response_model=PhotoMetadata)
-def get_photo_metadata(photo_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    db_metadata = app.crud.photo.get_photo_metadata(db, photo_id=photo_id, user_id=current_user.id)
-
-    if not db_metadata:
-        raise HTTPException(status_code=404, detail="Metadata not found")
-    photo = app.crud.photo.get_photo(db, photo_id=photo_id, include_deleted=True)
-    albums = crud_album.get_albums_by_photo_id(db, photo_id=photo_id)
-    faces_identities = crud_face.get_identities_by_photo_id(db, photo_id=photo_id)
-    tags = crud_tag.get_photo_tags(db, photo_id=photo_id, owner_id=current_user.id)
-
-    photo_metadata = PhotoMetadata.model_validate(db_metadata)
-    photo_metadata.file_path = photo.file_path
-    photo_metadata.albums = albums
-    photo_metadata.faces_identities = faces_identities
-    photo_metadata.tags = tags
-
-    return photo_metadata
-
-
-@router.put("/{photo_id}/metadata", response_model=PhotoMetadata)
-def update_photo_metadata(
-        photo_id: UUID,
-        metadata: PhotoMetadataUpdate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    result = app.crud.photo.update_photo_metadata(db, photo_id=photo_id, metadata=metadata, user_id=current_user.id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Photo not found or access denied")
-    return result
-
-
 # Tag Endpoints
 
 @router.get("/{photo_id}/tags", response_model=List[tag_schemas.PhotoTagResponse])

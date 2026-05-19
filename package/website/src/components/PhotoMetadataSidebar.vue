@@ -20,9 +20,14 @@
     <div v-else-if="metadata" class="p-4 space-y-6">
         <!-- File Name & Info -->
         <div class="space-y-1">
-            <div class="flex items-center gap-2 text-gray-500 text-xs font-medium uppercase tracking-wider">
-                <Info class="w-3.5 h-3.5" />
-                <span>基本信息</span>
+            <div class="flex items-center justify-between text-gray-500 text-xs font-medium uppercase tracking-wider">
+                <div class="flex items-center gap-2">
+                    <Info class="w-3.5 h-3.5" />
+                    <span>基本信息</span>
+                </div>
+                <button @click="openBasicEditDialog" class="p-1 rounded-md text-gray-400 bg-transparent hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="编辑">
+                    <Pencil class="w-3.5 h-3.5" />
+                </button>
             </div>
             <!-- 文件名过长时自动换行 -->
             <p class="text-sm text-gray-900 dark:text-gray-200 font-mono break-all font-bold">
@@ -42,9 +47,14 @@
         </div>
         <!-- Date & Time -->
         <div class="space-y-1">
-            <div class="flex items-center gap-2 text-gray-500 text-xs font-medium uppercase tracking-wider">
-                <CalendarDays class="w-3.5 h-3.5" />
-                <span>拍摄时间</span>
+            <div class="flex items-center justify-between text-gray-500 text-xs font-medium uppercase tracking-wider">
+                <div class="flex items-center gap-2">
+                    <CalendarDays class="w-3.5 h-3.5" />
+                    <span>拍摄时间</span>
+                </div>
+                <button @click="openBasicEditDialog" class="p-1 rounded-md text-gray-400 bg-transparent hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="编辑">
+                    <Pencil class="w-3.5 h-3.5" />
+                </button>
             </div>
             <p class="text-sm text-gray-900 dark:text-gray-200 font-mono">
                 {{ formatTime(image?.timestamp) }}
@@ -88,9 +98,9 @@
                 <button
                     v-if="!isEditing"
                     @click="startEdit"
-                    class="text-primary-500 hover:text-primary-600 dark:bg-gray-800"
+                    class="p-1 rounded-md text-gray-400 bg-transparent hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="编辑"
                 >
-                    编辑
+                    <Pencil class="w-3.5 h-3.5" />
                 </button>
             </div>
 
@@ -216,19 +226,61 @@
         暂无 EXIF 信息
     </div>
   </el-dialog>
+
+  <!-- Basic Edit Dialog -->
+  <el-dialog
+    v-model="showBasicEditDialog"
+    title="编辑基本信息"
+    width="400px"
+    align-center
+    append-to-body
+  >
+    <div class="space-y-4 py-2">
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">文件名</label>
+        <el-input v-model="basicEditForm.filename" placeholder="请输入文件名" />
+      </div>
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">拍摄时间</label>
+        <el-date-picker
+          v-model="basicEditForm.photoTime"
+          type="datetime"
+          placeholder="选择拍摄时间"
+          format="YYYY-MM-DD HH:mm:ss"
+          value-format="YYYY-MM-DD HH:mm:ss"
+          class="!w-full"
+        />
+      </div>
+      <div class="pt-2">
+        <el-checkbox v-model="basicEditForm.modifyOriginalFile">
+          同步修改原文件
+        </el-checkbox>
+        <p class="text-xs text-gray-500 mt-1 pl-6">勾选后将同步修改原文件的文件名和系统修改时间（EXIF 暂不支持修改）</p>
+      </div>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showBasicEditDialog = false" :disabled="savingBasic">取消</el-button>
+        <el-button type="primary" @click="saveBasicEdit" :loading="savingBasic">
+          保存
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import {
     X, CalendarDays, MapPin, Tags, PanelRightClose, PanelRightOpen,
-    Loader2, Trash2, Info, User, Camera
+    Loader2, Trash2, Info, User, Camera, Pencil
 } from 'lucide-vue-next'
 import { format } from 'date-fns'
 import { albumService } from '@/api/album'
 import PersonAvatar from '@/components/PersonAvatar.vue'
 import type { PhotoMetadata, AlbumImage, CoverPhotoInfo, Tag } from '@/types/album'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { usePhotoStore } from '@/stores/photoStore'
 
 interface Props {
   visible: boolean
@@ -242,9 +294,17 @@ const emit = defineEmits(['close', 'delete', 'update', 'highlight-face'])
 
 // State
 const showExifDialog = ref(false)
+const showBasicEditDialog = ref(false)
+const savingBasic = ref(false)
 const saving = ref(false)
 const isEditing = ref(false)
 const newTagInput = ref('')
+
+const basicEditForm = reactive({
+    filename: '',
+    photoTime: '',
+    modifyOriginalFile: true
+})
 
 const editForm = reactive({
     location: '',
@@ -303,6 +363,57 @@ const formatSize = (bytes?: number) => {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const openBasicEditDialog = () => {
+    if (!props.image) return
+    basicEditForm.filename = props.image.filename || ''
+    if (props.image.timestamp) {
+        basicEditForm.photoTime = format(new Date(props.image.timestamp), 'yyyy-MM-dd HH:mm:ss')
+    } else {
+        basicEditForm.photoTime = ''
+    }
+    basicEditForm.modifyOriginalFile = true
+    showBasicEditDialog.value = true
+}
+
+const saveBasicEdit = async () => {
+    if (!props.image) return
+    savingBasic.value = true
+    try {
+        const updates = {
+            filename: basicEditForm.filename,
+            photo_time: basicEditForm.photoTime ? basicEditForm.photoTime : undefined,
+            modify_original_file: basicEditForm.modifyOriginalFile
+        }
+        
+        const updated = await albumService.updatePhoto(props.image.id, updates)
+        
+        const photoStore = usePhotoStore()
+        const imageRef = photoStore.images.find(img => img.id === props.image!.id)
+        if (imageRef) {
+            imageRef.filename = updated.filename
+            if (updated.photo_time) {
+                // 后端返回的可能是 "YYYY-MM-DDTHH:mm:ss"，需要正确解析为本地时间戳
+                imageRef.timestamp = new Date(updated.photo_time).getTime()
+            }
+        }
+        
+        // Emit update to keep PhotoLightbox in sync if it needs
+        emit('update', { 
+            id: props.image.id, 
+            filename: updated.filename, 
+            photo_time: updated.photo_time 
+        })
+        
+        ElMessage.success('基本信息保存成功')
+        showBasicEditDialog.value = false
+    } catch (error) {
+        console.error("Failed to update photo basic info", error)
+        ElMessage.error('保存失败')
+    } finally {
+        savingBasic.value = false
+    }
 }
 
 const startEdit = () => {
@@ -381,7 +492,7 @@ const saveEdit = async () => {
             location: editForm.location,
             // Tags are handled separately via immediate API calls
         }
-        const updated = await albumService.updateMetadata(undefined, props.image.id, updates)
+        const updated = await albumService.updateMetadata(props.image.id, updates)
         
         // Construct the full metadata object to pass back
         // We use the updated metadata from server (which has location) and our local tags

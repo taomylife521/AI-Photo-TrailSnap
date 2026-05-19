@@ -26,7 +26,7 @@ load_dotenv('./data/.env')
 from app.api import (
     user, train_ticket, flight_ticket, album, index, settings, face, ocr,
     location, search, classification, system, media, stats, photo, tasks,
-    annual_report, auth, deps, agent, agent_token, toolbox
+    annual_report, auth, deps, agent, agent_token, toolbox, metadata
 )
 from railway.api import router as railway_router
 from app.db.session import engine, SessionLocal
@@ -145,6 +145,7 @@ app.include_router(train_ticket.router, prefix="/train-ticket", tags=["train-tic
 app.include_router(flight_ticket.router, prefix="/flight-ticket", tags=["flight-ticket"])
 app.include_router(railway_router, prefix="/railway", tags=["railway"])
 app.include_router(photo.router, prefix="/photos", tags=["Photos"])
+app.include_router(metadata.router, prefix="/metadata", tags=["Metadata"])
 app.include_router(album.router,prefix="/albums", tags=["Albums"])
 app.include_router(settings.router, prefix="/settings", tags=["Settings"])
 app.include_router(index.router, prefix="/index", tags=["Index"])

@@ -9,7 +9,7 @@
 @Description : 
 """
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -706,11 +706,40 @@ def create_photo(db: Session, photo: photo_schemas.PhotoCreate, album_id: Option
     return db_photo
 
 
+import os
+import traceback
+
 def update_photo(db: Session, photo_id: UUID, photo_update: photo_schemas.PhotoUpdate, user_id: UUID = None):
     db_photo = get_photo(db, photo_id)
     if db_photo:
         if user_id is not None and db_photo.owner_id != user_id:
             return None
+
+        file_path = db_photo.file_path
+
+        if photo_update.modify_original_file and os.path.exists(file_path):
+            try:
+                if photo_update.photo_time is not None:
+                    timestamp = photo_update.photo_time.timestamp()
+                    os.utime(file_path, (timestamp, timestamp))
+
+                # 修改文件名
+                if photo_update.filename is not None and photo_update.filename != db_photo.filename:
+                    dirname = os.path.dirname(file_path)
+                    _, ext = os.path.splitext(file_path)
+                    new_filename = photo_update.filename
+                    if not new_filename.lower().endswith(ext.lower()):
+                        new_filename += ext
+                    
+                    new_file_path = os.path.join(dirname, new_filename)
+                    if not os.path.exists(new_file_path):
+                        os.rename(file_path, new_file_path)
+                        db_photo.file_path = new_file_path
+                        # 更新 filename 为带后缀的实际文件名
+                        photo_update.filename = new_filename
+            except Exception as e:
+                print(f"Failed to modify original file: {e}")
+                traceback.print_exc()
 
         if photo_update.filename is not None:
             db_photo.filename = photo_update.filename

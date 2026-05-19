@@ -83,6 +83,11 @@ export const albumService = {
     await request.delete(`/api/photos/${photoId}`);
   },
 
+  async updatePhoto(photoId: string, photo: Partial<Photo> & { modify_original_file?: boolean }) {
+    const data = await request.put<Photo>(`/api/photos/${photoId}`, photo);
+    return data.data;
+  },
+
   // Batch Update
   async batchUpdatePhotos(data: { photo_ids: string[], action: 'add_tags' | 'remove_tags' | 'add_to_album' | 'remove_from_album' | 'delete', album_id?: string }) {
       const res = await request.post<{count: number}>('/api/photos/batch', data);
@@ -130,18 +135,14 @@ export const albumService = {
   // Metadata
   // Note: Using the generic endpoint if available or falling back to album-specific
   // Ideally backend should provide /api/photos/{id}/metadata
-  async getMetadata(albumId: string | undefined, photoId: string) {
-      const url = albumId 
-        ? `/api/albums/${albumId}/photos/${photoId}/metadata`
-        : `/api/photos/${photoId}/metadata`; // Assuming this exists or will exist
+  async getMetadata(photoId: string) {
+      const url = `/api/metadata?photo_id=${photoId}`; // Assuming this exists or will exist
       const data = await request.get<PhotoMetadata>(url);
       return data.data;
   },
-
-  async updateMetadata(albumId: string | undefined, photoId: string, metadata: Partial<PhotoMetadata>) {
-      const url = albumId
-        ? `/api/albums/${albumId}/photos/${photoId}/metadata`
-        : `/api/photos/${photoId}/metadata`;
+  
+  async updateMetadata(photoId: string, metadata: Partial<PhotoMetadata>) {
+      const url = `/api/metadata?photo_id=${photoId}`;
       const data = await request.put<PhotoMetadata>(url, metadata);
       return data.data;
   },
