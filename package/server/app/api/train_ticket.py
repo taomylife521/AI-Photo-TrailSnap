@@ -29,7 +29,7 @@ from app.crud.train_ticket import (
 from app.db.models.trip import TrainTicket
 from app.db.models import User
 from app.schemas.train_ticket import TrainTicketResponse, TrainTicketCreate, TrainTicketListResponse, TrainTicketUpdate
-from app.dependencies import get_db
+from app.dependencies import get_db, BaseResponse
 from app.api.deps import get_current_user
 from app.core.config_manager import config_manager
 import aiohttp
@@ -164,8 +164,8 @@ async def recognize_ticket(
                     processed_data['discount_type'] = ticket_info['discount_type']
                 else:
                     processed_data['discount_type'] = '全价票'
-                         
-                return processed_data
+
+                return BaseResponse(code=200, msg="识别成功", data=processed_data)
 
     except Exception as e:
         # 如果是 HTTPException 直接抛出
@@ -295,7 +295,7 @@ async def import_tickets(
             errors.append(f"第 {idx + 1} 行处理失败: {str(e)}")
             # 继续处理下一条
 
-    return {
+    return BaseResponse(code=200, msg="导入完成", data={
         "message": "导入完成",
         "total": len(data_list),
         "success": success_count,
@@ -305,7 +305,7 @@ async def import_tickets(
             "updated": updated_count
         },
         "errors": errors[:10]  # 仅返回前10个错误以免响应过大
-    }
+    })
 
 
 @router.get("/export", summary="导出车票数据")
@@ -377,7 +377,7 @@ def export_tickets(
         raise HTTPException(status_code=400, detail="不支持的导出格式，请使用 json 或 csv")
 
 
-@router.post("", response_model=TrainTicketResponse, summary="创建火车票记录")
+@router.post("", response_model=BaseResponse[TrainTicketResponse], summary="创建火车票记录")
 def create_ticket(
         ticket: TrainTicketCreate,
         db: Session = Depends(get_db),
@@ -386,10 +386,11 @@ def create_ticket(
     """
     创建新的火车票记录
     """
-    return create_train_ticket(db=db, ticket=ticket, owner_id=current_user.id)
+    data = create_train_ticket(db=db, ticket=ticket, owner_id=current_user.id)
+    return BaseResponse(code=200, msg="创建成功", data=data)
 
 
-@router.get("/{ticket_id}", response_model=TrainTicketResponse, summary="获取单张火车票")
+@router.get("/{ticket_id}", response_model=BaseResponse[TrainTicketResponse], summary="获取单张火车票")
 def read_ticket(
         ticket_id: str = Path(..., description="火车票ID"),
         db: Session = Depends(get_db)
@@ -398,10 +399,10 @@ def read_ticket(
     db_ticket = get_train_ticket(db=db, ticket_id=ticket_id)
     if not db_ticket:
         raise HTTPException(status_code=404, detail="火车票记录不存在")
-    return db_ticket
+    return BaseResponse(code=200, msg="获取成功", data=db_ticket)
 
 
-@router.get("", response_model=TrainTicketListResponse, summary="获取火车票列表")
+@router.get("", response_model=BaseResponse[TrainTicketListResponse], summary="获取火车票列表")
 def read_tickets(
         db: Session = Depends(get_db),
         skip: int = Query(0, ge=0, description="跳过的记录数"),
@@ -444,10 +445,10 @@ def read_tickets(
     total = query.count()  # 计算总记录数（排序前的总条数，不受分页影响）
     items = query.offset(skip).limit(limit).all()  # 先排序，再分页
 
-    return {"total": total, "items": items}
+    return BaseResponse(code=200, msg="获取成功", data={"total": total, "items": items})
 
 
-@router.put("/{ticket_id}", response_model=TrainTicketResponse, summary="更新火车票记录")
+@router.put("/{ticket_id}", response_model=BaseResponse[TrainTicketResponse], summary="更新火车票记录")
 def update_ticket(
         ticket_update: TrainTicketUpdate,
         ticket_id: str = Path(..., description="火车票ID"),
@@ -457,10 +458,10 @@ def update_ticket(
     db_ticket = update_train_ticket(db=db, ticket_id=ticket_id, ticket_update=ticket_update)
     if not db_ticket:
         raise HTTPException(status_code=404, detail="火车票记录不存在")
-    return db_ticket
+    return BaseResponse(code=200, msg="更新成功", data=db_ticket)
 
 
-@router.delete("/{ticket_id}", response_model=dict, summary="删除火车票记录")
+@router.delete("/{ticket_id}", summary="删除火车票记录")
 def delete_ticket(
         ticket_id: str = Path(..., description="火车票ID"),
         db: Session = Depends(get_db)
@@ -469,5 +470,5 @@ def delete_ticket(
     success = delete_train_ticket(db=db, ticket_id=ticket_id)
     if not success:
         raise HTTPException(status_code=404, detail="火车票记录不存在")
-    return {"message": "火车票记录删除成功"}
+    return BaseResponse(code=200, msg="删除成功", data={"message": "火车票记录删除成功"})
 

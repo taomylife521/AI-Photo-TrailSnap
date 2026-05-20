@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, Path
 from sqlalchemy.orm import Session
 
+import app.schemas.photo
 from app.api import deps
-from app.dependencies import get_db
-from app.schemas import album
+from app.dependencies import get_db, BaseResponse
 from app.schemas import face as schemas
 from app.crud import face as crud_face
 from app.core.config_manager import config_manager
@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from uuid import UUID
 
 from app.schemas.face import FaceIdentitySchema, RemovePhotosRequest, SetCoverRequest, MergeRequest, FaceIdentityCreate, AddPhotosToIdentityRequest
+
 from app.db.models.photo import Photo
 from app.db.models.face import Face
 from app.db.models.user import User
@@ -25,7 +26,7 @@ router = APIRouter()
 
 from app.service.face_cluster import FaceClusterService
 
-@router.post("/identities", response_model=FaceIdentitySchema, summary="创建新人物", description="创建一个新的人物记录")
+@router.post("/identities", response_model=BaseResponse[FaceIdentitySchema], summary="创建新人物", description="创建一个新的人物记录")
 def create_identity(
     payload: FaceIdentityCreate = Body(..., description="人物信息"),
     db: Session = Depends(get_db),
@@ -34,7 +35,8 @@ def create_identity(
     """
     创建新人物。
     """
-    return crud_face.create_identity(db, payload, owner_id=current_user.id)
+    data = crud_face.create_identity(db, payload, owner_id=current_user.id)
+    return BaseResponse(code=200, msg="创建成功", data=data)
 
 @router.post("/identities/{id}/add-photos", summary="添加照片到人物", description="将选中的照片添加到指定人物相册中")
 async def add_photos_to_identity(
@@ -156,9 +158,9 @@ async def add_photos_to_identity(
     db.commit()
     from app.crud.album import trigger_conditional_albums_update
     trigger_conditional_albums_update(db, current_user.id, payload.photo_ids)
-    return {"status": "success", "count": count}
+    return BaseResponse(code=200, msg="添加成功", data={"status": "success", "count": count})
 
-@router.put("/identities/{id}", summary="更新人物信息", description="修改人物的显示名称、描述和标签")
+@router.put("/identities/{id}", response_model=BaseResponse[FaceIdentitySchema], summary="更新人物信息", description="修改人物的显示名称、描述和标签")
 def update_identity(
     id: UUID = Path(..., description="人物ID"),
     payload: schemas.FaceIdentityUpdate = Body(..., description="人物更新信息"),
@@ -172,9 +174,9 @@ def update_identity(
     if not updated_identity:
         raise HTTPException(status_code=404, detail="Identity not found")
 
-    return updated_identity
+    return BaseResponse(code=200, msg="更新成功", data=updated_identity)
 
-@router.get("/identities", response_model=List[FaceIdentitySchema], summary="获取人物列表", description="获取所有已识别的人物列表，支持分页，返回包含封面信息和照片数量的人物对象")
+@router.get("/identities", response_model=BaseResponse[List[FaceIdentitySchema]],summary="获取人物列表", description="获取所有已识别的人物列表，支持分页，返回包含封面信息和照片数量的人物对象")
 def list_identities(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=10000, description="每页数量"),
@@ -187,7 +189,7 @@ def list_identities(
     """
     offset = (page - 1) * limit
     min_photos = config_manager.get_user_config(current_user.id, db).ai.face_recognition_min_photos
-    return crud_face.get_identities_with_details(
+    data = crud_face.get_identities_with_details(
         db,
         skip=offset,
         limit=limit,
@@ -195,9 +197,10 @@ def list_identities(
         visibility_types=types,
         owner_id=current_user.id
     )
+    return BaseResponse(code=200, msg="获取成功", data=data)
 
 
-@router.get("/identities/{id}/photos", response_model=List[album.Photo], summary="获取人物照片列表", description="获取指定人物下的所有照片")
+@router.get("/identities/{id}/photos",response_model=BaseResponse[List[app.schemas.photo.Photo]] ,summary="获取人物照片列表", description="获取指定人物下的所有照片")
 def get_identity_photos(
     id: UUID = Path(..., description="人物ID"),
     page: int = Query(1, ge=1, description="页码"),
@@ -209,7 +212,8 @@ def get_identity_photos(
     获取指定人物关联的所有照片列表。
     """
     offset = (page - 1) * limit
-    return crud_face.get_identity_photos(db, id, skip=offset, limit=limit, owner_id=current_user.id)
+    data = crud_face.get_identity_photos(db, id, skip=offset, limit=limit, owner_id=current_user.id)
+    return BaseResponse(code=200, msg="获取成功", data=data)
 
 @router.delete("/identities/{id}", summary="删除人物", description="删除指定人物，但保留其关联的照片（解除关联）")
 def delete_identity(
@@ -223,11 +227,11 @@ def delete_identity(
     """
     if not crud_face.delete_identity(db, id, owner_id=current_user.id):
         raise HTTPException(status_code=404, detail="Identity not found")
-    
+
     from app.crud.album import trigger_conditional_albums_update
     # 删除人物影响的照片不好直接获取，传 None 触发全量扫描
     trigger_conditional_albums_update(db, current_user.id, None)
-    return {"status": "success"}
+    return BaseResponse(code=200, msg="删除成功", data={"status": "success"})
 
 @router.post("/identities/{id}/remove-photos", summary="从人物中移除照片", description="将指定照片从该人物中移除（解除人脸关联）")
 def remove_photos_from_identity(
@@ -245,7 +249,7 @@ def remove_photos_from_identity(
     count = crud_face.remove_photos_from_identity(db, id, payload.photo_ids, owner_id=current_user.id)
     from app.crud.album import trigger_conditional_albums_update
     trigger_conditional_albums_update(db, current_user.id, payload.photo_ids)
-    return {"status": "success", "count": count}
+    return BaseResponse(code=200, msg="移除成功", data={"status": "success", "count": count})
 
 @router.put("/identities/{id}/cover", summary="设置人物封面", description="将指定照片设为该人物的封面照片")
 def set_identity_cover(
@@ -263,8 +267,8 @@ def set_identity_cover(
         
     if not crud_face.set_identity_cover(db, id, payload.photo_id, owner_id=current_user.id):
         raise HTTPException(status_code=404, detail="Face not found in this photo for this identity")
-        
-    return {"status": "success"}
+
+    return BaseResponse(code=200, msg="设置成功", data={"status": "success"})
 
 @router.post("/identities/merge", summary="合并人物", description="将多个源人物合并到一个目标人物中")
 def merge_identities(
@@ -281,7 +285,7 @@ def merge_identities(
     from app.crud.album import trigger_conditional_albums_update
     # 难以获取所有影响的 photo_ids，传 None 触发全量扫描
     trigger_conditional_albums_update(db, current_user.id, None)
-    return {"status": "success"}
+    return BaseResponse(code=200, msg="合并成功", data={"status": "success"})
 
 @router.post("/identities/{id}/rescan", summary="重新扫描人物人脸", description="根据当前人物的人脸中心，重新扫描未分配的人脸并尝试关联")
 def rescan_identity(
@@ -297,7 +301,7 @@ def rescan_identity(
         
     service = FaceClusterService(db)
     count = service.rescan_identity(id, owner_id=current_user.id)
-    
+
     from app.crud.album import trigger_conditional_albums_update
     trigger_conditional_albums_update(db, current_user.id, None)
-    return {"status": "success", "count": count}
+    return BaseResponse(code=200, msg="扫描成功", data={"status": "success", "count": count})

@@ -22,7 +22,7 @@ from app.schemas.flight_ticket import (
     FlightTicketListResponse, 
     FlightTicketUpdate
 )
-from app.dependencies import get_db
+from app.dependencies import get_db, BaseResponse
 from app.api.deps import get_current_user
 from app.db.models import User
 from app.core.config_manager import config_manager
@@ -92,23 +92,24 @@ async def recognize_ticket(
                         return s
                     
                     ticket_info = max(flight_tickets, key=score)
-                
-                return ticket_info
+
+                return BaseResponse(code=200, msg="识别成功", data=ticket_info)
 
     except Exception as e:
         logging.error(f"Flight ticket recognition failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("", response_model=FlightTicketResponse, summary="创建飞机票")
+@router.post("", response_model=BaseResponse[FlightTicketResponse], summary="创建飞机票")
 async def create_ticket(
     ticket: FlightTicketCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """手动创建一张新的飞机票"""
-    return create_flight_ticket(db, ticket, owner_id=current_user.id)
+    data = create_flight_ticket(db, ticket, owner_id=current_user.id)
+    return BaseResponse(code=200, msg="创建成功", data=data)
 
-@router.get("", response_model=FlightTicketListResponse, summary="获取飞机票列表")
+@router.get("", response_model=BaseResponse[FlightTicketListResponse], summary="获取飞机票列表")
 async def get_tickets(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -129,9 +130,9 @@ async def get_tickets(
     if end_date: filters['end_date'] = end_date
     
     total, items = get_flight_tickets(db, skip, limit, filters)
-    return {"total": total, "items": items}
+    return BaseResponse(code=200, msg="获取成功", data={"total": total, "items": items})
 
-@router.get("/{ticket_id}", response_model=FlightTicketResponse, summary="获取飞机票详情")
+@router.get("/{ticket_id}", response_model=BaseResponse[FlightTicketResponse], summary="获取飞机票详情")
 async def get_ticket(
     ticket_id: str = Path(..., description="飞机票ID"),
     db: Session = Depends(get_db)
@@ -140,9 +141,9 @@ async def get_ticket(
     ticket = get_flight_ticket(db, ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="飞机票不存在")
-    return ticket
+    return BaseResponse(code=200, msg="获取成功", data=ticket)
 
-@router.put("/{ticket_id}", response_model=FlightTicketResponse, summary="更新飞机票")
+@router.put("/{ticket_id}", response_model=BaseResponse[FlightTicketResponse], summary="更新飞机票")
 async def update_ticket(
     ticket_update: FlightTicketUpdate,
     ticket_id: str = Path(..., description="飞机票ID"),
@@ -152,7 +153,7 @@ async def update_ticket(
     ticket = update_flight_ticket(db, ticket_id, ticket_update)
     if not ticket:
         raise HTTPException(status_code=404, detail="飞机票不存在")
-    return ticket
+    return BaseResponse(code=200, msg="更新成功", data=ticket)
 
 @router.delete("/{ticket_id}", summary="删除飞机票")
 async def delete_ticket(
@@ -163,4 +164,4 @@ async def delete_ticket(
     success = delete_flight_ticket(db, ticket_id)
     if not success:
         raise HTTPException(status_code=404, detail="飞机票不存在")
-    return {"msg": "删除成功"}
+    return BaseResponse(code=200, msg="删除成功", data={"msg": "删除成功"})

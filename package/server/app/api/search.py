@@ -2,7 +2,7 @@ import logging
 import traceback
 import os
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ import aiohttp
 
 import app.crud.photo
 from app.db.models import User
-from app.dependencies import get_db
+from app.dependencies import get_db, BaseResponse
 from app.crud import crud_vector
 from app.core.config_manager import config_manager
 from app.schemas.photo import Photo as PhotoSchema
@@ -48,7 +48,7 @@ class TextSearchRequest(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
 
-@router.get("/suggestions", response_model=List[SearchSuggestion])
+@router.get("/suggestions", response_model=BaseResponse[List[SearchSuggestion]])
 async def get_search_suggestions(
     q: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
@@ -152,13 +152,13 @@ async def get_search_suggestions(
             if s[0]:
                 suggestions.append(SearchSuggestion(type="scene", value=s[0], label=f"Scene: {s[0]}"))
 
-        return suggestions[:20] # Return top 20 total suggestions
+        return BaseResponse(code=200, msg="获取成功", data=suggestions[:20]) # Return top 20 total suggestions
 
     except Exception as e:
         logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/text", response_model=List[SearchResult])
+@router.post("/text", response_model=BaseResponse[List[SearchResult]])
 async def search_by_text(
     request: TextSearchRequest,
     db: Session = Depends(get_db),
@@ -209,7 +209,7 @@ async def search_by_text(
             photos = query.limit(request.limit).offset(request.skip).all()
             
             # Return with score 1.0 for exact matches
-            return [SearchResult(photo=p, score=1.0) for p in photos]
+            return BaseResponse(code=200, msg="搜索成功", data=[SearchResult(photo=p, score=1.0) for p in photos])
 
         else:
             # 1. Get Text Embedding from AI Service
@@ -228,13 +228,13 @@ async def search_by_text(
                 photo = app.crud.photo.get_photo(db, vector.photo_id)
                 if photo:
                     response.append(SearchResult(photo=photo, score=score))
-            return response
+            return BaseResponse(code=200, msg="搜索成功", data=response)
 
     except Exception as e:
         logging.info(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/image", response_model=List[SearchResult])
+@router.post("/image", response_model=BaseResponse[List[SearchResult]])
 async def search_by_image(
     file: UploadFile = File(...),
     limit: int = Form(20),
@@ -279,7 +279,7 @@ async def search_by_image(
             photo = app.crud.photo.get_photo(db, vector.photo_id)
             if photo:
                 response.append(SearchResult(photo=photo, score=score))
-        return response
+        return BaseResponse(code=200, msg="搜索成功", data=response)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
