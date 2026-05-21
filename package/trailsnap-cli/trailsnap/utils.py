@@ -64,7 +64,15 @@ def make_request(endpoint, params=None, method="GET", response_type="json"):
     try:
         with urllib.request.urlopen(req) as response:
             if response_type == "json":
-                return json.loads(response.read().decode("utf-8"))
+                result = json.loads(response.read().decode("utf-8"))
+                # 处理可能返回的统一结构 {"code": ..., "msg": ..., "data": ...}
+                if isinstance(result, dict) and "code" in result and "msg" in result:
+                    if result["code"] not in (200, 0):
+                        print(f"API 请求失败: {result.get('msg', '未知错误')} (错误码: {result['code']})")
+                        sys.exit(1)
+                    # 如果有 data 字段，则返回 data，否则返回整个结构（兼容部分可能只需要成功状态的情况）
+                    return result.get("data", result)
+                return result
             elif response_type == "text":
                 return response.read().decode("utf-8")
             if response_type == "bytes":

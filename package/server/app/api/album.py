@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 import aiohttp
 
 import app.crud.photo
-from app.dependencies import get_db
+from app.dependencies import get_db, BaseResponse
 from app.crud import album as crud
 from app.schemas import album as schemas
 from app.core.config_manager import config_manager
@@ -24,7 +24,7 @@ router = APIRouter()
 
 # Album Endpoints
 
-@router.post("", response_model=schemas.Album)
+@router.post("", response_model=BaseResponse[schemas.Album])
 async def create_album(album: schemas.AlbumCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query_embedding = None
     if album.type == 'smart' and album.description:
@@ -36,17 +36,17 @@ async def create_album(album: schemas.AlbumCreate, background_tasks: BackgroundT
     if db_album.type in ['conditional', 'smart']:
         TaskManager.get_instance().add_task(db, TaskType.SCAN_ALBUM, payload={'album_id': str(db_album.id)}, priority=1, owner_id=current_user.id)
         
-    return db_album
+    return BaseResponse(data=db_album)
 
-@router.get("", response_model=List[schemas.Album])
+@router.get("", response_model=BaseResponse[List[schemas.Album]])
 def read_albums(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return crud.get_albums(db, skip=skip, limit=limit, user_id=current_user.id)
+    return BaseResponse(data=crud.get_albums(db, skip=skip, limit=limit, user_id=current_user.id))
 
-@router.get("/{album_id}", response_model=schemas.Album)
+@router.get("/{album_id}", response_model=BaseResponse[schemas.Album])
 def read_album(album_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     db_album = crud.get_album(db, album_id=album_id, user_id=current_user.id)
     if db_album is None:
-        raise HTTPException(status_code=404, detail="Album not found")
+        return BaseResponse(code=404, msg="Album not found", data=None)
 
     # Check if cover is set (relationship or ID)
     if db_album.cover_id is None:
@@ -61,31 +61,31 @@ def read_album(album_id: UUID, db: Session = Depends(get_db), current_user: User
                 db.commit()
             except Exception:
                 pass
-    return db_album
+    return BaseResponse(data=db_album)
 
-@router.delete("/{album_id}", response_model=schemas.Album)
+@router.delete("/{album_id}", response_model=BaseResponse[schemas.Album])
 def delete_album(album_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Check ownership first
     db_album = crud.get_album(db, album_id, user_id=current_user.id)
     if not db_album:
-        raise HTTPException(status_code=404, detail="Album not found")
+        return BaseResponse(code=404, msg="Album not found", data=None)
     
     if db_album.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this album")
+        return BaseResponse(code=403, msg="Not authorized to delete this album", data=None)
         
     db_album = crud.delete_album(db, album_id=album_id)
     if db_album is None:
-        raise HTTPException(status_code=404, detail="Album not found")
-    return db_album
+        return BaseResponse(code=404, msg="Album not found", data=None)
+    return BaseResponse(data=db_album)
 
-@router.put("/{album_id}", response_model=schemas.Album)
+@router.put("/{album_id}", response_model=BaseResponse[schemas.Album])
 async def update_album(album_id: UUID, album: schemas.AlbumUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     current_album = crud.get_album(db, album_id, user_id=current_user.id)
     if not current_album:
-        raise HTTPException(status_code=404, detail="Album not found")
+        return BaseResponse(code=404, msg="Album not found", data=None)
 
     if current_album.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this album")
+        return BaseResponse(code=403, msg="Not authorized to update this album", data=None)
 
     query_embedding = None
     if current_album.type == 'smart':
@@ -98,23 +98,23 @@ async def update_album(album_id: UUID, album: schemas.AlbumUpdate, background_ta
     if db_album.type in ['conditional', 'smart']:
         TaskManager.get_instance().add_task(db, TaskType.SCAN_ALBUM, payload={'album_id': str(db_album.id)}, priority=1, owner_id=current_user.id)
         
-    return db_album
+    return BaseResponse(data=db_album)
 
-@router.put("/{album_id}/cover", response_model=schemas.Album)
+@router.put("/{album_id}/cover", response_model=BaseResponse[schemas.Album])
 def set_album_cover(album_id: UUID, payload: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     photo_id = payload.get('photo_id')
     if not photo_id:
-        raise HTTPException(status_code=400, detail="photo_id required")
+        return BaseResponse(code=400, msg="photo_id required", data=None)
     db_album = crud.get_album(db, album_id=album_id, user_id=current_user.id)
     if not db_album:
-        raise HTTPException(status_code=404, detail="Album not found")
+        return BaseResponse(code=404, msg="Album not found", data=None)
     
     if db_album.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this album")
+        return BaseResponse(code=403, msg="Not authorized to update this album", data=None)
 
     photo = app.crud.photo.get_photo(db, UUID(str(photo_id)))
     if not photo:
-        raise HTTPException(status_code=404, detail="Photo not found")
+        return BaseResponse(code=404, msg="Photo not found", data=None)
     # Verify photo ownership if necessary, or assume if user can see photo they can set it?
     # For now, just check album ownership.
     
@@ -122,10 +122,10 @@ def set_album_cover(album_id: UUID, payload: dict, db: Session = Depends(get_db)
     db_album.cover = photo
     db.commit()
     db.refresh(db_album)
-    return db_album
+    return BaseResponse(data=db_album)
 
 
-@router.post("/{album_id}/photos", response_model=schemas.Photo)
+@router.post("/{album_id}/photos", response_model=BaseResponse[schemas.Photo])
 async def upload_photo(
         album_id: UUID,
         file: UploadFile = File(...),
@@ -135,9 +135,9 @@ async def upload_photo(
     # Check album permission
     album = crud.get_album(db, album_id, user_id=current_user.id)
     if not album:
-        raise HTTPException(status_code=404, detail="Album not found")
+        return BaseResponse(code=404, msg="Album not found", data=None)
     if album.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to upload to this album")
+        return BaseResponse(code=403, msg="Not authorized to upload to this album", data=None)
 
     # Forward to generic handler
     # Note: upload_photo_generic needs to be imported if not available. 
@@ -148,24 +148,28 @@ async def upload_photo(
     return await upload_photo_generic(album_id, file, db, current_user)
 
 
-@router.get("/{album_id}/photos", response_model=List[schemas.Photo])
+@router.get("/{album_id}/photos", response_model=BaseResponse[List[schemas.Photo]])
 def read_photos(album_id: UUID, skip: int = 0, limit: int = 100, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return app.crud.photo.get_photos(db, album_id=album_id, skip=skip, limit=limit, start_time=start_time, end_time=end_time, user_id=current_user.id)
+    data = app.crud.photo.get_photos(db, album_id=album_id, skip=skip, limit=limit, start_time=start_time, end_time=end_time, user_id=current_user.id)
+    return BaseResponse(data=data)
 
 
-@router.delete("/{album_id}/photos/{photo_id}", response_model=schemas.Photo)
+@router.delete("/{album_id}/photos/{photo_id}", response_model=BaseResponse[schemas.Photo])
 def delete_photo(album_id: UUID, photo_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Check album ownership
     db_album = crud.get_album(db, album_id, user_id=current_user.id)
     if not db_album:
-        raise HTTPException(status_code=404, detail="Album not found")
-    
+        return BaseResponse(code=404, msg="Album not found", data=None)
+
     if db_album.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to remove photos from this album")
+        return BaseResponse(code=403, msg="Not authorized to remove photos from this album", data=None)
 
     # Remove association
     count = crud.batch_update_album_association(db, [photo_id], album_id, 'remove_from_album')
     if count == 0:
-        raise HTTPException(status_code=404, detail="Photo not in album or not found")
+        return BaseResponse(code=404, msg="Photo not in album or not found", data=None)
 
-    return app.crud.photo.get_photo(db, photo_id)  # Return the photo
+    photo = app.crud.photo.get_photo(db, photo_id)
+    if not photo:
+        return BaseResponse(code=404, msg="Photo not found", data=None)
+    return BaseResponse(data=photo)

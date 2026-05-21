@@ -226,8 +226,8 @@ def delete_identity(
     注意：这会直接删除人物记录，并将关联的人脸数据中的 identity_id 置为 NULL（解除关联）。
     """
     if not crud_face.delete_identity(db, id, owner_id=current_user.id):
-        raise HTTPException(status_code=404, detail="Identity not found")
-
+        return BaseResponse(code=404, msg="Identity not found", data=None)
+    
     from app.crud.album import trigger_conditional_albums_update
     # 删除人物影响的照片不好直接获取，传 None 触发全量扫描
     trigger_conditional_albums_update(db, current_user.id, None)
@@ -244,8 +244,8 @@ def remove_photos_from_identity(
     批量从人物中移除照片。
     """
     if not crud_face.get_identity(db, id, owner_id=current_user.id):
-        raise HTTPException(status_code=404, detail="Identity not found")
-        
+        return BaseResponse(code=404, msg="Identity not found", data=None)
+    
     count = crud_face.remove_photos_from_identity(db, id, payload.photo_ids, owner_id=current_user.id)
     from app.crud.album import trigger_conditional_albums_update
     trigger_conditional_albums_update(db, current_user.id, payload.photo_ids)
@@ -263,10 +263,10 @@ def set_identity_cover(
     系统会自动查找该照片中属于该人物的人脸，并将其ID设为默认人脸ID。
     """
     if not crud_face.get_identity(db, id, owner_id=current_user.id):
-        raise HTTPException(status_code=404, detail="Identity not found")
-        
+        return BaseResponse(code=404, msg="Identity not found", data=None)
+    
     if not crud_face.set_identity_cover(db, id, payload.photo_id, owner_id=current_user.id):
-        raise HTTPException(status_code=404, detail="Face not found in this photo for this identity")
+        return BaseResponse(code=404, msg="Face not found in this photo for this identity", data=None)
 
     return BaseResponse(code=200, msg="设置成功", data={"status": "success"})
 

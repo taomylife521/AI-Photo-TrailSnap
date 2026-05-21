@@ -24,248 +24,22 @@ from app.dependencies import get_db
 from app.crud import album as crud_album
 from app.crud import face as crud_face
 from app.crud import tag as crud_tag
-from app.crud import task as crud_task
 
 from app.schemas import photo as schemas
 from app.schemas.metadata import PhotoMetadata, PhotoMetadataUpdate, PhotoDetail
 from app.schemas import tag as tag_schemas
-from app.service import storage
-from app.service.task_manager import TaskManager
-from app.db.models.task import TaskType
+
 from app.api.deps import get_current_user
 from app.db.models.user import User
-import uuid
-import os
-import shutil
 
 from app.db.models.image_description import ImageDescription as ImageDescriptionModel
 from app.schemas.image_description import ImageDescription as ImageDescriptionSchema
 from app.db.models.photo import Photo
-from app.service.similar_photo import SimilarPhotoService
-from app.db.models.task import Task, TaskType, TaskStatus
-from app.schemas.task import TaskResponse
-from app.db.models.cluster import ImageCluster, PhotoCluster
+
 
 router = APIRouter()
 
 # Photo Endpoints
-
-@router.post("/similar/tasks", response_model=TaskResponse)
-def create_similar_photo_task(
-    threshold: float = 0.9,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Create a new similar photo clustering task
-    """
-    task = TaskManager.get_instance().add_task(
-        db,
-        type=TaskType.SIMILAR_PHOTO_CLUSTERING,
-        payload={"threshold": threshold},
-        owner_id=current_user.id
-    )
-    return task
-
-@router.get("/similar/tasks/latest", response_model=Optional[TaskResponse])
-def get_latest_similar_task(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get the latest similar photo clustering task
-    """
-    task = crud_task.get_latest_task_by_type_and_owner(
-        db, TaskType.SIMILAR_PHOTO_CLUSTERING, current_user.id,
-        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value]
-    )
-    
-    if task:
-        return task
-
-    # If no pending/processing task, check ImageCluster for the latest task_id
-    latest_cluster = db.query(ImageCluster).join(
-        PhotoCluster, ImageCluster.cluster_id == PhotoCluster.cluster_id
-    ).join(
-        Photo, PhotoCluster.photo_id == Photo.id
-    ).filter(
-        Photo.owner_id == current_user.id,
-        ImageCluster.cluster_type == "SIMILARITY"
-    ).order_by(ImageCluster.created_at.desc()).first()
-
-    if latest_cluster and latest_cluster.task_id:
-        try:
-            task_id_uuid = UUID(latest_cluster.task_id)
-        except ValueError:
-            return None
-            
-        return TaskResponse(
-            id=task_id_uuid,
-            type=TaskType.SIMILAR_PHOTO_CLUSTERING,
-            status=TaskStatus.COMPLETED.value,
-            created_at=latest_cluster.created_at,
-            updated_at=latest_cluster.created_at,
-            total_items=0,
-            processed_items=0,
-            result=None
-        )
-        
-    return None
-
-@router.get("/similar/tasks/{task_id}", response_model=TaskResponse)
-def get_similar_task(
-    task_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get the status of a specific similar photo clustering task
-    """
-    task = crud_task.get_task_by_id_and_owner(db, task_id, current_user.id)
-    
-    if task:
-        return task
-        
-    # If not in Task table, it was either completed or deleted.
-    # We assume it's completed.
-    return TaskResponse(
-        id=task_id,
-        type=TaskType.SIMILAR_PHOTO_CLUSTERING,
-        status=TaskStatus.COMPLETED.value,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-        total_items=0,
-        processed_items=0,
-        result=None
-    )
-
-@router.get("/similar/tasks/{task_id}/result", response_model=List[List[schemas.Photo]])
-def get_similar_task_result(
-    task_id: UUID,
-    skip: int = 0,
-    limit: int = 20,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get the result of a similar photo clustering task
-    """
-    result = []
-    current_skip = skip
-    # Safety break to avoid infinite loops
-    max_loops = 100 
-    loop_count = 0
-    
-    while len(result) < limit and loop_count < max_loops:
-        loop_count += 1
-        
-        # Calculate how many more we need
-        remaining_needed = limit - len(result)
-        # Fetch at least 20 or remaining_needed to be efficient
-        fetch_limit = max(remaining_needed, 20)
-        
-        clusters = db.query(ImageCluster).filter(
-            ImageCluster.task_id == str(task_id),
-            ImageCluster.cluster_type == "SIMILARITY"
-        ).order_by(ImageCluster.created_at.desc()).offset(current_skip).limit(fetch_limit).all()
-
-        if not clusters:
-            break
-
-        processed_count = 0
-        deleted_count = 0
-        
-        for cluster in clusters:
-            # If we have enough results, we stop adding to result,
-            # but we simply break and let the offset calculation handle the next page start.
-            if len(result) >= limit:
-                break
-                
-            processed_count += 1
-            
-            photo_clusters = db.query(PhotoCluster).filter(PhotoCluster.cluster_id == cluster.cluster_id).all()
-            photo_ids = [pc.photo_id for pc in photo_clusters]
-
-            should_delete = False
-            cluster_photos = []
-            
-            if not photo_ids:
-                should_delete = True
-            else:
-                photos_query = db.query(Photo, ImageDescriptionModel).outerjoin(
-                    ImageDescriptionModel, Photo.id == ImageDescriptionModel.photo_id
-                ).filter(
-                    Photo.id.in_(photo_ids),
-                    Photo.owner_id == current_user.id
-                ).all()
-
-                for photo, desc in photos_query:
-                    score = 0
-                    if desc:
-                        score = (desc.memory_score or 0) + (desc.quality_score or 0)
-                    
-                    cluster_photos.append((photo, score))
-                
-                # Sort by score desc, then photo_time desc
-                cluster_photos.sort(key=lambda x: (x[1], x[0].photo_time or datetime.min), reverse=True)
-                
-                if len(cluster_photos) < 2:
-                    should_delete = True
-            
-            if should_delete:
-                # Delete invalid cluster
-                db.delete(cluster)
-                # Commit to ensure DB state reflects deletion for next query or consistency
-                db.commit() 
-                deleted_count += 1
-            else:
-                result.append([x[0] for x in cluster_photos])
-        
-        # Update current_skip for the next iteration or next page logic
-        # logic: we advanced 'processed_count' positions in the original list,
-        # but 'deleted_count' items were removed, so the DB shifts.
-        # Next item is at 'current_skip + processed_count - deleted_count'
-        current_skip = current_skip + processed_count - deleted_count
-
-    return result
-
-@router.delete("/similar/tasks/{task_id}")
-def cancel_similar_task(
-    task_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Cancel/Delete a similar photo clustering task
-    """
-    task = crud_task.get_task_by_id_and_owner(db, task_id, current_user.id)
-    
-    if task:
-        if task.status in [TaskStatus.PENDING, TaskStatus.PROCESSING]:
-            task.status = TaskStatus.CANCELLED
-            # Note: This doesn't stop the running thread immediately if it's processing, 
-            # but TaskWorker should handle cancellation check.
-        crud_task.delete_task(db, task)
-    else:
-        # Check if it exists in ImageCluster
-        clusters = db.query(ImageCluster).filter(ImageCluster.task_id == str(task_id)).all()
-        if not clusters:
-            raise HTTPException(status_code=404, detail="Task not found")
-        for cluster in clusters:
-            db.delete(cluster)
-            
-    db.commit()
-    return {"message": "Task deleted"}
-
-@router.get("/similar", response_model=List[List[schemas.SimilarPhoto]], deprecated=True)
-def get_similar_photos(
-    threshold: float = 0.9,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    print(f"Getting similar photos with threshold {threshold} for user {current_user.id}")
-    service = SimilarPhotoService(db, str(current_user.id))
-    return service.get_similar_groups(threshold)
 
 @router.get("/recycle-bin", response_model=List[schemas.RecyclePhoto])
 def get_recycle_bin(
@@ -297,30 +71,6 @@ def permanently_delete_recycle_bin_photos(
         raise HTTPException(status_code=400, detail="No photo IDs provided")
     count = app.crud.photo.batch_delete_photos_db(db, batch_data.photo_ids, is_delete_file=True, user_id=current_user.id)
     return {"message": f"Successfully permanently deleted {count} photos"}
-
-@router.get("/cleanup", response_model=List[schemas.Photo])
-def get_photos_for_cleanup(
-    skip: int = 0,
-    limit: int = 50,
-    sort_by: str = "asc",
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    # Join with ImageDescription to access scores
-    query = db.query(Photo).join(ImageDescriptionModel, Photo.id == ImageDescriptionModel.photo_id).filter(Photo.owner_id == current_user.id, Photo.is_deleted == False)
-
-    # Calculate score: memory_score + quality_score
-    # We use coalesce to treat nulls as 0
-    score_expr = func.coalesce(ImageDescriptionModel.memory_score, 0) + func.coalesce(ImageDescriptionModel.quality_score, 0)
-
-    if sort_by == "desc":
-        query = query.order_by(score_expr.desc())
-    else:
-        query = query.order_by(score_expr.asc())
-
-    photos = query.offset(skip).limit(limit).all()
-    return photos
-
 
 @router.get("", response_model=List[schemas.Photo])
 def read_all_photos(
