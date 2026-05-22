@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 
 from app.api.deps import get_current_user
 from app.db.models.user import User
-from app.dependencies import get_db
+from app.dependencies import get_db, BaseResponse
 from app.db.models.photo import Photo
 from app.db.models.task import TaskType, TaskStatus, Task
 from app.service.task_manager import TaskManager
@@ -30,7 +30,7 @@ class DuplicatePhotoGroup(BaseModel):
 
 router = APIRouter()
 
-@router.post("/duplicate-photos/scan")
+@router.post("/duplicate-photos/scan", response_model=BaseResponse[TaskResponse])
 def scan_duplicate_photos(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -45,7 +45,7 @@ def scan_duplicate_photos(
     )
 
     if existing_task:
-        return existing_task
+        return BaseResponse(data=existing_task)
 
     task = TaskManager.get_instance().add_task(
         db,
@@ -53,9 +53,9 @@ def scan_duplicate_photos(
         payload={},
         owner_id=current_user.id
     )
-    return task
+    return BaseResponse(data=task)
 
-@router.get("/duplicate-photos", response_model=List[DuplicatePhotoGroup])
+@router.get("/duplicate-photos", response_model=BaseResponse[List[DuplicatePhotoGroup]])
 def get_duplicate_photos(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -78,7 +78,7 @@ def get_duplicate_photos(
     ).all()
 
     if not md5_counts:
-        return []
+        return BaseResponse(data=[])
 
     duplicate_md5s = [row.md5 for row in md5_counts]
 
@@ -107,10 +107,10 @@ def get_duplicate_photos(
             "photos": photo_list
         })
 
-    return result
+    return BaseResponse(data=result)
 
 
-@router.post("/similar/tasks", response_model=TaskResponse)
+@router.post("/similar/tasks", response_model=BaseResponse[TaskResponse])
 def create_similar_photo_task(
     threshold: float = 0.9,
     db: Session = Depends(get_db),
@@ -125,9 +125,9 @@ def create_similar_photo_task(
         payload={"threshold": threshold},
         owner_id=current_user.id
     )
-    return task
+    return BaseResponse(data=task)
 
-@router.get("/similar/tasks/latest", response_model=Optional[TaskResponse])
+@router.get("/similar/tasks/latest", response_model=BaseResponse[Optional[TaskResponse]])
 def get_latest_similar_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -141,7 +141,7 @@ def get_latest_similar_task(
     )
     
     if task:
-        return task
+        return BaseResponse(data=task)
 
     # If no pending/processing task, check ImageCluster for the latest task_id
     latest_cluster = db.query(ImageCluster).join(
@@ -157,9 +157,9 @@ def get_latest_similar_task(
         try:
             task_id_uuid = UUID(latest_cluster.task_id)
         except ValueError:
-            return None
+            return BaseResponse(data=None)
             
-        return TaskResponse(
+        return BaseResponse(data=TaskResponse(
             id=task_id_uuid,
             type=TaskType.SIMILAR_PHOTO_CLUSTERING,
             status=TaskStatus.COMPLETED.value,
@@ -168,11 +168,11 @@ def get_latest_similar_task(
             total_items=0,
             processed_items=0,
             result=None
-        )
+        ))
         
-    return None
+    return BaseResponse(data=None)
 
-@router.get("/similar/tasks/{task_id}", response_model=TaskResponse)
+@router.get("/similar/tasks/{task_id}", response_model=BaseResponse[TaskResponse])
 def get_similar_task(
     task_id: UUID,
     db: Session = Depends(get_db),
@@ -184,11 +184,11 @@ def get_similar_task(
     task = crud_task.get_task_by_id_and_owner(db, task_id, current_user.id)
     
     if task:
-        return task
+        return BaseResponse(data=task)
         
     # If not in Task table, it was either completed or deleted.
     # We assume it's completed.
-    return TaskResponse(
+    return BaseResponse(data=TaskResponse(
         id=task_id,
         type=TaskType.SIMILAR_PHOTO_CLUSTERING,
         status=TaskStatus.COMPLETED.value,
@@ -197,9 +197,9 @@ def get_similar_task(
         total_items=0,
         processed_items=0,
         result=None
-    )
+    ))
 
-@router.get("/similar/tasks/{task_id}/result", response_model=List[List[schemas.Photo]])
+@router.get("/similar/tasks/{task_id}/result", response_model=BaseResponse[List[List[schemas.Photo]]])
 def get_similar_task_result(
     task_id: UUID,
     skip: int = 0,
@@ -287,9 +287,9 @@ def get_similar_task_result(
         # Next item is at 'current_skip + processed_count - deleted_count'
         current_skip = current_skip + processed_count - deleted_count
 
-    return result
+    return BaseResponse(data=result)
 
-@router.delete("/similar/tasks/{task_id}")
+@router.delete("/similar/tasks/{task_id}", response_model=BaseResponse[Dict[str, Any]])
 def cancel_similar_task(
     task_id: UUID,
     db: Session = Depends(get_db),
@@ -310,14 +310,14 @@ def cancel_similar_task(
         # Check if it exists in ImageCluster
         clusters = db.query(ImageCluster).filter(ImageCluster.task_id == str(task_id)).all()
         if not clusters:
-            raise HTTPException(status_code=404, detail="Task not found")
+            return BaseResponse(code=404, msg="Task not found", data=None)
         for cluster in clusters:
             db.delete(cluster)
             
     db.commit()
-    return {"message": "Task deleted"}
+    return BaseResponse(data={"message": "Task deleted"})
 
-@router.get("/similar", response_model=List[List[schemas.SimilarPhoto]], deprecated=True)
+@router.get("/similar", response_model=BaseResponse[List[List[schemas.SimilarPhoto]]], deprecated=True)
 def get_similar_photos(
     threshold: float = 0.9,
     db: Session = Depends(get_db),
@@ -325,9 +325,9 @@ def get_similar_photos(
 ):
     print(f"Getting similar photos with threshold {threshold} for user {current_user.id}")
     service = SimilarPhotoService(db, str(current_user.id))
-    return service.get_similar_groups(threshold)
+    return BaseResponse(data=service.get_similar_groups(threshold))
 
-@router.get("/cleanup", response_model=List[schemas.Photo])
+@router.get("/cleanup", response_model=BaseResponse[List[schemas.Photo]])
 def get_photos_for_cleanup(
     skip: int = 0,
     limit: int = 50,
@@ -348,5 +348,5 @@ def get_photos_for_cleanup(
         query = query.order_by(score_expr.asc())
 
     photos = query.offset(skip).limit(limit).all()
-    return photos
+    return BaseResponse(data=photos)
 
