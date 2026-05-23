@@ -101,7 +101,8 @@ export default defineConfig({
                   { text: '前端设计', link: '/docs/dev/frontend' },
                   { text: '后端设计', link: '/docs/dev/backend' },
                   { text: 'AI微服务设计', link: '/docs/dev/ai_service' },
-                  { text: '任务管理设计', link: '/docs/dev/task_manager' }
+                  { text: '任务管理设计', link: '/docs/dev/task_manager' },
+                  { text: '功能提案', link: '/docs/dev/feature-proposals' }
                 ]
               },
               {
@@ -225,6 +226,7 @@ export default defineConfig({
                 { text: 'Backend', link: '/en/docs/dev/backend' },
                 { text: 'AI Service', link: '/en/docs/dev/ai_service' },
                 { text: 'Task Manager', link: '/en/docs/dev/task_manager' },
+                { text: 'Feature Proposals', link: '/en/docs/dev/feature-proposals' },
                 {
                   text: 'AI Prompts',
                   link: '/en/docs/dev/prompt',
