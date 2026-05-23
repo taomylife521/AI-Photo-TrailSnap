@@ -66,6 +66,7 @@ export default defineConfig({
               ]
             },
             { text: '使用简介', link: '/docs/guide/user' },
+            { text: '功能清单', link: '/docs/guide/features' },
             {
               text: '设置指南',
               link: '/docs/guide/settings/',
