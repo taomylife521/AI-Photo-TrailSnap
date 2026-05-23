@@ -177,95 +177,115 @@
 
 ---
 
-## 6. MCP 协议支持
+## 6. 网络文件夹扫描
 
 ### 6.1 背景与目标
 
-AI Agent 生态正在形成，支持 MCP（Model Communication Protocol）协议可使 TrailSnap 作为本地知识库被多种 AI 平台调用。
+用户的照片可能分散存储在各种网盘和网络存储中，如百度网盘、阿里云盘、OneDrive、SMB 共享目录、WebDAV 服务器等。打通这些数据源，让 TrailSnap 能够统一管理和分析跨平台的照片资产。
 
-### 6.2 协议设计
+### 6.2 支持的存储类型
 
-**Server 实现**
-- 实现 MCP Server，提供标准化的工具调用接口
-- 工具列表：搜索照片、查询相册、获取年度统计等
+**云盘服务**
+| 服务 | API 类型 | 说明 |
+| --- | --- | --- |
+| 百度网盘 | 开放 API | 需要申请应用获取 API Key |
+| 阿里云盘 | 开放 API | OAuth2.0 授权 |
+| OneDrive | Microsoft Graph API | OAuth2.0 授权 |
+| Google Drive | Google Drive API | OAuth2.0 授权 |
+| Dropbox | Dropbox API | OAuth2.0 授权 |
 
-**认证与安全**
-- API Token 验证
-- 权限分级（只读、读写）
+**网络文件协议**
+| 协议 | 说明 | 适用场景 |
+| --- | --- | --- |
+| SMB/CIFS | Windows 网络共享、NAS 常用协议 | 家庭 NAS、局域网共享 |
+| WebDAV | HTTP-based 文件访问协议 | 许多 NAS 和云服务支持 |
+| FTP/SFTP | 传统文件传输协议 | legacy 系统连接 |
 
-### 6.3 工具定义
+### 6.3 功能模块
 
+**连接管理**
+- 支持添加多个存储账号
+- OAuth2.0 授权流程（云盘）
+- 账号凭据安全存储（加密）
+- 连接状态检测与自动重连
+
+**文件扫描**
+- 递归扫描指定文件夹
+- 仅扫描图片文件（jpg、png、heic、raw 等）
+- 增量扫描（仅扫描新增文件）
+- 扫描进度展示与中断支持
+
+**元数据提取**
+- 文件名、路径、大小、创建/修改时间
+- EXIF 元数据（相机、GPS、时间）
+- 与现有照片库去重（基于文件哈希）
+
+**预览与导入**
+- 缩略图预览
+- 选择性导入（按文件夹、按日期范围）
+- 导入模式：仅索引（原文件保留在原处）或复制到本地
+
+### 6.4 技术方案
+
+**云盘 SDK**
+- 百度网盘：[baidupcs-go](https://github.com/qingxinrun/baidupcs-go) 或官方 Python SDK
+- 阿里云盘：自研 OAuth2 + API 调用
+- OneDrive：[Microsoft Graph SDK for Python](https://github.com/microsoftgraph/msgraph-sdk-python)
+- Google Drive：[google-api-python-client](https://github.com/google/google-api-python-client)
+- Dropbox：[dropbox-sdk-python](https://github.com/dropbox/dropbox-sdk-python)
+
+**网络协议**
+- SMB：[pysmb](https://github.com/miketeo/pysmb) 或 [python-smb](https://github.com/miketeo/python-smb)
+- WebDAV：[webdavclient3](https://github.com/barneygale/webdavclient3)
+- FTP/SFTP：[ftplib](https://docs.python.org/3/library/ftplib.html) / [pysftp](https://github.com/paramiko/pysftp)
+
+**架构设计**
 ```
-tools:
-  - name: search_photos
-    description: 按关键词搜索照片
-    input: { query: string, limit?: number }
-    output: Photo[]
-
-  - name: get_album_by_person
-    description: 获取某人的所有照片
-    input: { person_name: string }
-    output: Photo[]
-
-  - name: get_annual_report
-    description: 获取年度报告数据
-    input: { year: number }
-    output: AnnualReport
-
-  - name: get_travel_timeline
-    description: 获取旅行时间线
-    input: { start_date: string, end_date: string }
-    output: TravelEvent[]
+┌─────────────────────────────────────────┐
+│            Storage Adapter Layer         │
+│  ┌─────────┐ ┌─────────┐ ┌───────────┐ │
+│  │ BaiduPCS│ │ Aliyun  │ │ OneDrive  │ │
+│  └─────────┘ └─────────┘ └───────────┘ │
+│  ┌─────────┐ ┌─────────┐ ┌───────────┐ │
+│  │  SMB    │ │ WebDAV  │ │   SFTP    │ │
+│  └─────────┘ └─────────┘ └───────────┘ │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│           Unified File Indexer           │
+│  - 文件列表抽象层                        │
+│  - 去重检测（MD5/SHA256）               │
+│  - 元数据标准化                          │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│           TrailSnap Photo Store          │
+│  - 导入照片到本地索引                    │
+│  - 或仅保持元数据引用                    │
+└─────────────────────────────────────────┘
 ```
 
-### 6.4 优先级
+**安全性**
+- 云盘 OAuth Token 安全存储（加密后存库）
+- 网络协议凭据加密存储
+- 定期刷新 Token
+- 最小权限原则（只申请读权限）
 
-**中优先级** - 面向开发者的高级功能
+### 6.5 优先级
+
+**高优先级** - 大幅扩展数据源，提升应用价值
 
 ---
 
-## 7. 多端同步与备份
+## 7. 家庭共享与协作
 
 ### 7.1 背景与目标
 
-用户可能在多个设备使用 TrailSnap，需要照片库同步机制。同时提供可靠的备份方案，防止数据丢失。
-
-### 7.2 功能模块
-
-**增量同步**
-- 检测新增、删除、修改的照片
-- 仅传输差异（哈希比对）
-- 支持 LAN 内网高速同步
-
-**备份机制**
-- 支持备份到外部磁盘/NAS
-- 压缩包备份（ZIP/TAR）
-- 增量备份（只备份变更部分）
-- 备份校验（SHA256）
-
-**恢复功能**
-- 支持从备份恢复完整数据
-- 支持选择性恢复（只恢复某时间段）
-
-### 7.3 技术方案
-
-- 使用 Rsync 协议或自定义增量同步算法
-- 数据库备份使用 pg_dump
-- 文件校验使用 SHA256
-
-### 7.4 优先级
-
-**中优先级** - 数据安全是刚需
-
----
-
-## 8. 家庭共享与协作
-
-### 8.1 背景与目标
-
 家庭成员可能共用一个 TrailSnap 实例，或希望共享特定相册给家人。支持多用户协作场景。
 
-### 8.2 功能模块
+### 7.2 功能模块
 
 **权限管理**
 - 管理员、普通用户角色
@@ -281,51 +301,25 @@ tools:
 - 家庭成员可对照片评论
 - 简单点赞反应
 
-### 8.3 技术方案
+### 7.3 技术方案
 
 - 复用现有用户系统，增加角色字段
 - 分享链接使用 JWT 或临时 Token
 - 评论存储在独立表
 
-### 8.4 优先级
+### 7.4 优先级
 
 **低优先级** - 涉及多用户场景可后续考虑
 
 ---
 
-## 9. 高级语义搜索
+## 8. 智能相册推荐
 
-### 9.1 背景与目标
-
-当前搜索基于 EXIF 元数据和人脸/OCR 结构化数据。引入多模态 Embedding 实现语义搜索，可按自然语言描述找到照片。
-
-### 9.2 示例
-
-| 自然语言查询 | 对应SQL/语义 |
-| --- | --- |
-| "去年夏天在海边的照片" | time: 去年夏季 + location: 海边 + scene: 风景 |
-| "和爸妈一起吃的火锅" | person: 爸妈 + scene: 美食 + object: 火锅 |
-| "国庆节拍的照片" | time: 10月1日-7日 + year: 去年 |
-
-### 9.3 技术方案
-
-- 使用多模态模型（如 CLIP）提取图片向量
-- 存储向量到 PostgreSQL + pgvector
-- 查询时将自然语言转为向量，检索最近邻
-
-### 9.4 优先级
-
-**高优先级** - 大幅提升搜索体验
-
----
-
-## 10. 智能相册推荐
-
-### 10.1 背景与目标
+### 8.1 背景与目标
 
 用户可能不会主动创建相册。系统可主动推荐"值得整理"的相册，如"周末小聚"、"十一长假"等。
 
-### 10.2 推荐场景
+### 8.2 推荐场景
 
 | 场景 | 触发条件 |
 | --- | --- |
@@ -335,13 +329,13 @@ tools:
 | 家人时刻 | 近期含"父母""子女"标签照片居多 |
 | 景点打卡 | 某 5A 景区有 3+ 张照片 |
 
-### 10.3 技术方案
+### 8.3 技术方案
 
 - 定时任务扫描，分析近期照片分布
 - 基于规则+AI 识别生成推荐
 - 展示给用户确认后创建相册
 
-### 10.4 优先级
+### 8.4 优先级
 
 **中优先级** - 提升用户活跃度
 
@@ -351,8 +345,8 @@ tools:
 
 | 优先级 | 功能 |
 | --- | --- |
-| **高** | 自动旅行日志、朋友圈九宫格、高级语义搜索 |
-| **中** | 图片编辑、照片自动整理、MCP 协议支持、多端同步与备份、智能相册推荐 |
+| **高** | 自动旅行日志、朋友圈九宫格、网络文件夹扫描 |
+| **中** | 图片编辑、照片自动整理、智能相册推荐 |
 | **低** | 视频高光剪辑、家庭共享与协作 |
 
 ---
