@@ -67,6 +67,22 @@
         </div>
       </div>
 
+      <!-- Batch Rename -->
+      <div 
+        class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md transition-all border border-gray-100 dark:border-gray-700"
+        @click="$router.push('/toolbox/rename')"
+      >
+        <div class="flex items-center gap-4 mb-3">
+          <div class="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-500 text-2xl">
+            🏷️
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100">批量重命名</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">按时间规则统一重命名图片</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>

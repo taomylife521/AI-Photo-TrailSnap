@@ -37,6 +37,11 @@ class OrganizeRequest(BaseModel):
     location_granularity: Optional[str] = 'city' # 'province', 'city', 'district'
     location_format: Optional[str] = 'flat' # 'flat' or 'nested'
 
+class RenameRequest(BaseModel):
+    target_root_path: str
+    prefix: Optional[str] = 'IMG_'
+    suffix: Optional[str] = ''
+
 router = APIRouter()
 
 @router.post("/duplicate-photos/scan", response_model=BaseResponse[TaskResponse])
@@ -391,6 +396,42 @@ def get_latest_organize_task(
 ):
     task = crud_task.get_latest_task_by_type_and_owner(
         db, TaskType.ORGANIZE_PHOTOS, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value, TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]
+    )
+    return BaseResponse(data=task)
+
+@router.post("/rename/tasks", response_model=BaseResponse[TaskResponse])
+def start_rename_task(
+    req: RenameRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    触发批量重命名任务。
+    """
+    existing_task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.BATCH_RENAME, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value]
+    )
+
+    if existing_task:
+        return BaseResponse(data=existing_task)
+
+    task = TaskManager.get_instance().add_task(
+        db,
+        type=TaskType.BATCH_RENAME,
+        payload=req.model_dump(),
+        owner_id=current_user.id
+    )
+    return BaseResponse(data=task)
+
+@router.get("/rename/tasks/latest", response_model=BaseResponse[Optional[TaskResponse]])
+def get_latest_rename_task(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.BATCH_RENAME, current_user.id,
         [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value, TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]
     )
     return BaseResponse(data=task)

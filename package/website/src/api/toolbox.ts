@@ -28,5 +28,15 @@ export const toolboxApi = {
   async getLatestOrganizeTask() {
     const data = await request.get<TaskResponse | null>('/api/toolbox/organize/tasks/latest')
     return data.data
+  },
+
+  async createRenameTask(payload: { target_root_path: string, prefix?: string, suffix?: string }) {
+    const data = await request.post<TaskResponse>('/api/toolbox/rename/tasks', payload)
+    return data.data
+  },
+
+  async getLatestRenameTask() {
+    const data = await request.get<TaskResponse | null>('/api/toolbox/rename/tasks/latest')
+    return data.data
   }
 };
