@@ -20,7 +20,7 @@ export const toolboxApi = {
     return data.data
   },
 
-  async createOrganizeTask(payload: { target_root_path: string, strategy: string, action: string, time_format?: string }) {
+  async createOrganizeTask(payload: { target_root_path: string, strategy: string, action: string, time_granularity?: string, time_format?: string, location_granularity?: string, location_format?: string }) {
     const data = await request.post<TaskResponse>('/api/toolbox/organize/tasks', payload)
     return data.data
   },

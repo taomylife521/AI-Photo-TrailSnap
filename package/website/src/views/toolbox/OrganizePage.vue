@@ -58,14 +58,21 @@
 
         <el-form-item label="整理规则" required>
           <el-radio-group v-model="strategy" class="w-full grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <el-radio-button label="time_ym" class="!w-full">按年月 (YYYY-MM)</el-radio-button>
-            <el-radio-button label="time_ymd" class="!w-full">按年月日 (YYYY-MM-DD)</el-radio-button>
+            <el-radio-button label="time" class="!w-full">按时间</el-radio-button>
             <el-radio-button label="category" class="!w-full">按智能分类</el-radio-button>
             <el-radio-button label="person" class="!w-full">按人物</el-radio-button>
+            <el-radio-button label="location" class="!w-full">按位置</el-radio-button>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item v-if="strategy === 'time_ym' || strategy === 'time_ymd'" label="时间目录结构" required>
+        <el-form-item v-if="strategy === 'time'" label="时间粒度" required>
+          <el-radio-group v-model="timeGranularity">
+            <el-radio label="ym" size="large">年月 (YYYY-MM)</el-radio>
+            <el-radio label="ymd" size="large">年月日 (YYYY-MM-DD)</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'time'" label="时间目录结构" required>
           <div class="flex flex-col gap-2">
             <el-radio-group v-model="timeFormat">
               <el-radio label="flat" size="large">平铺结构 (例如: 2026-01-01)</el-radio>
@@ -75,6 +82,32 @@
               <ul class="list-disc pl-4 space-y-1">
                 <li><strong>平铺结构：</strong> 所有时间文件夹都将直接创建在目标根目录下，不会有层级嵌套。</li>
                 <li><strong>递归结构：</strong> 会按照年份、月份、日期依次创建多层级的文件夹结构。</li>
+              </ul>
+            </div>
+          </div>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'location'" label="位置粒度" required>
+          <el-radio-group v-model="locationGranularity" class="w-full grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <el-radio-button label="province" class="!w-full">仅省份 (如: 浙江省)</el-radio-button>
+            <el-radio-button label="city" class="!w-full">仅城市 (如: 杭州市)</el-radio-button>
+            <el-radio-button label="district" class="!w-full">仅区县 (如: 西湖区)</el-radio-button>
+            <el-radio-button label="province_city" class="!w-full">省-市</el-radio-button>
+            <el-radio-button label="city_district" class="!w-full">市-区</el-radio-button>
+            <el-radio-button label="province_city_district" class="!w-full">省-市-区</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'location'" label="位置目录结构" required>
+          <div class="flex flex-col gap-2">
+            <el-radio-group v-model="locationFormat">
+              <el-radio label="flat" size="large">平铺结构 (例如: 浙江省-杭州市)</el-radio>
+              <el-radio label="nested" size="large">递归结构 (例如: 浙江省/杭州市)</el-radio>
+            </el-radio-group>
+            <div class="text-xs text-gray-500 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+              <ul class="list-disc pl-4 space-y-1">
+                <li><strong>平铺结构：</strong> 将位置信息拼接为单个文件夹名称，不会有层级嵌套。</li>
+                <li><strong>递归结构：</strong> 会按照省份、城市、区县依次创建多层级的文件夹结构。</li>
               </ul>
             </div>
           </div>
@@ -148,8 +181,11 @@ import type { Task as TaskResponse } from '@/api/tasks'
 
 const targetRootPath = ref('')
 const tempSelectedPath = ref('')
-const strategy = ref('time_ym')
+const strategy = ref('time')
+const timeGranularity = ref('ym')
 const timeFormat = ref('flat')
+const locationGranularity = ref('province_city')
+const locationFormat = ref('flat')
 const actionType = ref('move')
 const starting = ref(false)
 const clearing = ref(false)
@@ -252,8 +288,12 @@ const startOrganize = async () => {
       strategy: strategy.value,
       action: actionType.value
     }
-    if (strategy.value === 'time_ym' || strategy.value === 'time_ymd') {
+    if (strategy.value === 'time') {
+      payload.time_granularity = timeGranularity.value
       payload.time_format = timeFormat.value
+    } else if (strategy.value === 'location') {
+      payload.location_granularity = locationGranularity.value
+      payload.location_format = locationFormat.value
     }
 
     const task = await toolboxApi.createOrganizeTask(payload)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.db.models.task import Task, TaskType
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
 from app.db.models.photo import Photo
+from app.db.models.photo_metadata import PhotoMetadata
 from app.db.models.tag import PhotoTag
 from app.db.models.face import Face
 
@@ -21,7 +22,10 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
         target_root_path = payload.get('target_root_path')
         strategy = payload.get('strategy')
         action = payload.get('action')
+        time_granularity = payload.get('time_granularity', 'ym')
         time_format = payload.get('time_format', 'flat')
+        location_granularity = payload.get('location_granularity', 'city')
+        location_format = payload.get('location_format', 'flat')
         
         if not target_root_path or not strategy or not action:
             raise ValueError("Missing required parameters in task payload")
@@ -30,11 +34,13 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
         os.makedirs(abs_target, exist_ok=True)
         
         # Load photos with relations based on strategy
-        query = db.query(Photo).filter(Photo.owner_id == task.owner_id, Photo.is_deleted == False)
+        query = db.query(Photo).filter(Photo.owner_id == task.owner_id, Photo.is_deleted.is_(False))
         if strategy == 'category':
             query = query.options(joinedload(Photo.tags))
         elif strategy == 'person':
             query = query.options(joinedload(Photo.faces).joinedload(Face.identity))
+        elif strategy == 'location':
+            query = query.options(joinedload(Photo.metadata_info))
             
         photos = query.all()
         task.total_items = len(photos)
@@ -52,22 +58,19 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                 
             subfolders = []
             
-            if strategy == 'time_ym':
+            if strategy == 'time':
                 t = photo.photo_time or photo.upload_time
                 if t:
-                    if time_format == 'nested':
-                        subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m')))
-                    else:
-                        subfolders.append(t.strftime('%Y-%m'))
-                else:
-                    subfolders.append('未知时间')
-            elif strategy == 'time_ymd':
-                t = photo.photo_time or photo.upload_time
-                if t:
-                    if time_format == 'nested':
-                        subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m'), t.strftime('%d')))
-                    else:
-                        subfolders.append(t.strftime('%Y-%m-%d'))
+                    if time_granularity == 'ym':
+                        if time_format == 'nested':
+                            subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m')))
+                        else:
+                            subfolders.append(t.strftime('%Y-%m'))
+                    elif time_granularity == 'ymd':
+                        if time_format == 'nested':
+                            subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m'), t.strftime('%d')))
+                        else:
+                            subfolders.append(t.strftime('%Y-%m-%d'))
                 else:
                     subfolders.append('未知时间')
             elif strategy == 'category':
@@ -94,6 +97,36 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                         subfolders.extend(list(names))
                 else:
                     subfolders.append('未命名')
+            elif strategy == 'location':
+                m = photo.metadata_info
+                if m and (m.province or m.city or m.district):
+                    parts = []
+                    if location_granularity == 'province' and m.province:
+                        parts.append(m.province)
+                    elif location_granularity == 'city' and m.city:
+                        parts.append(m.city)
+                    elif location_granularity == 'district' and m.district:
+                        parts.append(m.district)
+                    elif location_granularity == 'province_city':
+                        if m.province: parts.append(m.province)
+                        if m.city and (not parts or parts[-1] != m.city): parts.append(m.city)
+                    elif location_granularity == 'city_district':
+                        if m.city: parts.append(m.city)
+                        if m.district and (not parts or parts[-1] != m.district): parts.append(m.district)
+                    elif location_granularity == 'province_city_district':
+                        if m.province: parts.append(m.province)
+                        if m.city and (not parts or parts[-1] != m.city): parts.append(m.city)
+                        if m.district and (not parts or parts[-1] != m.district): parts.append(m.district)
+                    
+                    if not parts:
+                        subfolders.append('未知位置')
+                    else:
+                        if location_format == 'nested':
+                            subfolders.append(os.path.join(*parts))
+                        else:
+                            subfolders.append("-".join(parts))
+                else:
+                    subfolders.append('未知位置')
                     
             # Deduplicate subfolders
             subfolders = list(set(subfolders))

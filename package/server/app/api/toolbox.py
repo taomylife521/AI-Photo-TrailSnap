@@ -30,9 +30,12 @@ class DuplicatePhotoGroup(BaseModel):
 
 class OrganizeRequest(BaseModel):
     target_root_path: str
-    strategy: str # 'time_ym', 'time_ymd', 'category', 'person'
+    strategy: str # 'time', 'category', 'person', 'location'
     action: str # 'move' or 'copy'
+    time_granularity: Optional[str] = 'ym' # 'ym' or 'ymd'
     time_format: Optional[str] = 'flat' # 'flat' or 'nested'
+    location_granularity: Optional[str] = 'city' # 'province', 'city', 'district'
+    location_format: Optional[str] = 'flat' # 'flat' or 'nested'
 
 router = APIRouter()
 
