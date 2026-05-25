@@ -32,6 +32,7 @@ class OrganizeRequest(BaseModel):
     target_root_path: str
     strategy: str # 'time_ym', 'time_ymd', 'category', 'person'
     action: str # 'move' or 'copy'
+    time_format: Optional[str] = 'flat' # 'flat' or 'nested'
 
 router = APIRouter()
 

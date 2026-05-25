@@ -1,7 +1,7 @@
 <template>
   <div class="container mx-auto py-6 px-4 max-w-4xl">
     <div class="flex items-center gap-4 mb-6">
-      <button @click="$router.back()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+      <button @click="$router.back()" class="p-2 hover:bg-gray-100 bg-transparent dark:hover:bg-gray-800 rounded-full transition-colors">
         <ArrowLeft class="w-6 h-6 text-gray-600 dark:text-gray-300" />
       </button>
       <div>
@@ -30,8 +30,9 @@
         striped
         :striped-flow="activeTask.status === 'processing'"
       />
-      <div v-if="activeTask.error" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm">
-        {{ activeTask.error }}
+      <div v-if="activeTask.status === 'failed' || activeTask.error" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm flex justify-between items-center">
+        <span>{{ activeTask.error || '任务执行失败，未知错误' }}</span>
+        <el-button v-if="activeTask.status === 'failed'" type="danger" size="small" plain @click="clearFailedTask" :loading="clearing">清除失败任务</el-button>
       </div>
     </div>
 
@@ -62,6 +63,21 @@
             <el-radio-button label="category" class="!w-full">按智能分类</el-radio-button>
             <el-radio-button label="person" class="!w-full">按人物</el-radio-button>
           </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'time_ym' || strategy === 'time_ymd'" label="时间目录结构" required>
+          <div class="flex flex-col gap-2">
+            <el-radio-group v-model="timeFormat">
+              <el-radio label="flat" size="large">平铺结构 (例如: 2026-01-01)</el-radio>
+              <el-radio label="nested" size="large">递归结构 (例如: 2026/01/01)</el-radio>
+            </el-radio-group>
+            <div class="text-xs text-gray-500 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+              <ul class="list-disc pl-4 space-y-1">
+                <li><strong>平铺结构：</strong> 所有时间文件夹都将直接创建在目标根目录下，不会有层级嵌套。</li>
+                <li><strong>递归结构：</strong> 会按照年份、月份、日期依次创建多层级的文件夹结构。</li>
+              </ul>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="操作类型" required>
@@ -128,13 +144,15 @@ import { toolboxApi } from '@/api/toolbox'
 import { tasksApi } from '@/api/tasks'
 import { settingsApi } from '@/api/settings'
 import { ElMessage } from 'element-plus'
-import type { TaskResponse } from '@/api/photo'
+import type { Task as TaskResponse } from '@/api/tasks'
 
 const targetRootPath = ref('')
 const tempSelectedPath = ref('')
 const strategy = ref('time_ym')
+const timeFormat = ref('flat')
 const actionType = ref('move')
 const starting = ref(false)
+const clearing = ref(false)
 
 const showFolderSelector = ref(false)
 
@@ -159,7 +177,7 @@ const statusText = computed(() => {
 
 const progressPercentage = computed(() => {
   if (!activeTask.value || !activeTask.value.total_items) return 0
-  return Math.min(100, Math.round((activeTask.value.processed_items / activeTask.value.total_items) * 100))
+  return Math.min(100, Math.round((activeTask.value.processed_items || 0) / (activeTask.value.total_items || 0) * 100))
 })
 
 const loadNode = async (node: any, resolve: (data: any[]) => void) => {
@@ -229,11 +247,16 @@ const startOrganize = async () => {
   
   starting.value = true
   try {
-    const task = await toolboxApi.createOrganizeTask({
+    const payload: any = {
       target_root_path: targetRootPath.value,
       strategy: strategy.value,
       action: actionType.value
-    })
+    }
+    if (strategy.value === 'time_ym' || strategy.value === 'time_ymd') {
+      payload.time_format = timeFormat.value
+    }
+
+    const task = await toolboxApi.createOrganizeTask(payload)
     activeTask.value = task
     ElMessage.success('已开始整理任务')
     startPolling()
@@ -241,6 +264,21 @@ const startOrganize = async () => {
     ElMessage.error(e.response?.data?.detail || '创建任务失败')
   } finally {
     starting.value = false
+  }
+}
+
+const clearFailedTask = async () => {
+  if (!activeTask.value || activeTask.value.status !== 'failed') return
+  
+  clearing.value = true
+  try {
+    await tasksApi.deleteFailedTasks(['ORGANIZE_PHOTOS'])
+    activeTask.value = null
+    ElMessage.success('已清除失败任务')
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || '清除任务失败')
+  } finally {
+    clearing.value = false
   }
 }
 

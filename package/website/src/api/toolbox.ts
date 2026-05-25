@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type { TaskResponse } from './photo';
+import type { Task as TaskResponse } from './tasks';
 import type { Photo } from '@/types/album';
 
 export interface DuplicatePhotoGroup {
@@ -20,7 +20,7 @@ export const toolboxApi = {
     return data.data
   },
 
-  async createOrganizeTask(payload: { target_root_path: string, strategy: string, action: string }) {
+  async createOrganizeTask(payload: { target_root_path: string, strategy: string, action: string, time_format?: string }) {
     const data = await request.post<TaskResponse>('/api/toolbox/organize/tasks', payload)
     return data.data
   },

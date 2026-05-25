@@ -9,7 +9,6 @@ from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
 from app.db.models.photo import Photo
 from app.db.models.tag import PhotoTag
 from app.db.models.face import Face
-from app.service.task_manager import TaskManager
 
 @TaskStrategyFactory.register(TaskType.ORGANIZE_PHOTOS)
 class OrganizePhotosStrategy(BaseTaskStrategy):
@@ -22,6 +21,7 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
         target_root_path = payload.get('target_root_path')
         strategy = payload.get('strategy')
         action = payload.get('action')
+        time_format = payload.get('time_format', 'flat')
         
         if not target_root_path or not strategy or not action:
             raise ValueError("Missing required parameters in task payload")
@@ -54,18 +54,30 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
             
             if strategy == 'time_ym':
                 t = photo.photo_time or photo.upload_time
-                subfolders.append(t.strftime('%Y-%m') if t else '未知时间')
+                if t:
+                    if time_format == 'nested':
+                        subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m')))
+                    else:
+                        subfolders.append(t.strftime('%Y-%m'))
+                else:
+                    subfolders.append('未知时间')
             elif strategy == 'time_ymd':
                 t = photo.photo_time or photo.upload_time
-                subfolders.append(t.strftime('%Y-%m-%d') if t else '未知时间')
+                if t:
+                    if time_format == 'nested':
+                        subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m'), t.strftime('%d')))
+                    else:
+                        subfolders.append(t.strftime('%Y-%m-%d'))
+                else:
+                    subfolders.append('未知时间')
             elif strategy == 'category':
                 if photo.tags:
                     # Sort by confidence
                     sorted_tags = sorted(photo.tags, key=lambda x: getattr(x, 'confidence', 0), reverse=True)
                     if action == 'move':
-                        subfolders.append(sorted_tags[0].name)
+                        subfolders.append(sorted_tags[0].tag_name)
                     else:
-                        subfolders.extend([t.name for t in sorted_tags])
+                        subfolders.extend([t.tag_name for t in sorted_tags])
                 else:
                     subfolders.append('未分类')
             elif strategy == 'person':
@@ -87,8 +99,8 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
             subfolders = list(set(subfolders))
             
             for subfolder in subfolders:
-                # Sanitize subfolder name
-                safe_subfolder = "".join([c for c in subfolder if c not in r'\/:*?"<>|'])
+                # Sanitize subfolder name, but allow directory separators
+                safe_subfolder = "".join([c for c in subfolder if c not in r':*?"<>|'])
                 if not safe_subfolder:
                     safe_subfolder = "未命名"
                     
@@ -127,7 +139,7 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                                 **new_photo_data
                             )
                             db.add(new_photo)
-                            TaskManager.get_instance().add_task(db, TaskType.GENERATE_THUMBNAIL, {'photo_id': str(new_photo.id)})
+                            worker.get_instance().add_task(db, TaskType.GENERATE_THUMBNAIL, {'photo_id': str(new_photo.id)})
                             success_count += 1
                         except Exception as e:
                             logging.error(f"Failed to copy {old_path} to {new_path}: {e}")

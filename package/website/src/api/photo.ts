@@ -1,14 +1,6 @@
 import request from '@/utils/request'
 import type { AlbumImage,Photo, SimilarPhoto } from '@/types/album'
-
-export interface TaskResponse {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  result?: any;
-  error?: string;
-  total_items: number;
-  processed_items: number;
-}
+import type { Task as TaskResponse } from '@/api/tasks'
 
 export const photoApi = {
   // Similar Photo Task API
