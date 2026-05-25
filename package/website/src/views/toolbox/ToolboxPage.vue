@@ -51,6 +51,22 @@
         </div>
       </div>
 
+      <!-- Organize Photos -->
+      <div 
+        class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md transition-all border border-gray-100 dark:border-gray-700"
+        @click="$router.push('/toolbox/organize')"
+      >
+        <div class="flex items-center gap-4 mb-3">
+          <div class="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-500 text-2xl">
+            📁
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100">图片整理</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">按时间/分类/人物自动归档</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>

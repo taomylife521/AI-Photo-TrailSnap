@@ -40,6 +40,15 @@ export const photoApi = {
     await request.delete(`/api/toolbox/similar/tasks/${taskId}`);
   },
 
+  async transferPhotos(photoIds: string[], targetPath: string, action: 'move' | 'copy') {
+    const { data } = await request.post('/api/photos/batch/transfer', {
+      photo_ids: photoIds,
+      target_path: targetPath,
+      action
+    });
+    return data;
+  },
+
   // Legacy (Deprecated)
   async getSimilarPhotos(threshold: number = 0.9) {
     const data = await request.get<SimilarPhoto[][]>('/api/toolbox/similar', {

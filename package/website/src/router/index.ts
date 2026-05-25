@@ -49,6 +49,7 @@ const routes: RouteRecordRaw[] = [
       { path: '/toolbox', name: 'Toolbox', component: ToolboxPage, meta: { title: '工具箱' } },
       { path: '/toolbox/similar', name: 'SimilarPhotoCleanup', component: SimilarPhotoCleanup, meta: { title: '相似照片清理' } },
       { path: '/toolbox/duplicate', name: 'DuplicatePhotoCleanup', component: DuplicatePhotoCleanup, meta: { title: '重复照片清理' } },
+      { path: '/toolbox/organize', name: 'OrganizePhotos', component: () => import('@/views/toolbox/OrganizePage.vue'), meta: { title: '图片文件整理' } },
       { path: '/toolbox/cleanup', name: 'Cleanup', component: CleanupPage, meta: { title: '清理相册' } },
       { path: '/recycle-bin', name: 'RecycleBin', component: RecycleBinPage, meta: { title: '回收站' } },
       { path: '/photos', name: 'Photos', component: PhotosPage, meta: { title: '所有照片' } },

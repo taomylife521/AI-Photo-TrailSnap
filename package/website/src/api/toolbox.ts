@@ -16,7 +16,17 @@ export const toolboxApi = {
 
   // Get grouped duplicate photos
   async getDuplicatePhotos() {
-    const data = await request.get<DuplicatePhotoGroup[]>('/api/toolbox/duplicate-photos');
-    return data.data;
+    const data = await request.get<DuplicatePhotoGroup[]>('/api/toolbox/duplicate-photos')
+    return data.data
+  },
+
+  async createOrganizeTask(payload: { target_root_path: string, strategy: string, action: string }) {
+    const data = await request.post<TaskResponse>('/api/toolbox/organize/tasks', payload)
+    return data.data
+  },
+
+  async getLatestOrganizeTask() {
+    const data = await request.get<TaskResponse | null>('/api/toolbox/organize/tasks/latest')
+    return data.data
   }
 };

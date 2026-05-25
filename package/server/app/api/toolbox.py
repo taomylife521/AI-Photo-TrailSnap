@@ -28,6 +28,11 @@ class DuplicatePhotoGroup(BaseModel):
     md5: str
     photos: List[PhotoSchema]
 
+class OrganizeRequest(BaseModel):
+    target_root_path: str
+    strategy: str # 'time_ym', 'time_ymd', 'category', 'person'
+    action: str # 'move' or 'copy'
+
 router = APIRouter()
 
 @router.post("/duplicate-photos/scan", response_model=BaseResponse[TaskResponse])
@@ -349,4 +354,40 @@ def get_photos_for_cleanup(
 
     photos = query.offset(skip).limit(limit).all()
     return BaseResponse(data=photos)
+
+@router.post("/organize/tasks", response_model=BaseResponse[TaskResponse])
+def start_organize_task(
+    req: OrganizeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    触发图片文件整理任务。
+    """
+    existing_task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.ORGANIZE_PHOTOS, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value]
+    )
+
+    if existing_task:
+        return BaseResponse(data=existing_task)
+
+    task = TaskManager.get_instance().add_task(
+        db,
+        type=TaskType.ORGANIZE_PHOTOS,
+        payload=req.model_dump(),
+        owner_id=current_user.id
+    )
+    return BaseResponse(data=task)
+
+@router.get("/organize/tasks/latest", response_model=BaseResponse[Optional[TaskResponse]])
+def get_latest_organize_task(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.ORGANIZE_PHOTOS, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value, TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]
+    )
+    return BaseResponse(data=task)
 

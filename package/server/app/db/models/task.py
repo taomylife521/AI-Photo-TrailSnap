@@ -28,6 +28,7 @@ class TaskType(str, enum.Enum):
     FIND_DUPLICATE_PHOTOS = "FIND_DUPLICATE_PHOTOS"
     IMAGE_EMBEDDING = "IMAGE_EMBEDDING"
     SCAN_ALBUM = "SCAN_ALBUM"
+    ORGANIZE_PHOTOS = "ORGANIZE_PHOTOS"
 
 DEFAULT_PRIORITIES = {
     TaskType.SCAN_ALBUM: 100,
@@ -44,6 +45,7 @@ DEFAULT_PRIORITIES = {
     TaskType.VISUAL_DESCRIPTION: 1,
     TaskType.SIMILAR_PHOTO_CLUSTERING: 1000,
     TaskType.FIND_DUPLICATE_PHOTOS: 1000,
+    TaskType.ORGANIZE_PHOTOS: 1000,
 }
 
 CATEGORY_DESCRIPTION_MAP = {
@@ -60,6 +62,7 @@ CATEGORY_DESCRIPTION_MAP = {
     TaskType.SIMILAR_PHOTO_CLUSTERING: '用于相似照片聚类',
     TaskType.FIND_DUPLICATE_PHOTOS: '用于扫描重复照片',
     TaskType.IMAGE_EMBEDDING: '用于生成图片的特征向量',
+    TaskType.ORGANIZE_PHOTOS: '用于图片文件整理',
 }
 
 CATEGORY_NAME_MAP = {
@@ -75,6 +78,7 @@ CATEGORY_NAME_MAP = {
     TaskType.SIMILAR_PHOTO_CLUSTERING: '相似照片清理',
     TaskType.FIND_DUPLICATE_PHOTOS: '重复照片清理',
     TaskType.IMAGE_EMBEDDING: '图片特征提取',
+    TaskType.ORGANIZE_PHOTOS: '图片文件整理',
 }
 
 class Task(Base):
