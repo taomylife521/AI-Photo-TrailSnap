@@ -72,6 +72,19 @@
           </el-radio-group>
         </el-form-item>
 
+        <el-form-item v-if="strategy === 'time'" label="时间范围">
+          <el-date-picker
+            v-model="timeRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            class="!w-full max-w-md"
+          />
+          <div class="text-xs text-gray-500 mt-1">留空则默认整理所有时间的照片。</div>
+        </el-form-item>
+
         <el-form-item v-if="strategy === 'time'" label="时间目录结构" required>
           <div class="flex flex-col gap-2">
             <el-radio-group v-model="timeFormat">
@@ -85,6 +98,42 @@
               </ul>
             </div>
           </div>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'category'" label="选择整理类别">
+          <el-select
+            v-model="selectedCategories"
+            multiple
+            filterable
+            placeholder="请选择类别 (默认全选)"
+            :loading="loadingOptions"
+            class="w-full max-w-2xl"
+          >
+            <el-option
+              v-for="item in previewOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'person'" label="选择整理人物">
+          <el-select
+            v-model="selectedPeople"
+            multiple
+            filterable
+            placeholder="请选择人物 (默认全选)"
+            :loading="loadingOptions"
+            class="w-full max-w-2xl"
+          >
+            <el-option
+              v-for="item in previewOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
         </el-form-item>
 
         <el-form-item v-if="strategy === 'location'" label="位置粒度" required>
@@ -111,6 +160,24 @@
               </ul>
             </div>
           </div>
+        </el-form-item>
+
+        <el-form-item v-if="strategy === 'location'" label="选择整理位置">
+          <el-select
+            v-model="selectedLocations"
+            multiple
+            filterable
+            placeholder="请选择位置 (默认全选)"
+            :loading="loadingOptions"
+            class="w-full max-w-2xl"
+          >
+            <el-option
+              v-for="item in previewOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="操作类型" required>
@@ -171,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ArrowLeft, Folder, Loader2, CheckCircle2, XCircle } from 'lucide-vue-next'
 import { toolboxApi } from '@/api/toolbox'
 import { tasksApi } from '@/api/tasks'
@@ -190,10 +257,45 @@ const actionType = ref('move')
 const starting = ref(false)
 const clearing = ref(false)
 
+const timeRange = ref<[string, string] | null>(null)
+const selectedCategories = ref<string[]>([])
+const selectedPeople = ref<string[]>([])
+const selectedLocations = ref<string[]>([])
+
+const previewOptions = ref<string[]>([])
+const loadingOptions = ref(false)
+
 const showFolderSelector = ref(false)
 
 const activeTask = ref<TaskResponse | null>(null)
 let pollTimer: number | undefined
+
+watch([strategy, locationGranularity, locationFormat], async () => {
+  if (['category', 'person', 'location'].includes(strategy.value)) {
+    loadingOptions.value = true
+    try {
+      const res = await toolboxApi.getOrganizePreviewOptions({
+        strategy: strategy.value,
+        location_granularity: locationGranularity.value,
+        location_format: locationFormat.value
+      })
+      previewOptions.value = res.options || []
+      
+      // Auto select all by default when options change
+      if (strategy.value === 'category') {
+        selectedCategories.value = [...previewOptions.value]
+      } else if (strategy.value === 'person') {
+        selectedPeople.value = [...previewOptions.value]
+      } else if (strategy.value === 'location') {
+        selectedLocations.value = [...previewOptions.value]
+      }
+    } catch (e) {
+      console.error('Failed to fetch preview options', e)
+    } finally {
+      loadingOptions.value = false
+    }
+  }
+}, { immediate: true })
 
 const isTaskRunning = computed(() => {
   return activeTask.value?.status === 'pending' || activeTask.value?.status === 'processing'
@@ -291,9 +393,23 @@ const startOrganize = async () => {
     if (strategy.value === 'time') {
       payload.time_granularity = timeGranularity.value
       payload.time_format = timeFormat.value
+      if (timeRange.value && timeRange.value.length === 2) {
+        payload.time_range = timeRange.value
+      }
     } else if (strategy.value === 'location') {
       payload.location_granularity = locationGranularity.value
       payload.location_format = locationFormat.value
+      if (selectedLocations.value && selectedLocations.value.length > 0) {
+        payload.locations = selectedLocations.value
+      }
+    } else if (strategy.value === 'category') {
+      if (selectedCategories.value && selectedCategories.value.length > 0) {
+        payload.categories = selectedCategories.value
+      }
+    } else if (strategy.value === 'person') {
+      if (selectedPeople.value && selectedPeople.value.length > 0) {
+        payload.people = selectedPeople.value
+      }
     }
 
     const task = await toolboxApi.createOrganizeTask(payload)

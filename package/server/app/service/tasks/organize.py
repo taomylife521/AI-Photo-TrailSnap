@@ -27,6 +27,11 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
         location_granularity = payload.get('location_granularity', 'city')
         location_format = payload.get('location_format', 'flat')
         
+        time_range = payload.get('time_range')
+        categories = payload.get('categories')
+        people = payload.get('people')
+        locations = payload.get('locations')
+        
         if not target_root_path or not strategy or not action:
             raise ValueError("Missing required parameters in task payload")
             
@@ -61,6 +66,13 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
             if strategy == 'time':
                 t = photo.photo_time or photo.upload_time
                 if t:
+                    if time_range and len(time_range) == 2:
+                        t_str = t.strftime('%Y-%m-%d %H:%M:%S')
+                        end_time = time_range[1] if len(time_range[1]) > 10 else time_range[1] + " 23:59:59"
+                        if not (time_range[0] <= t_str <= end_time):
+                            task.processed_items = i + 1
+                            continue
+                            
                     if time_granularity == 'ym':
                         if time_format == 'nested':
                             subfolders.append(os.path.join(t.strftime('%Y'), t.strftime('%m')))
@@ -72,6 +84,9 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                         else:
                             subfolders.append(t.strftime('%Y-%m-%d'))
                 else:
+                    if time_range and len(time_range) == 2:
+                        task.processed_items = i + 1
+                        continue
                     subfolders.append('未知时间')
             elif strategy == 'category':
                 if photo.tags:
@@ -83,6 +98,9 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                         subfolders.extend([t.tag_name for t in sorted_tags])
                 else:
                     subfolders.append('未分类')
+                    
+                if categories is not None:
+                    subfolders = [s for s in subfolders if s in categories]
             elif strategy == 'person':
                 valid_faces = [f for f in photo.faces if f.identity and f.identity.identity_name]
                 if valid_faces:
@@ -97,6 +115,9 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                         subfolders.extend(list(names))
                 else:
                     subfolders.append('未命名')
+                    
+                if people is not None:
+                    subfolders = [s for s in subfolders if s in people]
             elif strategy == 'location':
                 m = photo.metadata_info
                 if m and (m.province or m.city or m.district):
@@ -127,6 +148,10 @@ class OrganizePhotosStrategy(BaseTaskStrategy):
                             subfolders.append("-".join(parts))
                 else:
                     subfolders.append('未知位置')
+                    
+                if locations is not None:
+                    # Filter based on the generated folder names
+                    subfolders = [s for s in subfolders if s in locations]
                     
             # Deduplicate subfolders
             subfolders = list(set(subfolders))

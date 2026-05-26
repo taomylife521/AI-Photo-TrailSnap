@@ -2,12 +2,14 @@ import os
 import logging
 from datetime import datetime
 from typing import Dict, Any
+
+from PIL import Image
 from sqlalchemy.orm import Session, joinedload
 from app.db.models.task import Task, TaskType
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
 from app.db.models.photo import Photo
 from app.db.models.photo_metadata import PhotoMetadata
-from app.utils.exif import get_exif_info
+from app.utils.exif import get_exif_data
 
 try:
     import piexif
@@ -139,7 +141,7 @@ class TimeFromFilenameStrategy(BaseTaskStrategy):
                             piexif.insert(exif_bytes, p.file_path)
                             
                             # Update exif_info in database after modification
-                            exif_text = get_exif_info(p.file_path)
+                            exif_text = get_exif_data(Image.open(p.file_path))
                             if exif_text:
                                 metadata.exif_info = exif_text
 

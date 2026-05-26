@@ -36,6 +36,18 @@ class OrganizeRequest(BaseModel):
     time_format: Optional[str] = 'flat' # 'flat' or 'nested'
     location_granularity: Optional[str] = 'city' # 'province', 'city', 'district'
     location_format: Optional[str] = 'flat' # 'flat' or 'nested'
+    time_range: Optional[List[str]] = None
+    categories: Optional[List[str]] = None
+    people: Optional[List[str]] = None
+    locations: Optional[List[str]] = None
+
+class OrganizePreviewOptionsRequest(BaseModel):
+    strategy: str
+    location_granularity: Optional[str] = 'city'
+    location_format: Optional[str] = 'flat'
+
+class OrganizePreviewOptionsResponse(BaseModel):
+    options: List[str]
 
 class RenameRequest(BaseModel):
     target_root_path: str
@@ -396,6 +408,78 @@ def start_organize_task(
         owner_id=current_user.id
     )
     return BaseResponse(data=task)
+
+@router.post("/organize/preview-options", response_model=BaseResponse[OrganizePreviewOptionsResponse])
+def get_organize_preview_options(
+    req: OrganizePreviewOptionsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取整理策略的可用选项列表。
+    """
+    from app.db.models.photo import Photo
+    from app.db.models.face import Face
+    from sqlalchemy.orm import joinedload
+    import os
+    
+    query = db.query(Photo).filter(Photo.owner_id == current_user.id, Photo.is_deleted.is_(False))
+    if req.strategy == 'category':
+        query = query.options(joinedload(Photo.tags))
+    elif req.strategy == 'person':
+        query = query.options(joinedload(Photo.faces).joinedload(Face.identity))
+    elif req.strategy == 'location':
+        query = query.options(joinedload(Photo.metadata_info))
+        
+    photos = query.all()
+    options = set()
+    
+    for photo in photos:
+        if req.strategy == 'category':
+            if photo.tags:
+                for t in photo.tags:
+                    options.add(t.tag_name)
+            else:
+                options.add('未分类')
+        elif req.strategy == 'person':
+            valid_faces = [f for f in photo.faces if f.identity and f.identity.identity_name]
+            if valid_faces:
+                for f in valid_faces:
+                    options.add(f.identity.identity_name)
+            else:
+                options.add('未命名')
+        elif req.strategy == 'location':
+            m = photo.metadata_info
+            if m and (m.province or m.city or m.district):
+                parts = []
+                if req.location_granularity == 'province' and m.province:
+                    parts.append(m.province)
+                elif req.location_granularity == 'city' and m.city:
+                    parts.append(m.city)
+                elif req.location_granularity == 'district' and m.district:
+                    parts.append(m.district)
+                elif req.location_granularity == 'province_city':
+                    if m.province: parts.append(m.province)
+                    if m.city and (not parts or parts[-1] != m.city): parts.append(m.city)
+                elif req.location_granularity == 'city_district':
+                    if m.city: parts.append(m.city)
+                    if m.district and (not parts or parts[-1] != m.district): parts.append(m.district)
+                elif req.location_granularity == 'province_city_district':
+                    if m.province: parts.append(m.province)
+                    if m.city and (not parts or parts[-1] != m.city): parts.append(m.city)
+                    if m.district and (not parts or parts[-1] != m.district): parts.append(m.district)
+                
+                if not parts:
+                    options.add('未知位置')
+                else:
+                    if req.location_format == 'nested':
+                        options.add(os.path.join(*parts))
+                    else:
+                        options.add("-".join(parts))
+            else:
+                options.add('未知位置')
+                
+    return BaseResponse(data=OrganizePreviewOptionsResponse(options=list(options)))
 
 @router.get("/organize/tasks/latest", response_model=BaseResponse[Optional[TaskResponse]])
 def get_latest_organize_task(
