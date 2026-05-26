@@ -38,5 +38,15 @@ export const toolboxApi = {
   async getLatestRenameTask() {
     const data = await request.get<TaskResponse | null>('/api/toolbox/rename/tasks/latest')
     return data.data
+  },
+
+  async createTimeFromFilenameTask(payload: { target_root_path: string }) {
+    const data = await request.post<TaskResponse>('/api/toolbox/time-from-filename/tasks', payload)
+    return data.data
+  },
+
+  async getLatestTimeFromFilenameTask() {
+    const data = await request.get<TaskResponse | null>('/api/toolbox/time-from-filename/tasks/latest')
+    return data.data
   }
 };

@@ -83,6 +83,22 @@
         </div>
       </div>
 
+      <!-- Time From Filename -->
+      <div 
+        class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 cursor-pointer hover:shadow-md transition-all border border-gray-100 dark:border-gray-700"
+        @click="$router.push('/toolbox/time-from-filename')"
+      >
+        <div class="flex items-center gap-4 mb-3">
+          <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-500 text-2xl">
+            ⏱️
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100">从文件名修改拍摄信息</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">根据文件名中的时间批量修改照片拍摄信息和设备信息</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>

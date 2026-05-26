@@ -42,6 +42,14 @@ class RenameRequest(BaseModel):
     prefix: Optional[str] = 'IMG_'
     suffix: Optional[str] = ''
 
+class TimeFromFilenameRequest(BaseModel):
+    target_root_path: str
+    only_missing_metadata: Optional[bool] = False
+    make: Optional[str] = None
+    model: Optional[str] = None
+    time_mode: Optional[str] = 'auto'
+    custom_time: Optional[str] = None
+
 router = APIRouter()
 
 @router.post("/duplicate-photos/scan", response_model=BaseResponse[TaskResponse])
@@ -432,6 +440,42 @@ def get_latest_rename_task(
 ):
     task = crud_task.get_latest_task_by_type_and_owner(
         db, TaskType.BATCH_RENAME, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value, TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]
+    )
+    return BaseResponse(data=task)
+
+@router.post("/time-from-filename/tasks", response_model=BaseResponse[TaskResponse])
+def start_time_from_filename_task(
+    req: TimeFromFilenameRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    触发从文件名修改时间任务。
+    """
+    existing_task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.BATCH_TIME_FROM_FILENAME, current_user.id,
+        [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value]
+    )
+
+    if existing_task:
+        return BaseResponse(data=existing_task)
+
+    task = TaskManager.get_instance().add_task(
+        db,
+        type=TaskType.BATCH_TIME_FROM_FILENAME,
+        payload=req.model_dump(),
+        owner_id=current_user.id
+    )
+    return BaseResponse(data=task)
+
+@router.get("/time-from-filename/tasks/latest", response_model=BaseResponse[Optional[TaskResponse]])
+def get_latest_time_from_filename_task(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    task = crud_task.get_latest_task_by_type_and_owner(
+        db, TaskType.BATCH_TIME_FROM_FILENAME, current_user.id,
         [TaskStatus.PENDING.value, TaskStatus.PROCESSING.value, TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]
     )
     return BaseResponse(data=task)

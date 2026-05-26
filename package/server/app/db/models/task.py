@@ -30,6 +30,7 @@ class TaskType(str, enum.Enum):
     SCAN_ALBUM = "SCAN_ALBUM"
     ORGANIZE_PHOTOS = "ORGANIZE_PHOTOS"
     BATCH_RENAME = "BATCH_RENAME"
+    BATCH_TIME_FROM_FILENAME = "BATCH_TIME_FROM_FILENAME"
 
 DEFAULT_PRIORITIES = {
     TaskType.SCAN_ALBUM: 100,
@@ -48,6 +49,7 @@ DEFAULT_PRIORITIES = {
     TaskType.FIND_DUPLICATE_PHOTOS: 1000,
     TaskType.ORGANIZE_PHOTOS: 1000,
     TaskType.BATCH_RENAME: 1000,
+    TaskType.BATCH_TIME_FROM_FILENAME: 1000,
 }
 
 CATEGORY_DESCRIPTION_MAP = {
@@ -66,6 +68,7 @@ CATEGORY_DESCRIPTION_MAP = {
     TaskType.IMAGE_EMBEDDING: '用于生成图片的特征向量',
     TaskType.ORGANIZE_PHOTOS: '用于图片文件整理',
     TaskType.BATCH_RENAME: '用于批量重命名文件',
+    TaskType.BATCH_TIME_FROM_FILENAME: '用于根据文件名提取时间并批量修改照片的拍摄时间和设备信息',
 }
 
 CATEGORY_NAME_MAP = {
@@ -83,6 +86,7 @@ CATEGORY_NAME_MAP = {
     TaskType.IMAGE_EMBEDDING: '图片特征提取',
     TaskType.ORGANIZE_PHOTOS: '图片文件整理',
     TaskType.BATCH_RENAME: '批量重命名',
+    TaskType.BATCH_TIME_FROM_FILENAME: '修改拍摄信息',
 }
 
 class Task(Base):
