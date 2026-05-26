@@ -26,6 +26,8 @@ TrailSnap 的 AI 微服务模块，负责处理所有计算机视觉相关的任
 
    本项目使用 `uv` 进行依赖管理，请根据硬件环境选择安装命令（部分库安装需要使用c++编译器，Windows下需要安装Microsoft C++ BuildTools，请自行查看教程并安装）。
 
+   Windows需要指定编码格式：`$env:CMAKE_ARGS="-DCMAKE_C_FLAGS=/utf-8 -DCMAKE_CXX_FLAGS=/utf-8"; uv sync --extra cpu`
+
    **CPU 版本**:
    ```bash
    uv sync --extra cpu

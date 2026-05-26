@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     # insightface编译依赖
     build-essential \
     g++ \
+    cmake \
     # OpenCV核心运行依赖（仅保留必需项）
     libgl1 \
     libglib2.0-0 \
