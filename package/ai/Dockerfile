@@ -1,23 +1,24 @@
-# ---- 阶段 1: 编译 llama.cpp (CPU) ----
-FROM python:3.12.12-slim as llama-builder
-
-# 安装编译依赖
-RUN apt-get update && apt-get install -y git cmake build-essential
-
-# 克隆并编译 llama.cpp
-RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
-    cd /llama.cpp && \
-    cmake -B build && \
-    cmake --build build --config Release -j $(nproc) && \
-    cmake --install build --prefix /opt/llama
-
-# ---- 阶段 2: 最终运行环境 ----
+# 使用官方Python镜像作为基础镜像
 FROM python:3.12.12-slim
 
 WORKDIR /app
 
-# 从 builder 拷贝编译好的 native llama-server 及其动态链接库
-COPY --from=llama-builder /opt/llama /usr/local/
+# 下载预编译的 llama.cpp 二进制文件
+# 根据 CPU 架构 (arm64 或 x86_64) 下载对应的 ubuntu 包
+# 提取 TARGETARCH 参数 (由 docker buildx 提供，如 amd64 或 arm64)
+ARG TARGETARCH
+RUN apt-get update && apt-get install -y curl tar && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        curl -L -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b9354/llama-b9354-bin-ubuntu-arm64.tar.gz; \
+    else \
+        curl -L -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b9354/llama-b9354-bin-ubuntu-x64.tar.gz; \
+    fi && \
+    tar -xzf llama.tar.gz -C /usr/local/ && \
+    rm llama.tar.gz && \
+    apt-get purge -y curl tar && \
+    apt-get autoremove -y
+
+# 注册动态链接库
 ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
 RUN ldconfig
 

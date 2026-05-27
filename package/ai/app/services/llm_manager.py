@@ -77,6 +77,7 @@ class LLMProcessManager:
                 "--mmproj", mmproj,
                 "--host", "127.0.0.1",
                 "--port", str(self.port),
+                "--no-webui",
                 stdout=sys.stdout,
                 stderr=sys.stderr
             )
