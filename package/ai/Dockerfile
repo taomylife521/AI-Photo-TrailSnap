@@ -14,9 +14,7 @@ RUN apt-get update && apt-get install -y curl tar && \
         curl -L -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b9354/llama-b9354-bin-ubuntu-x64.tar.gz; \
     fi && \
     tar -xzf llama.tar.gz -C /usr/local/ && \
-    rm llama.tar.gz && \
-    apt-get purge -y curl tar && \
-    apt-get autoremove -y
+    rm llama.tar.gz
 
 # 注册动态链接库
 ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
