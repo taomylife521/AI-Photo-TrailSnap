@@ -77,11 +77,14 @@ class LLMProcessManager:
                 "--mmproj", mmproj,
                 "--host", "127.0.0.1",
                 "--port", str(self.port),
+                "--image-min-tokens", "1024",
+                "--image-max-tokens", "2048",
+                "-c","8192",
+                "-n","1024",
                 "--no-webui",
                 stdout=sys.stdout,
                 stderr=sys.stderr
             )
-            
             await self._wait_for_ready()
 
     async def _wait_for_ready(self):

@@ -22,17 +22,28 @@ logger = logging.getLogger(__name__)
 import io
 from PIL import Image
 
-def encode_image(image_path):
+def encode_image(image_path, max_size=672):
     with Image.open(image_path) as img:
-        if img.format == 'WEBP':
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            buffer = io.BytesIO()
-            img.save(buffer, format="JPEG")
-            return base64.b64encode(buffer.getvalue()).decode('utf-8')
+        # 缩放：长边缩放到 max_size(896)，保持比例
+        width, height = img.size
+        if max(width, height) > max_size:
+            # 计算缩放比例
+            ratio = max_size / max(width, height)
+            new_width = int(width * ratio)
+            new_height = int(height * ratio)
+            # 高质量缩放
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+        # 处理 WEBP / PNG 透明图
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        # 保存到内存并转 JPEG（进一步降低体积）
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=85)
+        base64_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+    return base64_str
 
 
 @TaskStrategyFactory.register(TaskType.VISUAL_DESCRIPTION)
