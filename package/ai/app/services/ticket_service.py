@@ -17,17 +17,8 @@ def load_modelscope_model():
     Returns the local directory path of the downloaded model.
     """
     try:
-        from modelscope import snapshot_download
-        model_name = ai_config_manager.get_model_selection("ticket_recognition")
-        if not model_name:
-            model_name = "rpxaaa/ticket_recognition"
-
-        logging.info(f"Downloading/Verifying Ticket Recognition model ({model_name})...")
-        model_dir = os.path.join(settings.MODEL_PATH, 'ticket_recognition')
-
-        # Download model using snapshot_download
-        path = snapshot_download(model_name, local_dir=model_dir)
-        return path
+        model_dir = os.path.join(settings.MODEL_PATH, 'photo-cls')
+        return model_dir
     except Exception as e:
         logging.error(f"Failed to download Ticket Recognition model: {e}")
         raise e
@@ -41,8 +32,8 @@ def load_onnx_model():
         logging.info("Initializing ONNX model for Ticket Recognition...")
         
         # Ensure model is downloaded and get path
-        model_dir = load_modelscope_model()
-        model_path = os.path.join(model_dir, "best.onnx")
+        model_dir = os.path.join(settings.MODEL_PATH, "photo-cls")
+        model_path = os.path.join(model_dir, "ticket-recognition.onnx")
         
         # Initialize ONNX model
         providers = ['CPUExecutionProvider', 'CUDAExecutionProvider']
@@ -85,7 +76,7 @@ class TicketService:
 
     def _register_downloads(self):
         def check_model():
-            model_path = os.path.join(settings.MODEL_PATH, 'ticket_recognition', 'best.onnx')
+            model_path = os.path.join(settings.MODEL_PATH, 'photo-cls', 'ticket-recognition.onnx')
             return os.path.exists(model_path)
 
         def download_model():
@@ -105,7 +96,7 @@ class TicketService:
              # If model_downloader is used, we respect its status.
              # If strictly following the user's synchronous load pattern, this might be redundant but safe.
              # For now, we'll keep it as a fast check.
-             if not os.path.exists(os.path.join(settings.MODEL_PATH, 'ticket_recognition', 'best.onnx')):
+             if not os.path.exists(os.path.join(settings.MODEL_PATH, 'photo-cls', 'ticket-recognition.onnx')):
                  raise Exception("Ticket recognition model is not ready yet. Please try again later.")
 
         # 获取模型实例
