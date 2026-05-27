@@ -4,7 +4,7 @@ import logging
 import concurrent.futures
 import json
 from re import S
-from typing import List, Dict, Set, Any
+from typing import List, Dict, Set, Any, Tuple
 from uuid import UUID
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -284,9 +284,10 @@ class TaskWorker:
         allowed_types = [t for t in allowed_types if t.value not in self.paused_categories]
         return allowed_types
 
-    def _fetch_tasks_to_queues_sync(self, allowed_types: List[str], current_qsizes: Dict[str, int]) -> Dict[str, List[Dict]]:
+    def _fetch_tasks_to_queues_sync(self, allowed_types: List[str], current_qsizes: Dict[str, int]) -> List[Tuple[str, List[Dict]]]:
+        from app.core.config_manager import config_manager
         db = SessionLocal()
-        tasks_by_type = {}
+        tasks_by_type_cat = {}
         try:
             # We will fetch up to max_batch_size per category if its queue is below threshold
             # Max items in queue per category
@@ -300,11 +301,12 @@ class TaskWorker:
                 task_Factory = TaskStrategyFactory.get_strategy(t)
                 if not task_Factory: continue
                 cat = task_Factory.task_category
+                # Note: For AI tasks, they might become IO, but we still check AI queue size here as an approximation
                 if cat and current_qsizes.get(cat, 0) < QUEUE_THRESHOLD:
                     types_to_fetch.append(t)
 
             if not types_to_fetch:
-                return {}
+                return []
 
             query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
             query = query.filter(Task.type.in_(types_to_fetch))
@@ -316,28 +318,32 @@ class TaskWorker:
                 for task in tasks:
                     cat = TaskStrategyFactory.get_strategy(task.type).task_category
                     if not cat: continue
+                    
+                    if cat == 'AI' and task.owner_id:
+                        user_config = config_manager.get_user_config(task.owner_id, db)
+                        if user_config.ai.analysis_connection_id == 'builtin':
+                            cat = 'IO'
 
-                    if task.type not in tasks_by_type:
-                        tasks_by_type[task.type] = []
+                    key = (task.type, cat)
+                    if key not in tasks_by_type_cat:
+                        tasks_by_type_cat[key] = []
 
                     task.status = TaskStatus.PROCESSING
                     self.last_active_time[task.type] = datetime.now()
-                    tasks_by_type[task.type].append({'id': task.id, 'type': task.type, 'priority': task.priority})
+                    tasks_by_type_cat[key].append({'id': task.id, 'type': task.type, 'priority': task.priority})
                 db.commit()
 
             # Split tasks into smaller batches of max 8 items
-
-            split_tasks_by_type = {}
-            for task_type, task_list in tasks_by_type.items():
-                split_tasks_by_type[task_type] = []
+            chunked_batches = []
+            for (task_type, cat), task_list in tasks_by_type_cat.items():
                 chunk_size = get_chunk_size(task_type)
                 for i in range(0, len(task_list), chunk_size):
                     chunk = task_list[i:i + chunk_size]
-                    split_tasks_by_type[task_type].append(chunk)
-            return split_tasks_by_type
+                    chunked_batches.append((cat, chunk))
+            return chunked_batches
         except Exception as e:
             logging.error(f"Error fetching tasks: {e}")
-            return {}
+            return []
         finally:
             db.close()
 
@@ -484,21 +490,15 @@ class TaskWorker:
                     'AI': self.queue_manager.qsize('AI')
                 }
 
-                tasks_by_type = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes)
+                chunked_batches = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes)
                 dispatched_count = 0
 
-                for task_type, chunked_lists in tasks_by_type.items():
-                    task_factory = TaskStrategyFactory.get_strategy(task_type)
-                    if not task_factory:
-                        continue
-                    category = task_factory.task_category
-
-                    if category:
-                        for chunk in chunked_lists:
-                            # Using the priority of the first task in the batch for the queue
-                            priority = DEFAULT_PRIORITIES.get(task_type, 1)
-                            await self.queue_manager.put_batch(category, chunk, priority=priority)
-                            dispatched_count += len(chunk)
+                for cat, chunk in chunked_batches:
+                    if chunk:
+                        task_type = chunk[0]['type']
+                        priority = DEFAULT_PRIORITIES.get(task_type, 1)
+                        await self.queue_manager.put_batch(cat, chunk, priority=priority)
+                        dispatched_count += len(chunk)
 
                 if dispatched_count == 0:
                     if active_count == 0 and self._idle_start_time:
