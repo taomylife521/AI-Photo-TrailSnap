@@ -13,11 +13,13 @@ RUN apt-get update && apt-get install -y curl tar && \
     else \
         curl -L -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b9354/llama-b9354-bin-ubuntu-x64.tar.gz; \
     fi && \
-    tar -xzf llama.tar.gz -C /usr/local/ && \
+    mkdir -p /usr/local/llama && \
+    tar -xzf llama.tar.gz -C /usr/local/llama --strip-components=1 && \
     rm llama.tar.gz
 
-# 注册动态链接库
-ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
+# 注册动态链接库并将 bin 目录加入环境变量
+ENV LD_LIBRARY_PATH="/usr/local/llama:/usr/local/llama/lib64:${LD_LIBRARY_PATH}"
+ENV PATH="/usr/local/llama:${PATH}"
 RUN ldconfig
 
 # 安装编译依赖（g++等），这是解决insightface编译失败的关键

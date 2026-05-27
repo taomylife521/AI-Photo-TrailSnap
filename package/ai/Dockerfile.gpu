@@ -33,16 +33,20 @@ WORKDIR /app
 # 由于 NVIDIA CUDA 主要在 x86_64 平台上提供预编译的 llama.cpp，
 # 但为了兼容性，依然读取 TARGETARCH
 ARG TARGETARCH
+# 注意: 官方没有直接提供 arm64 的 CUDA 预编译包，如果有的话需要替换这里，
+# 目前暂时 fallback 到普通的 arm64 CPU 版，或者你需要为 Jetson 等平台自行编译
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
         curl -L -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b9354/llama-b9354-bin-ubuntu-arm64.tar.gz; \
     else \
         curl -L -o llama.tar.gz https://github.com/ggml-org/llama.cpp/releases/download/b9354/llama-b9354-bin-ubuntu-x64.tar.gz; \
     fi && \
-    tar -xzf llama.tar.gz -C /usr/local/ && \
+    mkdir -p /usr/local/llama && \
+    tar -xzf llama.tar.gz -C /usr/local/llama --strip-components=1 && \
     rm llama.tar.gz
 
-# 注册动态链接库
-ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
+# 注册动态链接库并将 bin 目录加入环境变量
+ENV LD_LIBRARY_PATH="/usr/local/llama:/usr/local/llama/lib64:${LD_LIBRARY_PATH}"
+ENV PATH="/usr/local/llama:${PATH}"
 RUN ldconfig
 
 # 复制项目所有文件到工作目录
