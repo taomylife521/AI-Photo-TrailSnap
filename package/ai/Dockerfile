@@ -1,9 +1,22 @@
-# 使用官方Python镜像作为基础镜像
-# FROM python:3.12.12-alpine3.21
+# ---- 阶段 1: 编译 llama.cpp (CPU) ----
+FROM python:3.12.12-slim as llama-builder
+
+# 安装编译依赖
+RUN apt-get update && apt-get install -y git cmake build-essential
+
+# 克隆并编译 llama.cpp
+RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
+    cd /llama.cpp && \
+    cmake -B build && \
+    cmake --build build --config Release -j $(nproc)
+
+# ---- 阶段 2: 最终运行环境 ----
 FROM python:3.12.12-slim
 
-# 设置工作目录
 WORKDIR /app
+
+# 从 builder 拷贝编译好的 native llama-server
+COPY --from=llama-builder /llama.cpp/build/bin/llama-server /usr/local/bin/
 
 # 安装编译依赖（g++等），这是解决insightface编译失败的关键
 RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
@@ -18,23 +31,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-# 先安装pip工具（确保能装wheel），再直接安装预编译的insightface
-# RUN pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple \
-#     # 优先尝试安装预编译版本（如果3.0.0不行，可换2.7.0等稳定版）
-#     && pip install insightface==3.0.0 -f https://download.pytorch.org/whl/torch_stable.html -i https://pypi.tuna.tsinghua.edu.cn/simple
-
 # 复制项目所有文件到工作目录
 COPY . .
 
 # 复制依赖文件并安装
-
-RUN pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
-# RUN pip install -r requirements.txt
-
+RUN pip install uv
 RUN uv sync --extra cpu
-
-# 可选：清理编译依赖以减小镜像体积（如果对镜像体积敏感）
-# RUN apt-get purge -y --auto-remove build-essential g++
 
 # 暴露端口
 EXPOSE 8001

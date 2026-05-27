@@ -19,7 +19,18 @@ from app.service import storage
 logger = logging.getLogger(__name__)
 
 
+import io
+from PIL import Image
+
 def encode_image(image_path):
+    with Image.open(image_path) as img:
+        if img.format == 'WEBP':
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG")
+            return base64.b64encode(buffer.getvalue()).decode('utf-8')
+
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
@@ -57,6 +68,7 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             model= settings.analysis_model_name,
             base_url=connection.api_base if connection.api_base else None,
             timeout=60,
+            max_completion_tokens=4096,
             extra_body={
                 "chat_template_kwargs": {"enable_thinking": False},
             },
@@ -177,7 +189,7 @@ class VisualDescriptionStrategy(BaseTaskStrategy):
             metadata = db.query(PhotoMetadata).filter(PhotoMetadata.photo_id == photo.id).first()
             if metadata:
                 image_info += f"照片位置：{metadata.address}\n"
-
+            # print(target_path, base64_image)
             # Step A: Evaluation
             eval_response = client.invoke([
                     {"role": "system", "content": eval_prompt},

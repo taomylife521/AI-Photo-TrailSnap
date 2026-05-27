@@ -15,8 +15,11 @@ class LLMProcessManager:
         self.last_access_time = time.time()
         self.port = settings.LLM_SERVER_PORT
         self.lock = asyncio.Lock()
-        self.repo_id = "SiYuan044/MiniCPM5-1B-Q4_K_M"
-        self.model_dir_name = "MiniCPM5-1B-Q4_K_M"
+        # self.repo_id = "SiYuan044/MiniCPM5-1B-Q4_K_M"
+        # self.model_dir_name = "MiniCPM5-1B-Q4_K_M"
+        self.repo_id = "SiYuan044/MiniCPM-V-4_6-Q4_K_M"
+        self.model_dir_name = "MiniCPM-V-4_6-Q4_K_M"
+        self.model_name = "MiniCPM-V-4_6-Q4_K_M.gguf"
         self._register_download()
 
     def _register_download(self):
@@ -43,14 +46,12 @@ class LLMProcessManager:
     def _get_resolved_model_path(self) -> str:
         # If user explicitly set LLM_MODEL_PATH in env, use it directly
         if settings.LLM_MODEL_PATH and os.path.exists(settings.LLM_MODEL_PATH):
-            return settings.LLM_MODEL_PATH
+            return settings.LLM_MODEL_PATH, ""
             
-        path = os.path.join(settings.MODEL_PATH, self.model_dir_name)
-        if os.path.exists(path):
-            for file in os.listdir(path):
-                if file.endswith(".gguf"):
-                    return os.path.join(path, file)
-        return ""
+        path = os.path.join(settings.MODEL_PATH, self.model_dir_name, self.model_name)
+        mmproj = os.path.join(settings.MODEL_PATH, self.model_dir_name, "mmproj-model-f16.gguf")
+
+        return path, mmproj
 
     async def ensure_running(self):
         self.last_access_time = time.time()
@@ -59,7 +60,7 @@ class LLMProcessManager:
         if not model_downloader.is_ready("llm_minicpm"):
             raise ValueError("LLM model is still downloading or not ready. Please try again later.")
             
-        resolved_path = self._get_resolved_model_path()
+        resolved_path, mmproj = self._get_resolved_model_path()
         if not resolved_path:
             raise ValueError("LLM model file (.gguf) not found in the downloaded directory.")
             
@@ -69,10 +70,11 @@ class LLMProcessManager:
                 return
             
             logger.info(f"Starting llama.cpp server subprocess on port {self.port} with model {resolved_path}...")
-            # Use sys.executable to ensure we use the current virtual environment's python
+            # Use native llama-server binary compiled in Docker
             self.process = await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "llama_cpp.server",
-                "--model", resolved_path,
+                "llama-server",
+                "-m", resolved_path,
+                "--mmproj", mmproj,
                 "--host", "127.0.0.1",
                 "--port", str(self.port),
                 stdout=sys.stdout,
