@@ -8,15 +8,18 @@ RUN apt-get update && apt-get install -y git cmake build-essential
 RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
     cd /llama.cpp && \
     cmake -B build && \
-    cmake --build build --config Release -j $(nproc)
+    cmake --build build --config Release -j $(nproc) && \
+    cmake --install build --prefix /opt/llama
 
 # ---- 阶段 2: 最终运行环境 ----
 FROM python:3.12.12-slim
 
 WORKDIR /app
 
-# 从 builder 拷贝编译好的 native llama-server
-COPY --from=llama-builder /llama.cpp/build/bin/llama-server /usr/local/bin/
+# 从 builder 拷贝编译好的 native llama-server 及其动态链接库
+COPY --from=llama-builder /opt/llama /usr/local/
+ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
+RUN ldconfig
 
 # 安装编译依赖（g++等），这是解决insightface编译失败的关键
 RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \

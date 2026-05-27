@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y git cmake build-essential
 RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
     cd /llama.cpp && \
     cmake -B build -DGGML_CUDA=ON && \
-    cmake --build build --config Release -j $(nproc)
+    cmake --build build --config Release -j $(nproc) && \
+    cmake --install build --prefix /opt/llama
 
 # ---- 阶段 2: 最终运行环境 ----
 # 使用 nvidia/cuda runtime 镜像，以确保存在 libcudart 等运行共享库
@@ -41,8 +42,10 @@ RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
 
 WORKDIR /app
 
-# 从 builder 拷贝编译好的 native llama-server
-COPY --from=llama-builder /llama.cpp/build/bin/llama-server /usr/local/bin/
+# 从 builder 拷贝编译好的 native llama-server 及其动态链接库
+COPY --from=llama-builder /opt/llama /usr/local/
+ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
+RUN ldconfig
 
 # 复制项目所有文件到工作目录
 COPY . .
