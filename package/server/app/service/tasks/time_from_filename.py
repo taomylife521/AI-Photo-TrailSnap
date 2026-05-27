@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 from datetime import datetime
@@ -142,8 +143,13 @@ class TimeFromFilenameStrategy(BaseTaskStrategy):
                             
                             # Update exif_info in database after modification
                             exif_text = get_exif_data(Image.open(p.file_path))
+
+                            def default_serializer(obj):
+                                if isinstance(obj, (bytes, bytearray)):
+                                    return str(obj)
+                                return str(obj)
                             if exif_text:
-                                metadata.exif_info = exif_text
+                                metadata.exif_info = json.dumps(exif_text, default=default_serializer, ensure_ascii=False)
 
                         except Exception as e:
                             logging.error(f"Failed to modify EXIF for {p.file_path}: {e}")
