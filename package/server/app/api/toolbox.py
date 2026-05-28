@@ -419,64 +419,117 @@ def get_organize_preview_options(
     获取整理策略的可用选项列表。
     """
     from app.db.models.photo import Photo
-    from app.db.models.face import Face
-    from sqlalchemy.orm import joinedload
+    from app.db.models.face import Face, FaceIdentity
+    from app.db.models.tag import PhotoTag, PhotoTagRelation
+    from app.db.models.photo_metadata import PhotoMetadata
+    from sqlalchemy import and_, or_
     import os
     
-    query = db.query(Photo).filter(Photo.owner_id == current_user.id, Photo.is_deleted.is_(False))
-    if req.strategy == 'category':
-        query = query.options(joinedload(Photo.tags))
-    elif req.strategy == 'person':
-        query = query.options(joinedload(Photo.faces).joinedload(Face.identity))
-    elif req.strategy == 'location':
-        query = query.options(joinedload(Photo.metadata_info))
-        
-    photos = query.all()
     options = set()
     
-    for photo in photos:
-        if req.strategy == 'category':
-            if photo.tags:
-                for t in photo.tags:
-                    options.add(t.tag_name)
-            else:
-                options.add('未分类')
-        elif req.strategy == 'person':
-            valid_faces = [f for f in photo.faces if f.identity and f.identity.identity_name]
-            if valid_faces:
-                for f in valid_faces:
-                    options.add(f.identity.identity_name)
-            else:
-                options.add('未命名')
-        elif req.strategy == 'location':
-            m = photo.metadata_info
-            if m and (m.province or m.city or m.district):
-                parts = []
-                if req.location_granularity == 'province' and m.province:
-                    parts.append(m.province)
-                elif req.location_granularity == 'city' and m.city:
-                    parts.append(m.city)
-                elif req.location_granularity == 'district' and m.district:
-                    parts.append(m.district)
-                elif req.location_granularity == 'province_city':
-                    if m.province: parts.append(m.province)
-                    if m.city and (not parts or parts[-1] != m.city): parts.append(m.city)
-                elif req.location_granularity == 'city_district':
-                    if m.city: parts.append(m.city)
-                    if m.district and (not parts or parts[-1] != m.district): parts.append(m.district)
-                elif req.location_granularity == 'province_city_district':
-                    if m.province: parts.append(m.province)
-                    if m.city and (not parts or parts[-1] != m.city): parts.append(m.city)
-                    if m.district and (not parts or parts[-1] != m.district): parts.append(m.district)
+    if req.strategy == 'category':
+        tags = db.query(PhotoTag.tag_name)\
+            .join(PhotoTagRelation, PhotoTag.id == PhotoTagRelation.tag_id)\
+            .join(Photo, PhotoTagRelation.photo_id == Photo.id)\
+            .filter(Photo.owner_id == current_user.id, Photo.is_deleted.is_(False))\
+            .distinct().all()
+            
+        for (tag_name,) in tags:
+            if tag_name:
+                options.add(tag_name)
                 
-                if not parts:
-                    options.add('未知位置')
-                else:
-                    if req.location_format == 'nested':
-                        options.add(os.path.join(*parts))
-                    else:
-                        options.add("-".join(parts))
+        has_untagged = db.query(Photo.id)\
+            .outerjoin(PhotoTagRelation, Photo.id == PhotoTagRelation.photo_id)\
+            .filter(
+                Photo.owner_id == current_user.id, 
+                Photo.is_deleted.is_(False),
+                PhotoTagRelation.tag_id.is_(None)
+            ).first()
+            
+        if has_untagged:
+            options.add('未分类')
+
+    elif req.strategy == 'person':
+        identities = db.query(FaceIdentity.identity_name)\
+            .join(Face, FaceIdentity.id == Face.face_identity_id)\
+            .join(Photo, Face.photo_id == Photo.id)\
+            .filter(
+                Photo.owner_id == current_user.id, 
+                Photo.is_deleted.is_(False),
+                FaceIdentity.identity_name.isnot(None),
+                FaceIdentity.identity_name != ''
+            ).distinct().all()
+            
+        for (identity_name,) in identities:
+            options.add(identity_name)
+            
+        valid_photo_ids_query = db.query(Face.photo_id)\
+            .join(FaceIdentity, Face.face_identity_id == FaceIdentity.id)\
+            .filter(FaceIdentity.identity_name.isnot(None), FaceIdentity.identity_name != '')
+            
+        has_unnamed = db.query(Photo.id)\
+            .filter(
+                Photo.owner_id == current_user.id, 
+                Photo.is_deleted.is_(False),
+                Photo.id.notin_(valid_photo_ids_query)
+            ).first()
+            
+        if has_unnamed:
+            options.add('未命名')
+
+    elif req.strategy == 'location':
+        locations = db.query(PhotoMetadata.province, PhotoMetadata.city, PhotoMetadata.district)\
+            .join(Photo, PhotoMetadata.photo_id == Photo.id)\
+            .filter(Photo.owner_id == current_user.id, Photo.is_deleted.is_(False))\
+            .distinct().all()
+            
+        for prov, city, dist in locations:
+            if not prov and not city and not dist:
+                continue
+                
+            parts = []
+            if req.location_granularity == 'province' and prov:
+                parts.append(prov)
+            elif req.location_granularity == 'city' and city:
+                parts.append(city)
+            elif req.location_granularity == 'district' and dist:
+                parts.append(dist)
+            elif req.location_granularity == 'province_city':
+                if prov: parts.append(prov)
+                if city and (not parts or parts[-1] != city): parts.append(city)
+            elif req.location_granularity == 'city_district':
+                if city: parts.append(city)
+                if dist and (not parts or parts[-1] != dist): parts.append(dist)
+            elif req.location_granularity == 'province_city_district':
+                if prov: parts.append(prov)
+                if city and (not parts or parts[-1] != city): parts.append(city)
+                if dist and (not parts or parts[-1] != dist): parts.append(dist)
+            
+            if not parts:
+                options.add('未知位置')
             else:
+                if req.location_format == 'nested':
+                    options.add(os.path.join(*parts))
+                else:
+                    options.add("-".join(parts))
+                    
+        if '未知位置' not in options:
+            has_unknown_location = db.query(Photo.id)\
+                .outerjoin(PhotoMetadata, Photo.id == PhotoMetadata.photo_id)\
+                .filter(
+                    Photo.owner_id == current_user.id, 
+                    Photo.is_deleted.is_(False),
+                    or_(
+                        PhotoMetadata.photo_id.is_(None),
+                        and_(
+                            (PhotoMetadata.province == '') | PhotoMetadata.province.is_(None),
+                            (PhotoMetadata.city == '') | PhotoMetadata.city.is_(None),
+                            (PhotoMetadata.district == '') | PhotoMetadata.district.is_(None)
+                        )
+                    )
+                ).first()
+                
+            if has_unknown_location:
                 options.add('未知位置')
                 
     return BaseResponse(data=OrganizePreviewOptionsResponse(options=list(options)))

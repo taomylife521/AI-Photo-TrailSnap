@@ -93,8 +93,8 @@
             ⏱️
           </div>
           <div>
-            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100">从文件名修改拍摄信息</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400">根据文件名中的时间批量修改照片拍摄信息和设备信息</p>
+            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100">修改图片元数据</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">根据文件名批量修改照片拍摄时间</p>
           </div>
         </div>
       </div>

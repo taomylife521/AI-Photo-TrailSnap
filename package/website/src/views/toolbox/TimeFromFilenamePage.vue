@@ -5,8 +5,8 @@
         <ArrowLeft class="w-6 h-6 text-gray-600 dark:text-gray-300" />
       </button>
       <div>
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-white">从文件名修改拍摄信息</h1>
-        <p class="text-sm text-gray-500">选择一个文件夹，将其中的照片根据文件名中的时间（YYYYMMDD_HHMMSS）批量修改拍摄时间，并可同步修改拍摄设备信息，该操作将直接修改图片元数据且不可逆。</p>
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-white">修改图片元数据</h1>
+        <p class="text-sm text-gray-500">选择一个文件夹，将其中的照片根据文件名中的时间（YYYYMMDD_HHMMSS）批量修改拍摄时间，该操作将直接修改图片元数据且不可逆。</p>
       </div>
     </div>
 
