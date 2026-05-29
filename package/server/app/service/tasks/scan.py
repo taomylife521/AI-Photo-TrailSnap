@@ -1,5 +1,5 @@
 from app.service.task_strategy import BaseTaskStrategy, TaskStrategyFactory
-from app.db.models.task import TaskType
+from app.db.models.task import TaskType, DEFAULT_PRIORITIES
 from typing import List, Dict, Set, Optional
 import asyncio
 import logging
@@ -238,7 +238,7 @@ class ScanFolderStrategy(BaseTaskStrategy):
                         'is_live_photo': True,
                         'user_id': user_id
                     },
-                    priority=10,
+                    priority=DEFAULT_PRIORITIES[TaskType.PROCESS_BASIC],
                     status=TaskStatus.PENDING
                 ))
                 processed_paths.add(image_path)
@@ -250,7 +250,7 @@ class ScanFolderStrategy(BaseTaskStrategy):
                     new_tasks.append(Task(
                         type=TaskType.PROCESS_BASIC,
                         payload={'file_path': fp, 'user_id': user_id},
-                        priority=10,
+                        priority=DEFAULT_PRIORITIES[TaskType.PROCESS_BASIC],
                         status=TaskStatus.PENDING
                     ))
                     processed_paths.add(fp)

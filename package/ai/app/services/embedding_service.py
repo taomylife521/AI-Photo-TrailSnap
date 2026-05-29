@@ -14,7 +14,7 @@ from app.services.ai_config_manager import ai_config_manager
 class ONNXCLIPTextWrapper:
     def __init__(self, model_dir):
         import onnxruntime as ort
-        from transformers import AutoTokenizer
+        from modelscope import AutoTokenizer
         import os
         
         self.model_dir = model_dir
@@ -44,7 +44,7 @@ class ONNXCLIPTextWrapper:
 class ONNXCLIPImageWrapper:
     def __init__(self, model_dir):
         import onnxruntime as ort
-        from transformers import AutoImageProcessor
+        from modelscope import AutoImageProcessor
         import os
         
         self.model_dir = model_dir

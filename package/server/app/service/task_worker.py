@@ -59,11 +59,13 @@ class TaskQueueManager:
 
 
 def get_chunk_size(task_type):
-    chunk_size = 8
+    chunk_size = 4
     if task_type == TaskType.VISUAL_DESCRIPTION:
         chunk_size = 2
     elif task_type == TaskType.OCR:
         chunk_size = 4
+    elif task_type == TaskType.PROCESS_BASIC:
+        chunk_size = 16
     return chunk_size
 
 
@@ -356,7 +358,7 @@ class TaskWorker:
         if category == 'CPU':
             max_concurrency = os.cpu_count() or 4
         elif category == 'IO':
-            max_concurrency = 10
+            max_concurrency = 4
         elif category == 'AI':
             max_concurrency = 1
 
@@ -371,6 +373,7 @@ class TaskWorker:
                 # 我们使用 wait_for，并设置一个较短的超时时间
                 try:
                     batch = await asyncio.wait_for(self.queue_manager.get_batch(category), timeout=1.0)
+                    # logging.error(f'{category} {batch}')
                 except asyncio.TimeoutError:
                     semaphore.release()
                     continue
@@ -534,7 +537,7 @@ class TaskWorker:
                 now = datetime.now()
                 should_flush = len(pending_items) >= 50 or ((now - last_flush).total_seconds() > 1 and pending_items)
                 if should_flush:
-                    logging.info(f"Flushing {len(pending_items)} results")
+                    # logging.info(f"Flushing {len(pending_items)} results {pending_items}")
                     await self._flush_results(pending_items)
                     pending_items = []
                     last_flush = now
