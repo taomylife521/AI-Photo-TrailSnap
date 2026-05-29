@@ -147,7 +147,7 @@ class MapSettings(BaseModel):
     api_keys: List[str] = Field(default=[], description="Map API Key")
 
 class AppSettings(BaseModel):
-    version: str = "0.3.10"
+    version: str = "0.4.0"
     ai: AISettings = Field(default_factory=AISettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     image: ImageSettings = Field(default_factory=ImageSettings)
@@ -322,4 +322,4 @@ os.makedirs('./data', exist_ok=True)
 os.makedirs('./data/uploads', exist_ok=True)
 # Global instance
 config_manager = ConfigManager()
-VERSION = "0.3.10"
+VERSION = "0.4.0"
