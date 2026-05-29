@@ -53,6 +53,16 @@ class TaskQueueManager:
             return self.queues[category].qsize()
         return 0
 
+    def get_lowest_priority(self, category: str) -> int:
+        if category in self.queues and self.queues[category]._queue:
+            try:
+                # Elements are (-priority, count, batch)
+                # max(-priority) gives the lowest priority
+                return -max(item[0] for item in self.queues[category]._queue)
+            except ValueError:
+                pass
+        return -9999
+
     def task_done(self, category: str):
         if category in self.queues:
             self.queues[category].task_done()
@@ -62,10 +72,12 @@ def get_chunk_size(task_type):
     chunk_size = 4
     if task_type == TaskType.VISUAL_DESCRIPTION:
         chunk_size = 2
-    elif task_type == TaskType.OCR:
-        chunk_size = 4
-    elif task_type == TaskType.PROCESS_BASIC:
+    elif task_type == TaskType.PROCESS_BASIC or task_type == TaskType.EXTRACT_METADATA:
         chunk_size = 16
+    elif task_type == TaskType.CLASSIFY_IMAGE:
+        chunk_size = 8
+    elif task_type == TaskType.IMAGE_EMBEDDING:
+        chunk_size = 8
     return chunk_size
 
 
@@ -286,10 +298,13 @@ class TaskWorker:
         allowed_types = [t for t in allowed_types if t.value not in self.paused_categories]
         return allowed_types
 
-    def _fetch_tasks_to_queues_sync(self, allowed_types: List[str], current_qsizes: Dict[str, int]) -> List[Tuple[str, List[Dict]]]:
+    def _fetch_tasks_to_queues_sync(self, allowed_types: List[str], current_qsizes: Dict[str, int], lowest_priorities: Dict[str, int] = None) -> List[Tuple[str, List[Dict]]]:
         from app.core.config_manager import config_manager
+        from sqlalchemy import or_
         db = SessionLocal()
         tasks_by_type_cat = {}
+        if lowest_priorities is None:
+            lowest_priorities = {'CPU': -9999, 'IO': -9999, 'AI': -9999}
         try:
             # We will fetch up to max_batch_size per category if its queue is below threshold
             # Max items in queue per category
@@ -297,21 +312,28 @@ class TaskWorker:
             # How many items to fetch in one DB query per category
             FETCH_BATCH_SIZE = 48
 
-            # Filter allowed types based on current queue size
-            types_to_fetch = []
-            for t in allowed_types:
-                task_Factory = TaskStrategyFactory.get_strategy(t)
-                if not task_Factory: continue
-                cat = task_Factory.task_category
-                # Note: For AI tasks, they might become IO, but we still check AI queue size here as an approximation
-                if cat and current_qsizes.get(cat, 0) < QUEUE_THRESHOLD:
-                    types_to_fetch.append(t)
+            type_conditions = []
+            for cat in ['CPU', 'IO', 'AI']:
+                cat_types = [t for t in allowed_types if TaskStrategyFactory.get_strategy(t) and TaskStrategyFactory.get_strategy(t).task_category == cat]
+                if not cat_types:
+                    continue
+                
+                qsize = current_qsizes.get(cat, 0)
+                if qsize < QUEUE_THRESHOLD:
+                    # Queue not full, allow all priorities for these types
+                    type_conditions.append(Task.type.in_(cat_types))
+                else:
+                    # Queue full, only allow tasks with priority higher than the lowest in queue
+                    lowest_prio = lowest_priorities.get(cat, -9999)
+                    type_conditions.append(
+                        (Task.type.in_(cat_types)) & (Task.priority > lowest_prio)
+                    )
 
-            if not types_to_fetch:
+            if not type_conditions:
                 return []
 
             query = db.query(Task).filter(Task.status == TaskStatus.PENDING)
-            query = query.filter(Task.type.in_(types_to_fetch))
+            query = query.filter(or_(*type_conditions))
 
             # Fetch tasks. We fetch a bit more to fill the queues up
             tasks = query.order_by(Task.priority.desc(), Task.created_at.asc()).limit(FETCH_BATCH_SIZE * 3).all()
@@ -492,8 +514,13 @@ class TaskWorker:
                     'IO': self.queue_manager.qsize('IO'),
                     'AI': self.queue_manager.qsize('AI')
                 }
+                lowest_priorities = {
+                    'CPU': self.queue_manager.get_lowest_priority('CPU'),
+                    'IO': self.queue_manager.get_lowest_priority('IO'),
+                    'AI': self.queue_manager.get_lowest_priority('AI')
+                }
 
-                chunked_batches = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes)
+                chunked_batches = await asyncio.to_thread(self._fetch_tasks_to_queues_sync, allowed_types, current_qsizes, lowest_priorities)
                 dispatched_count = 0
 
                 for cat, chunk in chunked_batches:
