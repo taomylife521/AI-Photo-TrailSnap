@@ -18,6 +18,7 @@
       <!-- 折叠按钮 (仅在非手机端显示？也可以手机端隐藏侧边栏) -->
       <button
         @click="toggleCollapse"
+        :title="isCollapsed ? '展开侧边栏' : '折叠侧边栏'"
         class="bg-transparent p-1 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors hidden md:block"
       >
         <Menu v-if="isCollapsed" class="w-5 h-5" />
@@ -31,6 +32,7 @@
         v-for="item in navLinks"
         :key="item.href"
         :to="item.href"
+        :title="isCollapsed ? item.label : undefined"
         class="flex items-center px-3 py-2.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group relative"
         :class="{ 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium': isActiveRoute(item.href) }"
       >
@@ -38,8 +40,6 @@
         <transition name="fade">
           <span v-if="!isCollapsed" class="ml-3 truncate">{{ item.label }}</span>
         </transition>
-        <!-- 折叠时的 Tooltip (原生 title 或自定义组件，这里简单用 title 替代) -->
-        <span v-if="isCollapsed" class="sr-only">{{ item.label }}</span>
       </RouterLink>
 
       <div class="my-4 border-t border-slate-200 dark:border-slate-800"></div>
@@ -49,6 +49,7 @@
         v-for="item in moreLinks"
         :key="item.href"
         :to="item.href"
+        :title="isCollapsed ? item.label : undefined"
         class="flex items-center px-3 py-2.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group"
         :class="{ 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium': isActiveRoute(item.href) }"
       >
@@ -73,6 +74,7 @@
     <div class="p-2 border-t border-slate-200 dark:border-slate-800 shrink-0 space-y-1">
       <RouterLink
         to="/recycle-bin"
+        :title="isCollapsed ? '回收站' : undefined"
         class="flex items-center px-3 py-2.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group"
         :class="{ 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium': isActiveRoute('/recycle-bin') }"
       >
@@ -84,6 +86,7 @@
       
       <RouterLink
         to="/settings"
+        :title="isCollapsed ? '设置' : undefined"
         class="flex items-center px-3 py-2.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group"
         :class="{ 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium': isActiveRoute('/settings') }"
       >
